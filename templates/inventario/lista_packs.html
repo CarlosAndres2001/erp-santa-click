@@ -1,0 +1,337 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h2>
+        <i class="bi bi-box-seam text-primary me-2"></i> Packs / Combos
+    </h2>
+
+    <!-- Botón Crear -->
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#createPackModal">
+        <i class="bi bi-plus-lg"></i> Nuevo Pack
+    </button>
+
+    <!-- Tabla de Packs con Bootstrap Table -->
+    <div class="table-responsive">
+        <table
+            id="packsTable"
+            class="table table-bordered table-striped"
+            data-toggle="table"
+            data-search="true"
+            data-search-highlight="true"
+            data-pagination="true"
+            data-page-size="10"
+            data-show-columns="true"
+            data-show-export="true"
+            data-export-types='["excel"]'
+            data-export-options='{"fileName": "packs_export"}'
+        >
+            <thead class="table-dark">
+                <tr>
+                    <th data-field="codigo" data-sortable="true">Código</th>
+                    <th data-field="nombre" data-sortable="true">Nombre</th>
+                    <th data-field="descripcion">Descripción</th>
+                    <th data-field="precio" data-sortable="true">Precio</th>
+                    <th data-field="activo" data-sortable="true">Activo</th>
+                    <th data-field="acciones" class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pack in packs %}
+                <tr>
+                    <td>{{ pack.codigo }}</td>
+                    <td>{{ pack.nombre }}</td>
+                    <td>{{ pack.descripcion }}</td>
+                    <td>{{ pack.precio }}</td>
+                    <td>
+                        {% if pack.is_active %}
+                            <span class="badge bg-success">Activo</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        <!--<button class="btn btn-sm btn-warning"
+                                data-bs-toggle="modal"
+                                data-bs-target="#editPackModal"
+                                data-id="{{ pack.id }}"
+                                data-codigo="{{ pack.codigo }}"
+                                data-nombre="{{ pack.nombre }}"
+                                data-descripcion="{{ pack.descripcion }}"
+                                data-precio="{{ pack.precio }}">
+                            <i class="bi bi-pencil-fill"></i>
+                        </button>-->
+
+                        <button class="btn btn-sm btn-danger"
+                                data-bs-toggle="modal"
+                                data-bs-target="#deletePackModal"
+                                data-id="{{ pack.id }}"
+                                data-nombre="{{ pack.nombre }}">
+                            <i class="bi bi-trash-fill"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted">
+                        <i class="bi bi-exclamation-circle"></i> No hay packs registrados.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ================================================== -->
+<!-- MODAL CREAR PACK -->
+<!-- ================================================== -->
+<div class="modal fade" id="createPackModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'pack_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="bi bi-plus-circle text-primary me-2"></i> Nuevo Pack
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Código</label>
+                            <input type="text" name="codigo" class="form-control" required maxlength="50">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" name="nombre" class="form-control" required maxlength="100">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Precio</label>
+                            <input type="number" name="precio" class="form-control" step="0.01" required>
+                        </div>
+                        <div class="col-12 mt-3">
+                            <label class="form-label">Descripción</label>
+                            <textarea name="descripcion" rows="2" class="form-control"></textarea>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <h5>Productos del Pack</h5>
+
+                    <table class="table table-bordered" id="detallePackTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Costo Unitario</th>
+                                <th class="text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Filas por defecto vacías, se agregan con JS -->
+                        </tbody>
+                    </table>
+
+                    <button type="button" class="btn btn-sm btn-success" id="addProductoBtn">
+                        <i class="bi bi-plus-circle"></i> Agregar Producto
+                    </button>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-success" type="submit">
+                        <i class="bi bi-check-lg"></i> Crear
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================================================== -->
+<!-- MODAL EDITAR PACK -->
+<!-- ================================================== -->
+<div class="modal fade" id="editPackModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'pack_edit' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="edit_id">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="bi bi-pencil-square text-warning me-2"></i> Editar Pack
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Código</label>
+                            <input type="text" name="codigo" id="edit_codigo" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" name="nombre" id="edit_nombre" class="form-control" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Precio</label>
+                            <input type="number" name="precio" id="edit_precio" class="form-control" step="0.01" required>
+                        </div>
+                        <div class="col-12 mt-3">
+                            <label class="form-label">Descripción</label>
+                            <textarea name="descripcion" id="edit_descripcion" rows="2" class="form-control"></textarea>
+                        </div>
+                    </div>
+
+                    <hr>
+                    <h5>Productos del Pack</h5>
+
+                    <table class="table table-bordered" id="editDetallePackTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Costo Unitario</th>
+                                <th class="text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Filas se agregan con JS -->
+                        </tbody>
+                    </table>
+
+                    <button type="button" class="btn btn-sm btn-success" id="editAddProductoBtn">
+                        <i class="bi bi-plus-circle"></i> Agregar Producto
+                    </button>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-pencil-fill"></i> Actualizar
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================================================== -->
+<!-- MODAL ELIMINAR PACK -->
+<!-- ================================================== -->
+<div class="modal fade" id="deletePackModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'pack_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="delete_id">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="bi bi-trash-fill me-2 text-danger"></i> Eliminar Pack
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    ¿Deseas eliminar el pack <strong id="delete_nombre"></strong>?
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger" type="submit">Eliminar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ================================================== -->
+<!-- JS PARA MODALES Y FILAS DINÁMICAS -->
+<!-- ================================================== -->
+<link rel="stylesheet" href="https://unpkg.com/bootstrap-table@1.21.2/dist/bootstrap-table.min.css">
+<script src="https://unpkg.com/bootstrap-table@1.21.2/dist/bootstrap-table.min.js"></script>
+<script src="https://unpkg.com/bootstrap-table@1.21.2/dist/extensions/export/bootstrap-table-export.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tableexport/5.2.0/js/tableexport.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    // Modal Editar
+    const editModal = document.getElementById("editPackModal");
+    editModal.addEventListener("show.bs.modal", event => {
+        const btn = event.relatedTarget;
+
+        document.getElementById("edit_id").value = btn.dataset.id;
+        document.getElementById("edit_codigo").value = btn.dataset.codigo;
+        document.getElementById("edit_nombre").value = btn.dataset.nombre;
+        document.getElementById("edit_precio").value = btn.dataset.precio;
+        document.getElementById("edit_descripcion").value = btn.dataset.descripcion;
+
+        const tbody = document.querySelector("#editDetallePackTable tbody");
+        tbody.innerHTML = "";
+    });
+
+    // Modal Eliminar
+    const deleteModal = document.getElementById("deletePackModal");
+    deleteModal.addEventListener("show.bs.modal", event => {
+        const btn = event.relatedTarget;
+        document.getElementById("delete_id").value = btn.dataset.id;
+        document.getElementById("delete_nombre").textContent = btn.dataset.nombre;
+    });
+
+    // Función agregar fila
+    function addRow(tableBody) {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>
+                <select name="productos_id[]" class="form-select">
+                    {% for producto in productos %}
+                        <option value="{{ producto.id }}">{{ producto.nombre }}</option>
+                    {% endfor %}
+                </select>
+            </td>
+            <td><input type="number" name="cantidades[]" class="form-control" value="1" step="0.01"></td>
+            <td><input type="number" name="costos[]" class="form-control" value="0" step="0.01"></td>
+            <td class="text-center">
+                <button type="button" class="btn btn-sm btn-danger remove-row">
+                    <i class="bi bi-trash-fill"></i>
+                </button>
+            </td>
+        `;
+        tableBody.appendChild(row);
+    }
+
+    // Botones agregar
+    document.getElementById("addProductoBtn").addEventListener("click", () => {
+        addRow(document.querySelector("#detallePackTable tbody"));
+    });
+    document.getElementById("editAddProductoBtn").addEventListener("click", () => {
+        addRow(document.querySelector("#editDetallePackTable tbody"));
+    });
+
+    // Eliminar fila
+    document.addEventListener("click", e => {
+        if (e.target.closest(".remove-row")) {
+            e.target.closest("tr").remove();
+        }
+    });
+
+});
+</script>
+{% endblock %}

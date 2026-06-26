@@ -1,0 +1,184 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h2>
+        <i class="bi bi-building me-2 text-primary"></i> Lista de Sucursales
+    </h2>
+
+    <!-- Botón Nueva Sucursal -->
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#createSucursalModal">
+        <i class="bi bi-plus-lg"></i> Nueva Sucursal
+    </button>
+
+    <!-- Tabla de Sucursales -->
+    <table class="table table-bordered table-striped align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th><i class="bi bi-shop-window"></i> Nombre</th>
+                <th><i class="bi bi-geo-alt-fill"></i> Dirección</th>
+                <th><i class="bi bi-calendar-event-fill"></i> Fecha de Creación</th>
+                <th><i class="bi bi-gear-fill"></i> Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sucursal in sucursales %}
+            <tr>
+                <td><i class="bi bi-building text-primary"></i> {{ sucursal.nombre }}</td>
+                <td><i class="bi bi-geo-alt text-secondary"></i> {{ sucursal.direccion }}</td>
+                <td><i class="bi bi-calendar2-event"></i> {{ sucursal.fecha_creacion|date:"d/m/Y H:i" }}</td>
+                <td class="text-center">
+                    <!-- Editar -->
+                    <button class="btn btn-sm btn-warning"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editSucursalModal"
+                        data-id="{{ sucursal.id }}"
+                        data-nombre="{{ sucursal.nombre }}"
+                        data-direccion="{{ sucursal.direccion }}">
+                        <i class="bi bi-pencil-fill"></i>
+                    </button>
+
+                    <!-- Eliminar -->
+                    <button class="btn btn-sm btn-danger"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteSucursalModal"
+                        data-id="{{ sucursal.id }}"
+                        data-nombre="{{ sucursal.nombre }}">
+                        <i class="bi bi-trash-fill"></i>
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" class="text-center">
+                    <i class="bi bi-exclamation-circle text-warning"></i> No hay sucursales registradas.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- MODAL CREAR SUCURSAL -->
+<div class="modal fade" id="createSucursalModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'sucursal_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="bi bi-plus-circle me-2"></i> Crear Nueva Sucursal
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="nombre_create" class="form-label"><i class="bi bi-building"></i> Nombre</label>
+                        <input type="text" class="form-control" id="nombre_create" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="direccion_create" class="form-label"><i class="bi bi-geo-alt-fill"></i> Dirección</label>
+                        <input type="text" class="form-control" id="direccion_create" name="direccion" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-lg"></i> Crear
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL EDITAR SUCURSAL -->
+<div class="modal fade" id="editSucursalModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'sucursal_edit' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="edit_id">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="bi bi-pencil-square me-2"></i> Editar Sucursal
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_nombre" class="form-label"><i class="bi bi-building"></i> Nombre</label>
+                        <input type="text" class="form-control" id="edit_nombre" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_direccion" class="form-label"><i class="bi bi-geo-alt-fill"></i> Dirección</label>
+                        <input type="text" class="form-control" id="edit_direccion" name="direccion" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-pencil-fill"></i> Actualizar
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL ELIMINAR SUCURSAL -->
+<div class="modal fade" id="deleteSucursalModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'sucursal_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="delete_id">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="bi bi-trash-fill me-2 text-danger"></i> Eliminar Sucursal
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Deseas desactivar la sucursal <strong id="delete_nombre"></strong>?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash-fill"></i> Eliminar
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- SCRIPT MODALS -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var editModal = document.getElementById('editSucursalModal');
+    editModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        document.getElementById('edit_id').value = button.getAttribute('data-id');
+        document.getElementById('edit_nombre').value = button.getAttribute('data-nombre');
+        document.getElementById('edit_direccion').value = button.getAttribute('data-direccion');
+    });
+
+    var deleteModal = document.getElementById('deleteSucursalModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        document.getElementById('delete_id').value = button.getAttribute('data-id');
+        document.getElementById('delete_nombre').textContent = button.getAttribute('data-nombre');
+    });
+});
+</script>
+
+{% endblock %}

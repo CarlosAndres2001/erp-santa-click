@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h2>
+        <i class="bi bi-tags-fill me-2 text-primary"></i> Categorías
+    </h2>
+
+    <!-- Botón Nuevo -->
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#createCategoriaModal">
+        <i class="bi bi-plus-lg"></i> Nueva Categoría
+    </button>
+
+    <!-- Tabla -->
+    <table class="table table-bordered table-striped align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th><i class="bi bi-tag-fill"></i> Nombre</th>
+                <th><i class="bi bi-card-text"></i> Descripción</th>
+
+                <th class="text-center"><i class="bi bi-gear-fill"></i> Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in categorias %}
+            <tr>
+                <td><i class="bi bi-tag me-1 text-primary"></i> {{ c.name }}</td>
+                <td>{{ c.description }}</td>
+                <td class="text-center">
+                    <!-- Editar: abre modal y pasa datos -->
+                    <button class="btn btn-sm btn-warning"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editCategoriaModal"
+                        data-id="{{ c.id }}"
+                        data-name="{{ c.name|escapejs }}"
+                        data-description="{{ c.description|escapejs }}"
+                        data-is_active="{{ c.is_active }}">
+                        <i class="bi bi-pencil-fill"></i>   
+                    </button>
+
+                    <!-- Eliminar: abre modal -->
+                    {% if c.is_active %}
+                    <button class="btn btn-sm btn-danger"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteCategoriaModal"
+                        data-id="{{ c.id }}"
+                        data-name="{{ c.name|escapejs }}">
+                        <i class="bi bi-trash-fill"></i>    
+                    </button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="text-center">
+                    <i class="bi bi-exclamation-circle text-warning"></i> No hay categorías registradas.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- ===== MODAL CREAR ===== -->
+<div class="modal fade" id="createCategoriaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'categoria_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="bi bi-plus-circle me-2"></i> Nueva Categoría</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="create_name" class="form-label"><i class="bi bi-tag-fill me-1"></i> Nombre</label>
+                        <input id="create_name" name="name" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="create_description" class="form-label"><i class="bi bi-card-text me-1"></i> Descripción</label>
+                        <textarea id="create_description" name="description" class="form-control" rows="3"></textarea>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-success"><i class="bi bi-check-lg"></i> Crear</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===== MODAL EDITAR ===== -->
+<div class="modal fade" id="editCategoriaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'categoria_edit' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="edit_id">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="bi bi-pencil-square me-2"></i> Editar Categoría</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_name" class="form-label"><i class="bi bi-tag-fill me-1"></i> Nombre</label>
+                        <input id="edit_name" name="name" class="form-control" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_description" class="form-label"><i class="bi bi-card-text me-1"></i> Descripción</label>
+                        <textarea id="edit_description" name="description" class="form-control" rows="3"></textarea>
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-primary"><i class="bi bi-pencil-fill"></i> Actualizar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===== MODAL ELIMINAR ===== -->
+<div class="modal fade" id="deleteCategoriaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'categoria_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="delete_id">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger"><i class="bi bi-trash-fill me-2"></i> Eliminar Categoría</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p>¿Deseas eliminar la categoría <strong id="delete_name"></strong>?</p>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-danger"><i class="bi bi-trash-fill"></i> Eliminar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===== SCRIPTS PARA MODALS ===== -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // EDIT
+    var editModal = document.getElementById('editCategoriaModal');
+    editModal.addEventListener('show.bs.modal', function (event) {
+        var b = event.relatedTarget;
+        document.getElementById('edit_id').value = b.getAttribute('data-id');
+        document.getElementById('edit_name').value = b.getAttribute('data-name') || '';
+        document.getElementById('edit_description').value = b.getAttribute('data-description') || '';
+        // data-is_active puede venir "True"/"False" o "true"/"false"
+        var active = (b.getAttribute('data-is_active') === 'True' || b.getAttribute('data-is_active') === 'true' || b.getAttribute('data-is_active') === '1');
+        document.getElementById('edit_is_active').checked = active;
+    });
+
+    // DELETE
+    var deleteModal = document.getElementById('deleteCategoriaModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        var b = event.relatedTarget;
+        document.getElementById('delete_id').value = b.getAttribute('data-id');
+        document.getElementById('delete_name').textContent = b.getAttribute('data-name') || '';
+    });
+});
+</script>
+
+{% endblock %}

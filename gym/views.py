@@ -1,0 +1,3448 @@
+from datetime import timezone
+import json
+from django.http import JsonResponse
+from django.urls import reverse
+from django.utils import timezone
+from decimal import Decimal, InvalidOperation
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.contrib.auth.hashers import make_password
+from .models import (
+    Almacen, DetallePack, IngresoMonetario, Kardex, MetodoPago, Modulo, MovimientoCaja, PagoVenta, PermisoRol, ProductoVariante, Rol, PlanEmpresa, Empresa, Sucursal, TipoProducto, Usuario, CanalVenta, UnidadMedida, Category,
+    Producto, PrecioProducto, Stock, TipoIngreso, Ingreso, DetalleIngreso, Turno,
+    Caja, CajaTurno, TipoEgreso, Egreso, DetalleEgreso, Proveedor, Compra, DetalleCompra,
+    Venta, DetalleVenta, Traspaso, DetalleTraspaso, EgresoMonetario, Plan, Cliente,
+    Pago, Asistencia, Membresia,
+)
+from django.core.exceptions import ValidationError
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.http import StreamingHttpResponse
+import json
+import time
+from datetime import datetime
+from gym.decorators import permiso_requerido
+# ====================================================
+#  ROL
+# ====================================================
+@login_required
+@permiso_requerido('rol_list', 'ver')
+def rol_list(request):
+    roles = Rol.objects.filter(estado=True, fk_empresa=request.user.sucursal.fk_empresa).order_by('-fecha_creacion')
+    return render(request, 'usuarios/rol_list.html', {'roles': roles})
+
+
+@login_required
+@permiso_requerido('rol_list', 'crear')
+def rol_create(request):
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre', '').strip()
+
+        if not nombre:
+            messages.error(request, 'El nombre del rol es obligatorio.')
+            return redirect('rol_list')
+
+        if Rol.objects.filter(nombre__iexact=nombre, estado=True, fk_empresa=request.user.sucursal.fk_empresa).exists():
+            messages.error(request, f'Ya existe un rol activo con el nombre "{nombre}".')
+            return redirect('rol_list')
+
+        Rol.objects.create(nombre=nombre, estado=True, fk_empresa=request.user.sucursal.fk_empresa)
+        messages.success(request, 'Rol creado correctamente.')
+    else:
+        messages.error(request, 'Método no permitido.')
+        
+    return redirect('rol_list')
+
+@login_required
+@permiso_requerido('rol_list', 'ver')
+def rol_permisos(request, rol_id):
+    rol = get_object_or_404(Rol, pk=rol_id, estado=True)
+    
+    # 1. Traemos todos los activos
+    todos_los_modulos = Modulo.objects.filter(is_active=True).order_by('orden')
+    
+    # 2. Lógica para ordenar: Padre seguido de sus Hijos
+    modulos_ordenados = []
+    padres = [m for m in todos_los_modulos if m.modulo_padre is None]
+    
+    for padre in padres:
+        modulos_ordenados.append(padre) # Metemos al padre
+        hijos = [h for h in todos_los_modulos if h.modulo_padre_id == padre.id]
+        modulos_ordenados.extend(hijos) # Metemos a sus hijos justo debajo
+
+    if request.method == 'POST':
+        # Usamos los modulos ordenados para el guardado también
+        for modulo in modulos_ordenados:
+            permiso, _ = PermisoRol.objects.get_or_create(rol=rol, modulo=modulo)
+            permiso.puede_ver      = f'ver_{modulo.id}'      in request.POST
+            permiso.puede_crear    = f'crear_{modulo.id}'    in request.POST
+            permiso.puede_editar   = f'editar_{modulo.id}'   in request.POST
+            permiso.puede_eliminar = f'eliminar_{modulo.id}' in request.POST
+            permiso.save()
+
+        messages.success(request, f'Permisos del rol "{rol.nombre}" actualizados.')
+        return redirect('rol_list')
+
+    permisos_dict = {p.modulo_id: p for p in PermisoRol.objects.filter(rol=rol)}
+
+    modulos_con_permisos = []
+    for m in modulos_ordenados: # Usamos la lista ya mezclada
+        p = permisos_dict.get(m.id)
+        modulos_con_permisos.append({
+            'modulo':         m,
+            'puede_ver':      p.puede_ver      if p else False,
+            'puede_crear':    p.puede_crear    if p else False,
+            'puede_editar':   p.puede_editar   if p else False,
+            'puede_eliminar': p.puede_eliminar if p else False,
+        })
+
+    return render(request, 'usuarios/rol_permisos.html', {
+        'rol':                  rol,
+        'modulos_con_permisos': modulos_con_permisos,
+    })
+
+@login_required
+@permiso_requerido('rol_list', 'editar')
+def rol_edit(request):
+
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        rol = get_object_or_404(Rol, pk=id)
+        nombre = request.POST.get('nombre', '').strip()
+
+        if not nombre:
+            messages.error(request, 'El nombre del rol no puede quedar vacío.')
+            return redirect('rol_list')
+
+        if Rol.objects.filter(nombre__iexact=nombre, estado=True).exclude(id=rol.id).exists():
+            messages.error(request, f'Ya existe otro rol activo con el nombre "{nombre}".')
+            return redirect('rol_list')
+
+        rol.nombre = nombre
+        rol.save()
+        messages.success(request, 'Rol actualizado correctamente.')
+    else:
+        messages.error(request, 'Error al procesar la solicitud.')
+        
+    return redirect('rol_list')
+
+@login_required
+@permiso_requerido('rol_list', 'eliminar')
+def rol_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        rol = get_object_or_404(Rol, pk=id)
+        
+        if rol.usuario_set.filter(is_active=True).exists():
+             messages.error(request, 'No puedes eliminar un rol que tiene usuarios asignados.')
+             return redirect('rol_list')
+
+        rol.estado = False
+        rol.save()
+        messages.success(request, 'Rol eliminado correctamente.')
+        
+    return redirect('rol_list')
+
+# ====================================================
+#  EMPRESA
+# ====================================================
+@login_required
+@permiso_requerido('empresa_edit', 'ver')
+def empresa_list(request):
+    empresas = Empresa.objects.select_related('fk_plan_empresa').all().order_by('-fecha_creacion')
+    return render(request, 'empresa/list.html', {'empresas': empresas})
+
+@login_required
+@permiso_requerido('empresa_edit', 'crear')
+def empresa_create(request):
+    planes = PlanEmpresa.objects.filter(estado=True)
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre')
+        rubro = request.POST.get('rubro')
+        fk_plan = request.POST.get('fk_plan_empresa') or None
+        Empresa.objects.create(
+            nombre=nombre,
+            rubro=rubro,
+            fk_plan_empresa_id=fk_plan
+        )
+        messages.success(request, 'Empresa creada correctamente.')
+        return redirect('empresa_list')
+    return render(request, 'empresa/create.html', {'planes': planes})
+
+@login_required
+@permiso_requerido('empresa_edit', 'editar')
+def empresa_edit(request):
+    try:
+        empresa = request.user.sucursal.fk_empresa  # empresa del usuario logueado
+    except AttributeError:
+        messages.error(request, 'No tienes empresa asignada.')
+        return redirect('empresa_edit')
+
+    planes = PlanEmpresa.objects.filter(estado=True)
+
+    if request.method == 'POST':
+        empresa.nombre = request.POST.get('nombre')
+        empresa.rubro = request.POST.get('rubro')
+        empresa.fk_plan_empresa_id = request.POST.get('fk_plan_empresa') or None
+        empresa.save()
+        messages.success(request, 'Empresa actualizada correctamente.')
+        return redirect('empresa_edit')
+
+    return render(request, 'empresa/empresa_edit.html', {'empresa': empresa, 'planes': planes})
+
+@login_required
+@permiso_requerido('empresa_edit', 'eliminar')
+def empresa_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        empresa = get_object_or_404(Empresa, pk=id)
+        empresa.estado = False
+        empresa.save()
+        messages.success(request, 'Empresa desactivada correctamente.')
+    return redirect('empresa_list')
+
+# ====================================================
+#  SUCURSAL
+# ====================================================
+@login_required
+@permiso_requerido('sucursal_list', 'ver')
+def sucursal_list(request):
+    empresa = request.user.sucursal.fk_empresa
+    sucursales = Sucursal.objects.filter(fk_empresa=empresa, estado=True).order_by('-fecha_creacion')
+    return render(request, 'empresa/lista_sucursal.html', {'sucursales': sucursales})
+
+@login_required
+@permiso_requerido('sucursal_list', 'crear')
+def sucursal_create(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        nombre = request.POST.get('nombre', '').strip()
+        direccion = request.POST.get('direccion', '').strip()
+
+        # 1. Validación: Nombre obligatorio
+        if not nombre:
+            messages.error(request, 'El nombre de la sucursal es obligatorio.')
+            return redirect('sucursal_list')
+
+        # 2. Validación: No duplicar nombres en la misma empresa
+        if Sucursal.objects.filter(nombre__iexact=nombre, fk_empresa=empresa, estado=True).exists():
+            messages.error(request, f'Ya tienes una sucursal activa llamada "{nombre}".')
+            return redirect('sucursal_list')
+
+        sucursal = Sucursal.objects.create(
+            nombre=nombre,
+            direccion=direccion,
+            fk_empresa=empresa,
+            estado=True
+        )
+        messages.success(request, 'Sucursal creada correctamente.')
+    
+    return redirect('sucursal_list')
+
+@login_required
+@permiso_requerido('sucursal_list', 'editar')
+def sucursal_edit(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        id = request.POST.get('id')
+        sucursal = get_object_or_404(Sucursal, pk=id, fk_empresa=empresa)
+        
+        nombre = request.POST.get('nombre', '').strip()
+        direccion = request.POST.get('direccion', '').strip()
+
+        # 1. Validación: Nombre no vacío
+        if not nombre:
+            messages.error(request, 'El nombre no puede estar vacío.')
+            return redirect('sucursal_list')
+
+        # 2. Validación: Nombre duplicado en OTRA sucursal
+        if Sucursal.objects.filter(nombre__iexact=nombre, fk_empresa=empresa, estado=True).exclude(id=sucursal.id).exists():
+            messages.error(request, f'Otra sucursal ya usa el nombre "{nombre}".')
+            return redirect('sucursal_list')
+
+        sucursal.nombre = nombre
+        sucursal.direccion = direccion
+        sucursal.save()
+        messages.success(request, 'Sucursal actualizada correctamente.')
+    else:
+        messages.error(request, 'Método no permitido.')
+
+    return redirect('sucursal_list')
+
+@login_required 
+@permiso_requerido('sucursal_list', 'eliminar')
+def sucursal_delete(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        id = request.POST.get('id')
+        sucursal = get_object_or_404(Sucursal, pk=id, fk_empresa=empresa)
+
+        if sucursal.id == request.user.sucursal.id:
+            messages.error(request, 'No puedes eliminar la sucursal en la que estás trabajando actualmente.')
+            return redirect('sucursal_list')
+
+        sucursal.estado = False
+        # sucursal._usuario_actual = request.user
+        sucursal.save()
+        messages.success(request, 'Sucursal eliminada correctamente.')
+        
+    return redirect('sucursal_list')
+
+# ====================================================
+#  ALMACEN
+# ====================================================
+
+@login_required
+@permiso_requerido('almacen_list', 'ver')
+def almacen_list(request):
+    # Obtenemos la empresa del usuario actual
+    empresa = request.user.sucursal.fk_empresa
+    # Filtramos almacenes que pertenecen a sucursales de esa empresa
+    almacenes = Almacen.objects.filter(
+        sucursal__fk_empresa=empresa, 
+        is_active=True
+    ).order_by('sucursal', 'nombre')
+    
+    # También necesitamos las sucursales para el modal de "Nuevo Almacén"
+    sucursales = Sucursal.objects.filter(fk_empresa=empresa, estado=True)
+    
+    return render(request, 'empresa/lista_almacen.html', {
+        'almacenes': almacenes,
+        'sucursales': sucursales
+    })
+
+@login_required
+@permiso_requerido('almacen_list', 'crear')
+def almacen_create(request):
+    empresa = request.user.sucursal.fk_empresa
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre', '').strip()
+        descripcion = request.POST.get('descripcion', '').strip()
+        sucursal_id = request.POST.get('sucursal')
+        
+        # Validamos que la sucursal pertenezca a la empresa
+        sucursal = get_object_or_404(Sucursal, id=sucursal_id, fk_empresa=empresa)
+        
+        # --- VALIDACIÓN EXTRA ---
+        if Almacen.objects.filter(nombre__iexact=nombre, sucursal=sucursal, is_active=True).exists():
+            messages.error(request, f'Ya existe un almacén llamado "{nombre}" en la sucursal {sucursal.nombre}.')
+            return redirect('almacen_list')
+
+        almacen = Almacen.objects.create(
+            nombre=nombre,
+            descripcion=descripcion,
+            sucursal=sucursal,
+            is_active=True
+        )
+        almacen._usuario_actual = request.user
+        messages.success(request, 'Almacén creado correctamente.')
+    return redirect('almacen_list')
+
+@login_required
+@permiso_requerido('almacen_list', 'editar')
+def almacen_edit(request):
+    empresa = request.user.sucursal.fk_empresa
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        almacen = get_object_or_404(Almacen, pk=id, sucursal__fk_empresa=empresa)
+        
+        sucursal_id = request.POST.get('sucursal')
+        sucursal = get_object_or_404(Sucursal, id=sucursal_id, fk_empresa=empresa)
+        nombre = request.POST.get('nombre', '').strip()
+
+        # --- VALIDACIÓN EXTRA (Evitar duplicados al editar) ---
+        if Almacen.objects.filter(nombre__iexact=nombre, sucursal=sucursal, is_active=True).exclude(id=almacen.id).exists():
+            messages.error(request, f'Ya hay otro almacén con ese nombre en esa sucursal.')
+            return redirect('almacen_list')
+        
+        almacen.nombre = nombre
+        almacen.descripcion = request.POST.get('descripcion', '').strip()
+        almacen.sucursal = sucursal
+        almacen._usuario_actual = request.user
+        almacen.save()
+        
+        messages.success(request, 'Almacén actualizado correctamente.')
+    return redirect('almacen_list')
+
+@login_required
+@permiso_requerido('almacen_list', 'eliminar')
+def almacen_delete(request):
+    empresa = request.user.sucursal.fk_empresa
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        almacen = get_object_or_404(Almacen, pk=id, sucursal__fk_empresa=empresa)
+        
+        # Borrado lógico
+        almacen.is_active = False
+        almacen._usuario_actual = request.user
+        almacen.save()
+        messages.success(request, 'Almacén eliminado correctamente.')
+    return redirect('almacen_list')
+
+# ====================================================
+#  USUARIO
+# ====================================================
+@login_required
+@permiso_requerido('usuario_list', 'ver')
+def usuario_list(request):
+    empresa = request.user.sucursal.fk_empresa
+    # select_related es genial aquí para no saturar la base de datos
+    usuarios = Usuario.objects.select_related('rol', 'sucursal')\
+        .filter(sucursal__fk_empresa=empresa, is_active=True)\
+        .order_by('-created_at')
+
+    roles = Rol.objects.filter(estado=True)
+    sucursales = Sucursal.objects.filter(fk_empresa=empresa, estado=True)
+
+    return render(request, 'usuarios/lista_usuario.html', {'usuarios': usuarios,'roles': roles,'sucursales': sucursales,})
+
+@login_required
+@permiso_requerido('usuario_list', 'crear')
+@transaction.atomic
+def usuario_create(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        password = request.POST.get('password')
+        sucursal_id = request.POST.get('sucursal')
+        rol_id = request.POST.get('rol')
+
+        # 1. Validación: Campos obligatorios básicos
+        if not all([username, password, sucursal_id, rol_id]):
+            messages.error(request, 'Usuario, contraseña, sucursal y rol son obligatorios.')
+            return redirect('usuario_list')
+
+        # 2. Validación: Username único (Global en Django por defecto)
+        if Usuario.objects.filter(username__iexact=username).exists():
+            messages.error(request, f'El nombre de usuario "{username}" ya está en uso.')
+            return redirect('usuario_list')
+
+        # 3. Validación: Email único (Opcional pero recomendado)
+        if email and Usuario.objects.filter(email__iexact=email).exists():
+            messages.error(request, 'Este correo electrónico ya está registrado.')
+            return redirect('usuario_list')
+
+        # 4. Seguridad: Verificar que la sucursal sea de la empresa
+        if not Sucursal.objects.filter(id=sucursal_id, fk_empresa=empresa).exists():
+            messages.error(request, 'Sucursal no válida.')
+            return redirect('usuario_list')
+
+        Usuario.objects.create(
+            username=username,
+            nombre=request.POST.get('nombre', '').strip(),
+            apellido=request.POST.get('apellido', '').strip(),
+            email=email,
+            password=make_password(password),
+            rol_id=rol_id,
+            sucursal_id=sucursal_id,
+            is_active=True
+        )
+        messages.success(request, 'Usuario creado correctamente.')
+
+    return redirect('usuario_list')
+
+@login_required
+@permiso_requerido('usuario_list', 'editar')
+def usuario_edit(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        id = request.POST.get('id')
+        usuario = get_object_or_404(Usuario, pk=id, sucursal__fk_empresa=empresa)
+        username = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip()
+        sucursal_id = request.POST.get('sucursal')
+        new_password = request.POST.get('password')
+
+        if not username:
+            messages.error(request, 'El nombre de usuario no puede estar vacío.')
+            return redirect('usuario_list')
+        # 1. Validar que el username no lo tenga OTRO
+        if Usuario.objects.filter(username__iexact=username).exclude(id=usuario.id).exists():
+            messages.error(request, 'El nombre de usuario ya está en uso por otra persona los nombres de usuarios son únicos.')
+            return redirect('usuario_list')
+
+        # 2. Seguridad Sucursal
+        if not Sucursal.objects.filter(id=sucursal_id, fk_empresa=empresa).exists():
+            messages.error(request, 'Sucursal no válida.')
+            return redirect('usuario_list')
+
+        usuario.username = username
+        usuario.nombre = request.POST.get('nombre', '').strip()
+        usuario.apellido = request.POST.get('apellido', '').strip()
+        usuario.email = email
+        usuario.rol_id = request.POST.get('rol')
+        usuario.sucursal_id = sucursal_id
+        # Solo actualizamos password si se escribió algo en el campo
+        if new_password:
+            usuario.password = make_password(new_password)
+
+        usuario.save()
+        messages.success(request, 'Usuario actualizado correctamente.')
+
+    return redirect('usuario_list')
+
+@login_required
+@permiso_requerido('usuario_list', 'eliminar')
+def usuario_delete(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        id = request.POST.get('id')
+        # Importante: No dejar que un usuario se borre a sí mismo por error
+        if int(id) == request.user.id:
+            messages.error(request, 'No puedes eliminar tu propio usuario.')
+            return redirect('usuario_list')
+        usuario = get_object_or_404(Usuario, pk=id, sucursal__fk_empresa=empresa)
+        usuario.is_active = False
+        usuario.save()
+        messages.success(request, 'Usuario eliminado correctamente.')
+
+    return redirect('usuario_list')
+
+# ====================================================
+#  CANAL DE VENTA
+# ====================================================
+
+@login_required
+@permiso_requerido('canalventa_list', 'ver')
+def canalventa_list(request):
+    canales = CanalVenta.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa).order_by('-created_at')
+    return render(request, 'ventas/lista_canales.html', {'canales': canales})
+
+@login_required
+@permiso_requerido('canalventa_list', 'crear')
+@transaction.atomic
+def canalventa_create(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        nombre = request.POST.get('nombre', '').strip()
+        descripcion = request.POST.get('descripcion')
+
+        # VALIDACIÓN 1: Nombre vacío
+        if not nombre:
+            messages.error(request, 'El nombre del canal no puede estar vacío.')
+            return redirect('canalventa_list')
+
+        # VALIDACIÓN 2: Duplicados activos para la misma empresa
+        if CanalVenta.objects.filter(nombre__iexact=nombre, is_active=True, fk_empresa=empresa).exists():
+            messages.error(request, f'Ya existe un canal activo con el nombre "{nombre}".')
+            return redirect('canalventa_list')
+
+        # Si pasa las validaciones, se crea
+        canal = CanalVenta.objects.create(
+            nombre=nombre,
+            descripcion=descripcion,
+            is_active=True,
+            fk_empresa=empresa
+        )
+        messages.success(request, 'Canal de venta creado correctamente.')
+        
+    return redirect('canalventa_list')
+
+@login_required
+@permiso_requerido('canalventa_list', 'editar')
+def canalventa_edit(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        id = request.POST.get('id')
+        canal = get_object_or_404(CanalVenta, pk=id, fk_empresa=empresa)
+        
+        nombre = request.POST.get('nombre', '').strip()
+        descripcion = request.POST.get('descripcion')
+
+        # VALIDACIÓN 1: Nombre vacío
+        if not nombre:
+            messages.error(request, 'El nombre no puede quedar vacío.')
+            return redirect('canalventa_list')
+
+        # VALIDACIÓN 2: Duplicado (excluyendo el registro actual)
+        if CanalVenta.objects.filter(nombre__iexact=nombre, is_active=True, fk_empresa=empresa).exclude(id=canal.id).exists():
+            messages.error(request, f'Ya existe otro canal con el nombre "{nombre}".')
+            return redirect('canalventa_list')
+
+        canal.nombre = nombre
+        canal.descripcion = descripcion
+        canal.save()
+        messages.success(request, 'Canal de venta actualizado correctamente.')
+        
+    return redirect('canalventa_list')
+
+@login_required
+@permiso_requerido('canalventa_list', 'eliminar')
+def canalventa_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        canal = get_object_or_404(CanalVenta, pk=id, fk_empresa=request.user.sucursal.fk_empresa)
+        canal.is_active = False  # soft delete
+        canal._usuario_actual = request.user
+        canal.save()
+        messages.success(request, 'Canal de venta eliminado correctamente.')
+    return redirect('canalventa_list')
+
+# ====================================================
+#  UNIDAD DE MEDIDA
+# ====================================================
+@login_required
+@permiso_requerido('unidademedida_list', 'ver')
+def unidadmedida_list(request):
+    unidades = UnidadMedida.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa).order_by('-created_at')
+    return render(request, 'inventario/lista_unidades.html', {
+        'unidades': unidades,
+    })
+
+@login_required
+@permiso_requerido('unidademedida_list', 'crear')
+def unidadmedida_create(request):
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre').strip()
+        abreviatura = request.POST.get('abreviatura').strip()
+
+        # Validación de duplicado activo
+        if UnidadMedida.objects.filter(nombre__iexact=nombre, is_active=True, fk_empresa=request.user.sucursal.fk_empresa).exists():
+            messages.error(request, f'Ya existe una unidad de medida activa con el nombre "{nombre}".')
+            return redirect('unidadmedida_list')
+
+        UnidadMedida.objects.create(
+            nombre=nombre,
+            abreviatura=abreviatura,
+            is_active=True,
+            fk_empresa=request.user.sucursal.fk_empresa
+        )
+
+        messages.success(request, 'Unidad de medida creada correctamente.')
+
+    return redirect('unidadmedida_list')
+
+@login_required
+@permiso_requerido('unidademedida_list', 'editar')
+def unidadmedida_edit(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        unidad = get_object_or_404(UnidadMedida, pk=id, fk_empresa=request.user.sucursal.fk_empresa)
+
+        nombre = request.POST.get('nombre').strip()
+        abreviatura = request.POST.get('abreviatura').strip()
+
+        # Validación: duplicado activo excepto sí misma
+        if UnidadMedida.objects.filter(nombre__iexact=nombre, is_active=True, fk_empresa=request.user.sucursal.fk_empresa).exclude(id=unidad.id).exists():
+            messages.error(request, f'Otra unidad de medida activa ya usa el nombre "{nombre}".')
+            return redirect('unidadmedida_list')
+
+        unidad.nombre = nombre
+        unidad.abreviatura = abreviatura
+        unidad.is_active = True
+        unidad._usuario_actual = request.user
+        unidad.save()
+
+        messages.success(request, 'Unidad de medida actualizada correctamente.')
+
+    return redirect('unidadmedida_list')
+
+@login_required
+@permiso_requerido('unidademedida_list', 'eliminar')
+def unidadmedida_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        unidad = get_object_or_404(UnidadMedida, pk=id, fk_empresa=request.user.sucursal.fk_empresa)
+
+        unidad.is_active = False
+        unidad._usuario_actual = request.user
+        unidad.save()
+        messages.success(request, 'Unidad de medida eliminada correctamente.')
+
+    return redirect('unidadmedida_list')
+
+# ====================================================
+#  CATEGORÍA
+# ====================================================
+@login_required
+@permiso_requerido('categoria_list', 'ver')
+def categoria_list(request):
+    categorias = Category.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa).order_by('-created_at')
+    return render(request, 'inventario/lista_categorias.html', {
+        'categorias': categorias
+    })
+
+@login_required
+@permiso_requerido('categoria_list', 'crear')
+def categoria_create(request):
+    if request.method == 'POST':
+        name = request.POST.get('name').strip()
+        description = request.POST.get('description')
+
+        # Validación: evitar duplicados activos
+        if Category.objects.filter(name__iexact=name, is_active=True, fk_empresa=request.user.sucursal.fk_empresa).exists():
+            messages.error(request, f'Ya existe una categoría activa con el nombre "{name}".')
+            return redirect('categoria_list')
+
+        Category.objects.create(
+            name=name,
+            description=description,
+            is_active=True,
+            fk_empresa=request.user.sucursal.fk_empresa
+        )
+
+        messages.success(request, 'Categoría creada correctamente.')
+        return redirect('categoria_list')
+
+    return redirect('categoria_list')
+
+@login_required
+@permiso_requerido('categoria_list', 'editar')
+def categoria_edit(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        categoria = get_object_or_404(Category, pk=id, fk_empresa=request.user.sucursal.fk_empresa)
+
+        name = request.POST.get('name').strip()
+        description = request.POST.get('description')
+
+        # Validación: evitar duplicados activos en otros registros
+        if Category.objects.filter(name__iexact=name, is_active=True, fk_empresa=request.user.sucursal.fk_empresa).exclude(id=categoria.id).exists():
+            messages.error(request, f'Otra categoría activa ya usa el nombre "{name}".')
+            return redirect('categoria_list')
+
+        categoria.name = name
+        categoria.description = description
+        categoria.is_active = True
+        categoria._usuario_actual = request.user
+        categoria.save()
+
+        messages.success(request, 'Categoría actualizada correctamente.')
+        return redirect('categoria_list')
+
+    return redirect('categoria_list')
+
+@login_required
+@permiso_requerido('categoria_list', 'eliminar')
+def categoria_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        categoria = get_object_or_404(Category, pk=id, fk_empresa=request.user.sucursal.fk_empresa)
+        categoria.is_active = False
+        categoria._usuario_actual = request.user
+        categoria.save()
+
+        messages.success(request, 'Categoría eliminada correctamente.')
+
+    return redirect('categoria_list')
+
+# ====================================================
+#  PRODUCTO
+# ====================================================
+@login_required
+@permiso_requerido('producto_list', 'ver')
+def producto_list(request):
+    empresa = request.user.sucursal.fk_empresa
+    
+    # Traemos productos con sus relaciones y PRE-CARGAMOS las variantes activas
+    productos = Producto.objects.select_related(
+        'fk_empresa', 
+        'unidad_medida', 
+        'category',
+        'fk_tipo_producto'
+    ).prefetch_related(
+        'variantes' # Asegúrate que el related_name en tu modelo ProductoVariante sea 'variantes'
+    ).filter(
+        is_active=True, 
+        fk_empresa=empresa
+    ).order_by('-created_at')
+
+    context = {
+        'productos': productos,
+        'categorias': Category.objects.filter(is_active=True, fk_empresa=empresa),
+        'unidades': UnidadMedida.objects.filter(is_active=True, fk_empresa=empresa),
+        'tipos_producto': TipoProducto.objects.filter(is_active=True),
+    }
+    
+    return render(request, 'inventario/lista_productos.html', context)
+
+def safe_decimal(value):
+    try:
+        return Decimal(str(value).replace(',', '.'))
+    except (ValueError, TypeError, AttributeError):
+        return Decimal('0.00')
+
+@login_required
+@permiso_requerido('producto_list', 'crear')
+def producto_create(request):
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                empresa = request.user.sucursal.fk_empresa
+                nombre = request.POST.get('nombre')
+                tipo_id = request.POST.get('tipo_producto') or 1
+                tiene_variantes = request.POST.get('tiene_variantes') == 'on'
+                
+                # 1. Obtener el Tipo de Producto para validar si es PACK
+                tipo_obj = get_object_or_404(TipoProducto, id=tipo_id)
+                es_pack = "PACK" in tipo_obj.nombre.upper() or "COMBO" in tipo_obj.nombre.upper()
+
+                # 2. Crear el Producto (Cabecera)
+                nuevo_producto = Producto.objects.create(
+                    nombre=nombre,
+                    descripcion=request.POST.get('descripcion', ''),
+                    fk_empresa=empresa,
+                    fk_tipo_producto=tipo_obj,
+                    unidad_medida_id=request.POST.get('unidad_medida'),
+                    category_id=request.POST.get('categoria'),
+                    unidades_por_caja=int(request.POST.get('unidades_por_caja', 0)),
+                    tara_por_caja=safe_decimal(request.POST.get('tara_por_caja'))
+                )
+
+                # 3. Manejo de Variantes
+                if tiene_variantes and not es_pack:
+                    # CASO A: Producto con múltiples variantes
+                    nombres_var = request.POST.getlist('variante_nombre[]')
+                    skus_var = request.POST.getlist('variante_sku[]')
+                    precios_var = request.POST.getlist('variante_precio[]')
+                    costos_var = request.POST.getlist('variante_costo[]')
+                    stocks_var = request.POST.getlist('variante_maneja_stock[]')
+
+                    for n_var, s_var, p_var, c_var in zip(nombres_var, skus_var, precios_var, costos_var):
+                        if not s_var: continue
+                        ProductoVariante.objects.create(
+                            producto=nuevo_producto,
+                            nombre_variante=n_var,
+                            sku=s_var,
+                            precio_referencial=safe_decimal(p_var),
+                            costo=safe_decimal(c_var),
+                            maneja_stock=(stocks_var[i] == '1'),
+                        )
+                else:
+                    # CASO B: Producto Simple o es un PACK (Los packs se registran como variante única primero)
+                    nombre_v = "Único" if not es_pack else f"Pack - {nombre}"
+                    m_stock_base = request.POST.get('maneja_inventario') == 'on'
+                    variante_padre = ProductoVariante.objects.create(
+                        producto=nuevo_producto,
+                        nombre_variante=nombre_v,
+                        sku=request.POST.get('sku_base'),
+                        precio_referencial=safe_decimal(request.POST.get('precio_base', 0)),
+                        costo=safe_decimal(request.POST.get('costo_base', 0)),
+                        maneja_stock=m_stock_base
+                        
+                    )
+
+                    # 4. LOGICA DE PACK (Si aplica)
+                    if es_pack:
+                        comp_ids = request.POST.getlist('comp_producto_id[]')
+                        comp_variantes = request.POST.getlist('comp_variante_id[]')
+                        comp_cantidades = request.POST.getlist('comp_cantidad[]')
+                        comp_costos = request.POST.getlist('comp_costo_unitario[]')
+
+                        for p_id, v_id, c_cant, c_costo in zip(comp_ids, comp_variantes, comp_cantidades, comp_costos):
+                            # Validamos que al menos venga un producto o una variante
+                            if not p_id and not v_id: continue
+                            
+                            DetallePack.objects.create(
+                                producto_padre=variante_padre,
+                                producto_id=p_id if p_id else None,
+                                producto_variante_id=v_id if v_id else None,
+                                cantidad=safe_decimal(c_cant),
+                                costo_unitario=safe_decimal(c_costo)
+                            )
+
+                messages.success(request, f'✅ Producto "{nombre}" creado correctamente.')
+                return redirect('producto_list')
+
+        except Exception as e:
+            messages.error(request, f'❌ Error al crear el producto: {e}')
+            # Si quieres debugear qué falló, puedes imprimir e
+            print(f"DEBUG: {e}")
+
+    return redirect('producto_list')
+
+@login_required
+@permiso_requerido('producto_list', 'editar')
+def producto_edit(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        producto = get_object_or_404(Producto, pk=id)
+
+        nombre = request.POST.get('nombre', '').strip()
+        descripcion = request.POST.get('descripcion')
+        fk_empresa = request.POST.get('fk_empresa') or None
+        unidad_medida = request.POST.get('unidad_medida')
+        precio = request.POST.get('precio') or producto.precio
+        codigo = request.POST.get('codigo', '').strip()
+        unidades_por_caja = request.POST.get('unidades_por_caja') or producto.unidades_por_caja
+        tara_por_caja = request.POST.get('tara_por_caja') or producto.tara_por_caja
+        category = request.POST.get('category') or None
+
+        # ❗ Validación: nombre duplicado en otros activos
+        if Producto.objects.filter(nombre__iexact=nombre, is_active=True, fk_empresa_id=request.user.sucursal.fk_empresa.id).exclude(id=producto.id).exists():
+            messages.error(request, f'Otro producto activo ya usa el nombre "{nombre}".')
+            return redirect('producto_list')
+
+        # ❗ Validación: código duplicado en otros activos
+        if codigo and Producto.objects.filter(codigo__iexact=codigo, is_active=True, fk_empresa_id=request.user.sucursal.fk_empresa.id).exclude(id=producto.id).exists():
+            messages.error(request, f'Otro producto activo ya usa el código "{codigo}".')
+            return redirect('producto_list')
+
+        # Guardar cambios
+        producto.nombre = nombre
+        producto.descripcion = descripcion
+        # Mejor así en producto_edit
+        producto.fk_empresa_id = request.user.sucursal.fk_empresa.id
+        producto.unidad_medida_id = unidad_medida
+        producto.precio = precio
+        producto.codigo = codigo
+        producto.unidades_por_caja = unidades_por_caja
+        producto.tara_por_caja = tara_por_caja
+        producto.category_id = category
+        producto.is_active = True
+        producto._usuario_actual = request.user
+        producto.save()
+
+        messages.success(request, 'Producto actualizado correctamente.')
+        return redirect('producto_list')
+
+    return redirect('producto_list')
+
+@login_required
+@permiso_requerido('producto_list', 'eliminar')
+def producto_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        producto = get_object_or_404(Producto, pk=id)
+
+        producto.is_active = False
+        producto._usuario_actual = request.user
+        producto.save()
+
+        messages.success(request, 'Producto desactivado correctamente.')
+
+    return redirect('producto_list')
+
+# ====================================================
+#  PRECIO PRODUCTO
+# ====================================================
+
+@login_required
+@permiso_requerido('precioproducto_list', 'ver')
+def registrar_precios_por_sucursal(request):
+    
+    sucursal_id = request.GET.get('sucursal_id')
+    canal_id = request.GET.get('canal_id')
+    
+    # Listas para los selects
+    sucursales = Sucursal.objects.filter(estado=True, fk_empresa=request.user.sucursal.fk_empresa).order_by('nombre')
+    canales = CanalVenta.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa).order_by('nombre')
+
+    # IMPORTANTE: Ahora iteramos sobre Variantes, no sobre Productos genéricos
+    variantes = []
+    precios_dict = {}
+
+    if sucursal_id:
+        # Traemos las variantes con el nombre del producto relacionado para mostrarlo en la tabla
+        variantes = ProductoVariante.objects.filter(
+            producto__is_active=True, 
+            producto__fk_empresa=request.user.sucursal.fk_empresa
+        ).select_related('producto').order_by('producto__nombre', 'nombre_variante')
+
+        precios_existentes = PrecioProducto.objects.filter(sucursal_id=sucursal_id, activo=True)
+        
+        if canal_id:
+            precios_existentes = precios_existentes.filter(canal_id=canal_id)
+
+        # Diccionario indexado por (variante_id, canal_id)
+        precios_dict = {(p.producto_variante_id, p.canal_id): p for p in precios_existentes}
+
+        if request.method == 'POST':
+            fecha_nueva = request.POST.get('fecha')
+            if fecha_nueva and 'T' in fecha_nueva:
+                fecha_nueva = fecha_nueva.split('T')[0]
+
+            try:
+                with transaction.atomic():
+                    for var in variantes:
+                        for canal in canales:
+                            if canal_id and str(canal.id) != canal_id:
+                                continue
+
+                            # El ID del input en el HTML debe ser precio_VARID_CANALID
+                            precio_input = request.POST.get(f'precio_{var.id}_{canal.id}')
+                            
+                            if precio_input:
+                                try:
+                                    precio_valor = Decimal(precio_input.replace(',', '.'))
+                                except (InvalidOperation, ValueError):
+                                    continue # O manejar error de formato
+
+                                key = (var.id, canal.id)
+                                
+                                # 1. Desactivar el precio anterior de esta VARIANTE en esta SUCURSAL y CANAL
+                                PrecioProducto.objects.filter(
+                                    producto_variante_id=var.id,
+                                    sucursal_id=sucursal_id,
+                                    canal_id=canal.id,
+                                    activo=True
+                                ).update(activo=False)
+
+                                # 2. Crear el nuevo precio histórico
+                                PrecioProducto.objects.create(
+                                    producto_variante_id=var.id, # CAMBIO CLAVE
+                                    sucursal_id=sucursal_id,
+                                    canal_id=canal.id,
+                                    fecha=fecha_nueva or timezone.now(),
+                                    precio=precio_valor,
+                                    activo=True
+                                )
+
+                messages.success(request, "Precios actualizados correctamente.")
+                return redirect(f'{request.path}?sucursal_id={sucursal_id}&canal_id={canal_id}')
+
+            except Exception as e:
+                messages.error(request, f"Error al guardar precios: {e}")
+
+    context = {
+        'sucursales': sucursales,
+        'canales': canales,
+        'sucursal_id': sucursal_id,
+        'canal_id': canal_id,
+        'variantes': variantes, # Pasamos variantes a la tabla
+        'precios_dict': precios_dict,
+        'fecha_actual': timezone.now(),
+    }
+    return render(request, 'inventario/precios_sucursales.html', context)
+
+# ====================================================
+#  TIPO INGRESO
+# ====================================================
+@login_required
+@permiso_requerido('tiposingreso_list', 'ver')
+def tiposingreso_list(request):
+    tipos = TipoIngreso.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa).order_by('-created_at')
+    return render(request, 'inventario/lista_tiposingreso.html', {'tipos': tipos})
+
+@login_required
+@permiso_requerido('tiposingreso_list', 'crear')
+def tiposingreso_create(request):
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre', '').strip()
+        is_active = True
+
+        # 🔥 Validación de nombre duplicado en activos
+        if TipoIngreso.objects.filter(nombre__iexact=nombre, is_active=True, fk_empresa=request.user.sucursal.fk_empresa).exists():
+            messages.error(request, f'Ya existe un tipo de ingreso activo con el nombre "{nombre}".')
+            return redirect('tiposingreso_list')
+
+        TipoIngreso.objects.create(
+            nombre=nombre,
+            is_active=is_active,
+            fk_empresa=request.user.sucursal.fk_empresa
+        )
+
+        messages.success(request, 'Tipo de ingreso creado correctamente.')
+        return redirect('tiposingreso_list')
+
+    return redirect('tiposingreso_list')
+
+@login_required
+@permiso_requerido('tiposingreso_list', 'editar')
+def tiposingreso_edit(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        tipo = get_object_or_404(TipoIngreso, pk=id, fk_empresa=request.user.sucursal.fk_empresa)
+
+        nombre = request.POST.get('nombre', '').strip()
+        is_active = True
+
+        # 🔥 Validar nombre duplicado (excluyendo el mismo tipo)
+        if TipoIngreso.objects.filter(nombre__iexact=nombre, is_active=True, fk_empresa=request.user.sucursal.fk_empresa).exclude(id=tipo.id).exists():
+            messages.error(request, f'Ya existe otro tipo de ingreso activo con el nombre "{nombre}".')
+            return redirect('tiposingreso_list')
+
+        tipo.nombre = nombre
+        tipo.is_active = is_active
+        tipo.save()
+
+        messages.success(request, 'Tipo de ingreso actualizado correctamente.')
+        return redirect('tiposingreso_list')
+
+    return redirect('tiposingreso_list')
+
+@login_required
+@permiso_requerido('tiposingreso_list', 'eliminar')
+def tiposingreso_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        tipo = get_object_or_404(TipoIngreso, pk=id, fk_empresa=request.user.sucursal.fk_empresa)
+
+        tipo.is_active = False
+        tipo.save()
+
+        messages.success(request, 'Tipo de ingreso eliminado correctamente.')
+        return redirect('tiposingreso_list')
+
+    return redirect('tiposingreso_list')
+
+# ====================================================
+#  INGRESO (MAESTRO-DETALLE UNIFICADO)
+# ====================================================
+@login_required
+@permiso_requerido('ingreso_list', 'ver')
+def ingreso_list(request):
+    ingresos = Ingreso.objects.select_related('tipo', 'usuario', 'sucursal').all().order_by('-created_at')
+    return render(request, 'ingreso/list.html', {'ingresos': ingresos})
+
+@login_required
+@permiso_requerido('ingreso_list', 'crear')
+@transaction.atomic
+def ingreso_create(request):
+    tipos = TipoIngreso.objects.filter(is_active=True)
+    sucursales = Sucursal.objects.filter(estado=True)
+    productos = Producto.objects.filter(is_active=True)
+    if request.method == 'POST':
+        # Maestro
+        tipo_id = request.POST.get('tipo')
+        usuario_id = request.POST.get('usuario') or request.user.id
+        sucursal_id = request.POST.get('sucursal')
+        fecha = request.POST.get('fecha')
+        descuento_maestro = float(request.POST.get('descuento') or 0)
+        observaciones = request.POST.get('observaciones') or ''
+        ingreso = Ingreso.objects.create(
+            tipo_id=tipo_id,
+            usuario_id=usuario_id,
+            sucursal_id=sucursal_id,
+            fecha=fecha,
+            descuento=descuento_maestro,
+            observaciones=observaciones,
+            total=0  # se actualizará con la sumatoria
+        )
+
+        # Detalles (listas)
+        productos_list = request.POST.getlist('producto')
+        cantidades = request.POST.getlist('cantidad')
+        precios = request.POST.getlist('precio')
+        descuentos = request.POST.getlist('descuento')  # opcional
+
+        total = 0
+        for i, prod_id in enumerate(productos_list):
+            if not prod_id:
+                continue
+            cantidad = float(cantidades[i]) if i < len(cantidades) and cantidades[i] else 0
+            precio = float(precios[i]) if i < len(precios) and precios[i] else 0
+            descuento_det = float(descuentos[i]) if i < len(descuentos) and descuentos[i] else 0
+            subtotal = (cantidad * precio) - descuento_det
+            DetalleIngreso.objects.create(
+                ingreso=ingreso,
+                producto_id=prod_id,
+                cantidad=cantidad,
+                precio=precio,
+                subtotal=subtotal,
+                descuento=descuento_det
+            )
+            total += subtotal
+
+            # Actualizar Stock: sumar cantidad al stock existente (si existe)
+            stock, created = Stock.objects.get_or_create(producto_id=prod_id, sucursal_id=sucursal_id, defaults={
+                'cantidad_actual': cantidad,
+                'cajas_actual': 0,
+                'peso_neto_total': 0,
+                'costo_unitario_promedio': precio,
+                'valor_total': cantidad * precio
+            })
+            if not created:
+                # simple agregado de cantidad y recalculo valor_total y CPP básico (puedes cambiar por CPP exacto)
+                prev_total_qty = float(stock.cantidad_actual or 0)
+                prev_val_total = float(stock.valor_total or 0)
+                new_qty = prev_total_qty + cantidad
+                new_val_total = prev_val_total + (cantidad * precio)
+                stock.cantidad_actual = new_qty
+                stock.valor_total = new_val_total
+                # costo_unitario_promedio (simple promedio ponderado)
+                stock.costo_unitario_promedio = (new_val_total / new_qty) if new_qty else 0
+                stock.save()
+
+        ingreso.total = total - descuento_maestro
+        ingreso.save()
+
+        messages.success(request, 'Ingreso y sus detalles registrados correctamente.')
+        return redirect('ingreso_list')
+
+    # GET
+    usuarios = Usuario.objects.filter(is_active=True)
+    return render(request, 'ingreso/create.html', {
+        'tipos': tipos,
+        'sucursales': sucursales,
+        'productos': productos,
+        'usuarios': usuarios
+    })
+
+@login_required
+@permiso_requerido('ingreso_list', 'eliminar')
+def ingreso_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        ingreso = get_object_or_404(Ingreso, pk=id)
+        ingreso.is_active = False
+        ingreso.save()
+        # opcional: also deactivate details
+        DetalleIngreso.objects.filter(ingreso=ingreso).update(is_active=False)
+        messages.success(request, 'Ingreso desactivado correctamente.')
+    return redirect('ingreso_list')
+
+
+# ====================================================
+#  TURNO
+# ====================================================
+@login_required
+@permiso_requerido('turno_list', 'ver')
+def turno_list(request):
+    turnos = Turno.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa).order_by('-created_at')
+    return render(request, 'inventario/lista_turnos.html', {'turnos': turnos})
+
+@login_required
+@permiso_requerido('turno_list', 'crear')
+def turno_create(request):
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre', '').strip()
+        hora_inicio = request.POST.get('hora_inicio')
+        hora_fin = request.POST.get('hora_fin')
+
+        # Validación simple de campos vacíos
+        if not nombre or not hora_inicio or not hora_fin:
+            messages.error(request, 'Todos los campos son obligatorios.')
+            return redirect('turno_list')
+
+        # Validación nombre duplicado en activos
+        if Turno.objects.filter(nombre__iexact=nombre, is_active=True, fk_empresa=request.user.sucursal.fk_empresa).exists():
+            messages.error(request, f'Ya existe un turno activo con el nombre "{nombre}".')
+            return redirect('turno_list')
+
+        # Validar rango de horas
+        if hora_inicio >= hora_fin:
+            messages.error(request, 'La hora de inicio debe ser menor a la hora de fin.')
+            return redirect('turno_list')
+
+        Turno.objects.create(
+            nombre=nombre,
+            hora_inicio=hora_inicio,
+            hora_fin=hora_fin,
+            is_active=True,
+            fk_empresa=request.user.sucursal.fk_empresa
+        )
+
+        messages.success(request, 'Turno creado correctamente.')
+        return redirect('turno_list')
+
+    return redirect('turno_list')
+
+@login_required
+@permiso_requerido('turno_list', 'editar')
+def turno_edit(request):
+    
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        turno = get_object_or_404(Turno, pk=id, fk_empresa=request.user.sucursal.fk_empresa)
+
+        nombre = request.POST.get('nombre', '').strip()
+        hora_inicio = request.POST.get('hora_inicio')
+        hora_fin = request.POST.get('hora_fin')
+
+        if not nombre or not hora_inicio or not hora_fin:
+            messages.error(request, 'Todos los campos son obligatorios.')
+            return redirect('turno_list')
+
+        # Validar duplicado EXCLUYENDO el mismo turno
+        if Turno.objects.filter(nombre__iexact=nombre, is_active=True, fk_empresa=request.user.sucursal.fk_empresa).exclude(id=turno.id).exists():
+            messages.error(request, f'Ya existe otro turno activo con el nombre "{nombre}".')
+            return redirect('turno_list')
+
+        # Validar rango
+        if hora_inicio >= hora_fin:
+            messages.error(request, 'La hora de inicio debe ser menor a la hora de fin.')
+            return redirect('turno_list')
+
+        turno.nombre = nombre
+        turno.hora_inicio = hora_inicio
+        turno.hora_fin = hora_fin
+        turno.save()
+
+        messages.success(request, 'Turno actualizado correctamente.')
+        return redirect('turno_list')
+
+    return redirect('turno_list')
+
+@login_required
+@permiso_requerido('turno_list', 'eliminar')
+def turno_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        turno = get_object_or_404(Turno, pk=id, fk_empresa=request.user.sucursal.fk_empresa)
+
+        turno.is_active = False
+        turno.save()
+
+        messages.success(request, 'Turno desactivado correctamente.')
+        return redirect('turno_list')
+
+    return redirect('turno_list')
+
+# ====================================================
+#  CAJA
+# ====================================================
+@login_required
+@permiso_requerido('caja_list', 'ver')
+def caja_list(request):
+    empresa = request.user.sucursal.fk_empresa
+    cajas = Caja.objects.filter(is_active=True, fk_empresa=empresa).order_by('-created_at')
+    sucursales = Sucursal.objects.filter(estado=True, fk_empresa=empresa)
+    
+    return render(request, 'ventas/lista_cajas.html', {
+        'cajas': cajas, 
+        'sucursales': sucursales
+    })
+
+@login_required
+@permiso_requerido('caja_list', 'crear')
+def caja_create(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        nombre = request.POST.get('nombre', '').strip()
+        sucursal_id = request.POST.get('sucursal')
+        saldo_inicial = request.POST.get('saldo_inicial') or 0
+
+        # VALIDACIÓN 1: Nombre vacío
+        if not nombre:
+            messages.error(request, 'El nombre de la caja es obligatorio.')
+            return redirect('caja_list')
+
+        # VALIDACIÓN 2: Duplicado en la misma empresa
+        if Caja.objects.filter(nombre__iexact=nombre, is_active=True, fk_empresa=empresa).exists():
+            messages.error(request, f'Ya existe una caja llamada "{nombre}".')
+            return redirect('caja_list')
+
+        # VALIDACIÓN 3: Seguridad de Sucursal (Que pertenezca a la empresa)
+        if not Sucursal.objects.filter(id=sucursal_id, fk_empresa=empresa).exists():
+            messages.error(request, 'La sucursal seleccionada no es válida.')
+            return redirect('caja_list')
+
+        Caja.objects.create(
+            nombre=nombre,
+            sucursal_id=sucursal_id,
+            saldo_inicial=saldo_inicial,
+            is_active=True,
+            fk_empresa=empresa
+        )
+        messages.success(request, 'Caja creada correctamente.')
+        
+    return redirect('caja_list')
+
+@login_required
+@permiso_requerido('caja_list', 'editar')
+def caja_edit(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        id = request.POST.get('id')
+        
+        # Seguridad: Solo editamos si pertenece a la empresa
+        caja = get_object_or_404(Caja, pk=id, fk_empresa=empresa)
+        
+        nombre = request.POST.get('nombre', '').strip()
+        sucursal_id = request.POST.get('sucursal')
+        saldo_inicial = request.POST.get('saldo_inicial')
+
+        # VALIDACIÓN 1: Nombre vacío
+        if not nombre:
+            messages.error(request, 'El nombre no puede estar vacío.')
+            return redirect('caja_list')
+
+        # VALIDACIÓN 2: Duplicado (excluyendo la caja actual)
+        if Caja.objects.filter(nombre__iexact=nombre, is_active=True, fk_empresa=empresa).exclude(id=caja.id).exists():
+            messages.error(request, f'El nombre "{nombre}" ya está siendo usado por otra caja.')
+            return redirect('caja_list')
+
+        # VALIDACIÓN 3: Seguridad de Sucursal
+        if not Sucursal.objects.filter(id=sucursal_id, fk_empresa=empresa).exists():
+            messages.error(request, 'Sucursal no válida.')
+            return redirect('caja_list')
+
+        caja.nombre = nombre
+        caja.sucursal_id = sucursal_id
+        if saldo_inicial is not None:
+            caja.saldo_inicial = saldo_inicial
+            
+        caja.save()
+        messages.success(request, 'Caja actualizada correctamente.')
+        
+    return redirect('caja_list')
+
+@login_required
+@permiso_requerido('caja_list', 'eliminar')
+def caja_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        empresa = request.user.sucursal.fk_empresa
+        caja = get_object_or_404(Caja, pk=id, fk_empresa=empresa)
+        
+        caja.is_active = False
+        caja.save()
+        messages.success(request, 'Caja eliminada correctamente.')
+        
+    return redirect('caja_list')
+
+# ====================================================
+#  CAJA TURNO
+# ====================================================
+@login_required
+def caja_turno_list(request):
+    caja_turnos = CajaTurno.objects.select_related('caja', 'turno', 'usuario').all().order_by('-created_at')
+    return render(request, 'caja_turno/list.html', {'caja_turnos': caja_turnos})
+
+@login_required
+def abrir_caja(request):
+    usuario = request.user
+
+    # Verificar si ya tiene una caja abierta
+    caja_abierta = CajaTurno.objects.filter(
+        usuario=usuario,
+        sucursal=usuario.sucursal,
+        estado='ABIERTA'
+    ).first()
+
+    if caja_abierta:
+        messages.warning(
+            request,
+            'Ya tienes una caja abierta. Debes cerrarla antes de abrir otra.'
+        )
+        return redirect('crear_venta')
+
+    cajas = Caja.objects.filter(is_active=True, fk_empresa=usuario.sucursal.fk_empresa).order_by('-created_at')
+    turnos = Turno.objects.filter(is_active=True,fk_empresa=usuario.sucursal.fk_empresa).order_by('-created_at')
+
+    if request.method == 'POST':
+
+        caja_id = request.POST.get('caja')
+        turno_id = request.POST.get('turno')
+        cajachica_apertura = request.POST.get('cajachica_apertura') or 0
+        observaciones_apertura = request.POST.get('observaciones_apertura', '')
+
+        caja_turno = CajaTurno.objects.create(
+            caja_id=caja_id,
+            turno_id=turno_id,
+            usuario=usuario,
+            sucursal=usuario.sucursal,
+            cajachica_apertura=cajachica_apertura,
+            observaciones_apertura=observaciones_apertura,
+            estado='ABIERTA',
+            fecha_apertura=timezone.now()
+        )
+
+        MovimientoCaja.objects.create(
+            caja_turno=caja_turno,
+            tipo='APERTURA',
+            monto=cajachica_apertura,
+            descripcion='Apertura de caja',
+            usuario=usuario
+        )
+
+        messages.success(request, 'Caja abierta correctamente.')
+        return redirect('crear_venta')
+
+    context = {
+        'cajas': cajas,
+        'turnos': turnos,
+        'usuario': usuario,
+        'sucursal': usuario.sucursal,
+        'fecha_apertura': timezone.now(),
+    }
+
+    return render(request, 'ventas/abrir_caja.html', context)
+
+@login_required
+def cerrar_caja(request):
+
+    usuario = request.user
+
+    caja_turno = CajaTurno.objects.filter(
+        usuario=usuario,
+        sucursal=usuario.sucursal,
+        estado='ABIERTA',
+        is_active=True
+    ).first()
+
+    if not caja_turno:
+        messages.warning(request, 'No tienes una caja abierta.')
+        return redirect('abrir_caja')
+
+    if request.method == 'POST':
+
+        caja_turno.monto_efectivo = Decimal(
+            request.POST.get('monto_efectivo') or '0'
+        )
+
+        caja_turno.monto_qr = Decimal(
+            request.POST.get('monto_qr') or '0'
+        )
+
+        caja_turno.monto_tarjeta = Decimal(
+            request.POST.get('monto_tarjeta') or '0'
+        )
+
+        caja_turno.monto_cierre = Decimal(
+            request.POST.get('monto_cierre') or '0'
+        )
+
+        caja_turno.saldo_teorico = Decimal(
+            request.POST.get('saldo_teorico') or '0'
+        )
+
+        caja_turno.diferencia = Decimal(
+            request.POST.get('diferencia') or '0'
+        )
+
+        caja_turno.observaciones_cierre = request.POST.get(
+            'observaciones_cierre', ''
+        )
+
+        caja_turno.estado = 'CERRADA'
+        caja_turno.fecha_cierre = timezone.now()
+
+        caja_turno.save()
+
+        MovimientoCaja.objects.create(
+            caja_turno=caja_turno,
+            tipo='CIERRE',
+            monto=caja_turno.monto_cierre,
+            descripcion='Cierre de caja',
+            usuario=usuario
+        )
+
+        messages.success(request, 'Caja cerrada correctamente.')
+        return redirect('abrir_caja')
+
+    return render(
+        request,
+        'ventas/cerrar_caja.html',
+        {
+            'caja_turno': caja_turno
+        }
+    )
+
+@login_required
+def comprobante_cierre_caja(request, caja_turno_id):
+    """Muestra el comprobante de cierre de caja"""
+    caja_turno = get_object_or_404(
+        CajaTurno, 
+        id=caja_turno_id,
+        usuario=request.user,
+        sucursal=request.user.sucursal
+    )
+    
+    # Obtener ventas del turno
+    ventas = caja_turno.ventas.filter(is_active=True)
+    total_ventas = ventas.count()
+    total_monto = ventas.aggregate(total=models.Sum('total'))['total'] or 0
+    
+    # Calcular efectivo esperado (suma de ventas en efectivo)
+    total_efectivo_esperado = 0
+    for venta in ventas:
+        for pago in venta.pagos.all():
+            if pago.metodo_pago.nombre.lower() == 'efectivo':
+                total_efectivo_esperado += float(pago.monto)
+    
+    context = {
+        'caja_turno': caja_turno,
+        'ventas': ventas,
+        'total_ventas': total_ventas,
+        'total_monto': total_monto,
+        'total_efectivo_esperado': total_efectivo_esperado,
+        'fecha_cierre': timezone.now(),
+    }
+    
+    return render(request, 'ventas/comprobante_cierre_caja.html', context)
+
+@login_required
+def total_efectivo_esperado(request):
+    """Retorna el total de efectivo esperado del turno actual"""
+    caja_turno = CajaTurno.objects.filter(
+        usuario=request.user,
+        sucursal=request.user.sucursal,
+        is_active=True,
+        fecha_cierre__isnull=True
+    ).first()
+    
+    if not caja_turno:
+        return JsonResponse({'ok': True, 'total': 0})
+    
+    from django.db.models import Sum
+    total_efectivo = 0
+    for venta in caja_turno.ventas.filter(is_active=True):
+        for pago in venta.pagos.all():
+            if pago.metodo_pago.nombre.lower() == 'efectivo':
+                total_efectivo += float(pago.monto)
+    
+    return JsonResponse({'ok': True, 'total': total_efectivo})
+
+# ====================================================
+#  TIPO EGRESO
+# ====================================================
+@login_required
+@permiso_requerido('tipo_egreso_list', 'ver')
+def tipo_egreso_list(request):
+    tipos = TipoEgreso.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa).order_by('-created_at')
+    return render(request, 'inventario/lista_tiposegreso.html', {'tipos': tipos})
+
+@login_required
+@permiso_requerido('tipo_egreso_list', 'crear')
+def tipo_egreso_create(request):
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre', '').strip()
+        is_active = True  # siempre activo al crear
+
+        # 🔥 Validación: nombre duplicado entre los activos
+        if TipoEgreso.objects.filter(nombre__iexact=nombre, is_active=True, fk_empresa=request.user.sucursal.fk_empresa).exists():
+            messages.error(request, f'Ya existe un tipo de egreso activo con el nombre "{nombre}".')
+            return redirect('tipo_egreso_list')
+
+        TipoEgreso.objects.create(
+            nombre=nombre,
+            is_active=is_active,
+            fk_empresa=request.user.sucursal.fk_empresa
+        )
+
+        messages.success(request, 'Tipo de egreso creado correctamente.')
+
+    return redirect('tipo_egreso_list')
+
+@login_required
+@permiso_requerido('tipo_egreso_list', 'editar')
+def tipo_egreso_edit(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        tipo = get_object_or_404(TipoEgreso, pk=id, fk_empresa=request.user.sucursal.fk_empresa)
+
+        nombre = request.POST.get('nombre', '').strip()
+        is_active = True  # siempre activo al editar
+
+        # 🔥 Validación: nombre duplicado excluyendo el mismo registro
+        if TipoEgreso.objects.filter(nombre__iexact=nombre, is_active=True, fk_empresa=request.user.sucursal.fk_empresa).exclude(id=tipo.id).exists():
+            messages.error(request, f'Ya existe otro tipo de egreso activo con el nombre "{nombre}".')
+            return redirect('tipo_egreso_list')
+
+        tipo.nombre = nombre
+        tipo.is_active = is_active
+        tipo.save()
+
+        messages.success(request, 'Tipo de egreso actualizado correctamente.')
+
+    return redirect('tipo_egreso_list')
+
+@login_required
+@permiso_requerido('tipo_egreso_list', 'eliminar')
+def tipo_egreso_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        tipo = get_object_or_404(TipoEgreso, pk=id, fk_empresa=request.user.sucursal.fk_empresa)
+
+        tipo.is_active = False
+        tipo.save()
+
+        messages.success(request, 'Tipo de egreso desactivado correctamente.')
+
+    return redirect('tipo_egreso_list')
+
+# ====================================================
+#  EGRESO (MAESTRO-DETALLE)
+# ====================================================
+@login_required
+@permiso_requerido('egreso_list', 'ver')
+def egreso_list(request):
+    egresos = Egreso.objects.select_related('tipo', 'usuario', 'sucursal').all().order_by('-created_at')
+    return render(request, 'egreso/list.html', {'egresos': egresos})
+
+@login_required
+@permiso_requerido('egreso_list', 'crear')
+@transaction.atomic
+def egreso_create(request):
+    tipos = TipoEgreso.objects.filter(is_active=True)
+    sucursales = Sucursal.objects.filter(estado=True)
+    productos = Producto.objects.filter(is_active=True)
+    caja_turnos = CajaTurno.objects.filter(is_active=True)
+    usuarios = Usuario.objects.filter(is_active=True)
+    if request.method == 'POST':
+        tipo_id = request.POST.get('tipo')
+        usuario_id = request.POST.get('usuario') or request.user.id
+        sucursal_id = request.POST.get('sucursal')
+        caja_turno_id = request.POST.get('caja_turno') or None
+        fecha = request.POST.get('fecha')
+        descuento_maestro = float(request.POST.get('descuento') or 0)
+        observaciones = request.POST.get('observaciones') or ''
+
+        egreso = Egreso.objects.create(
+            tipo_id=tipo_id,
+            usuario_id=usuario_id,
+            sucursal_id=sucursal_id,
+            fecha=fecha,
+            descuento=descuento_maestro,
+            observaciones=observaciones,
+            caja_turno_id=caja_turno_id,
+            total=0
+        )
+
+        productos_list = request.POST.getlist('producto')
+        cantidades = request.POST.getlist('cantidad')
+        precios = request.POST.getlist('precio')
+        descuentos = request.POST.getlist('descuento')
+
+        total = 0
+        for i, prod_id in enumerate(productos_list):
+            if not prod_id:
+                continue
+            cantidad = float(cantidades[i]) if i < len(cantidades) and cantidades[i] else 0
+            precio = float(precios[i]) if i < len(precios) and precios[i] else 0
+            descuento_det = float(descuentos[i]) if i < len(descuentos) and descuentos[i] else 0
+            subtotal = (cantidad * precio) - descuento_det
+            DetalleEgreso.objects.create(
+                egreso=egreso,
+                producto_id=prod_id,
+                cantidad=cantidad,
+                precio=precio,
+                subtotal=subtotal,
+                descuento=descuento_det
+            )
+            total += subtotal
+
+            # actualizar stock: restar cantidad
+            try:
+                stock = Stock.objects.get(producto_id=prod_id, sucursal_id=sucursal_id)
+                stock.cantidad_actual = float(stock.cantidad_actual or 0) - cantidad
+                stock.valor_total = float(stock.cantidad_actual or 0) * float(stock.costo_unitario_promedio or 0)
+                stock.save()
+            except Stock.DoesNotExist:
+                # Si no existe, crear negativo o saltar
+                pass
+
+        egreso.total = total - descuento_maestro
+        egreso.save()
+        messages.success(request, 'Egreso registrado correctamente.')
+        return redirect('egreso_list')
+
+    return render(request, 'egreso/create.html', {
+        'tipos': tipos,
+        'sucursales': sucursales,
+        'productos': productos,
+        'caja_turnos': caja_turnos,
+        'usuarios': usuarios
+    })
+
+@login_required
+@permiso_requerido('egreso_list', 'editar')
+@transaction.atomic
+def egreso_edit(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        egreso = get_object_or_404(Egreso, pk=id)
+        egreso.tipo_id = request.POST.get('tipo')
+        egreso.sucursal_id = request.POST.get('sucursal')
+        egreso.fecha = request.POST.get('fecha')
+        egreso.descuento = float(request.POST.get('descuento') or 0)
+        egreso.observaciones = request.POST.get('observaciones') or ''
+        egreso.save()
+
+        # eliminar y recrear detalles
+        DetalleEgreso.objects.filter(egreso=egreso).delete()
+        productos_list = request.POST.getlist('producto')
+        cantidades = request.POST.getlist('cantidad')
+        precios = request.POST.getlist('precio')
+        descuentos = request.POST.getlist('descuento')
+
+        total = 0
+        for i, prod_id in enumerate(productos_list):
+            if not prod_id:
+                continue
+            cantidad = float(cantidades[i]) if i < len(cantidades) and cantidades[i] else 0
+            precio = float(precios[i]) if i < len(precios) and precios[i] else 0
+            descuento_det = float(descuentos[i]) if i < len(descuentos) and descuentos[i] else 0
+            subtotal = (cantidad * precio) - descuento_det
+            DetalleEgreso.objects.create(
+                egreso=egreso,
+                producto_id=prod_id,
+                cantidad=cantidad,
+                precio=precio,
+                subtotal=subtotal,
+                descuento=descuento_det
+            )
+            total += subtotal
+        egreso.total = total - egreso.descuento
+        egreso.save()
+        messages.success(request, 'Egreso actualizado correctamente.')
+        return redirect('egreso_list')
+    else:
+        id = request.GET.get('id')
+        egreso = get_object_or_404(Egreso, pk=id)
+        tipos = TipoEgreso.objects.filter(is_active=True)
+        sucursales = Sucursal.objects.filter(estado=True)
+        detalles = DetalleEgreso.objects.filter(egreso=egreso)
+        caja_turnos = CajaTurno.objects.filter(is_active=True)
+        usuarios = Usuario.objects.filter(is_active=True)
+        return render(request, 'egreso/edit.html', {
+            'egreso': egreso, 'tipos': tipos, 'sucursales': sucursales, 'detalles': detalles,
+            'caja_turnos': caja_turnos, 'usuarios': usuarios
+        })
+
+@login_required
+@permiso_requerido('egreso_list', 'eliminar')
+def egreso_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        egreso = get_object_or_404(Egreso, pk=id)
+        egreso.is_active = False
+        egreso.save()
+        DetalleEgreso.objects.filter(egreso=egreso).update(is_active=False)
+        messages.success(request, 'Egreso desactivado correctamente.')
+    return redirect('egreso_list')
+
+
+# ====================================================
+#  PROVEEDOR
+# ====================================================
+@login_required
+@permiso_requerido('proveedor_list', 'ver')
+def proveedor_list(request):
+    proveedores = (
+        Proveedor.objects.select_related('empresa').filter(is_active=True, empresa_id=request.user.sucursal.fk_empresa.id).order_by('-created_at'))
+    empresas = Empresa.objects.filter(estado=True)
+    return render(request, 'empresa/lista_proveedores.html', {'proveedores': proveedores, 'empresas': empresas})
+
+@login_required
+@permiso_requerido('proveedor_list', 'crear')
+def proveedor_create(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        nombre = request.POST.get('nombre', '').strip()
+        email = request.POST.get('email', '').strip()
+        
+        if not nombre:
+            messages.error(request, 'El nombre del proveedor es obligatorio.')
+            return redirect('proveedor_list')
+        if Proveedor.objects.filter(nombre__iexact=nombre, empresa=empresa, is_active=True).exists():
+            messages.error(request, f'Ya existe un proveedor llamado "{nombre}" en tu empresa.')
+            return redirect('proveedor_list')
+
+        Proveedor.objects.create(
+            nombre=nombre,
+            contacto=request.POST.get('contacto'),
+            telefono=request.POST.get('telefono'),
+            email=email,
+            direccion=request.POST.get('direccion'),
+            empresa=empresa # Asignación automática segura
+        )
+
+        messages.success(request, 'Proveedor creado correctamente.')
+    return redirect('proveedor_list')
+
+@login_required
+@permiso_requerido('proveedor_list', 'editar')
+def proveedor_edit(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        id = request.POST.get('id')
+        p = get_object_or_404(Proveedor, pk=id, empresa=empresa)
+
+        nombre = request.POST.get('nombre', '').strip()
+        
+        if Proveedor.objects.filter(nombre__iexact=nombre, empresa=empresa, is_active=True).exclude(id=p.id).exists():
+            messages.error(request, f'Ya tienes otro proveedor con el nombre "{nombre}".')
+            return redirect('proveedor_list')
+
+        p.nombre = nombre
+        p.contacto = request.POST.get('contacto')
+        p.telefono = request.POST.get('telefono')
+        p.email = request.POST.get('email')
+        p.direccion = request.POST.get('direccion')
+        p.save()
+
+        messages.success(request, 'Proveedor actualizado correctamente.')
+    return redirect('proveedor_list')
+
+@login_required
+@permiso_requerido('proveedor_list', 'eliminar')
+def proveedor_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        p = get_object_or_404(Proveedor, pk=id)
+        p.is_active = False
+        p.save()
+
+        messages.success(request, 'Proveedor desactivado correctamente.')
+
+    return redirect('proveedor_list')
+
+# ====================================================
+#  COMPRA (MAESTRO-DETALLE)
+# ====================================================
+
+def safe_decimal(value):
+    if value is None or value == '':
+        return Decimal('0.0')
+    try:
+        return Decimal(str(value))
+    except (InvalidOperation, TypeError):
+        return Decimal('0.0')
+
+@login_required
+@permiso_requerido('compra_list', 'ver')
+def lista_compras(request):
+    fecha_desde = request.GET.get('fecha_desde')
+    fecha_hasta = request.GET.get('fecha_hasta')
+    sucursal_id = request.GET.get('sucursal_id')
+    proveedor_id = request.GET.get('proveedor_id')
+    usuario_id = request.GET.get('usuario_id')
+    estado_compra = request.GET.get('estado_compra')
+
+    compras = Compra.objects.filter(is_active=True, sucursal=request.user.sucursal).order_by('-fecha').prefetch_related('detallecompra_set')
+
+    # FILTROS
+    if fecha_desde:
+        try:
+            compras = compras.filter(fecha__date__gte=timezone.datetime.strptime(fecha_desde, '%Y-%m-%d').date())
+        except:
+            pass
+    else:
+        compras = compras.filter(fecha__date=timezone.now().date())
+
+    if fecha_hasta:
+        try:
+            compras = compras.filter(fecha__date__lte=timezone.datetime.strptime(fecha_hasta, '%Y-%m-%d').date())
+        except:
+            pass
+
+    if sucursal_id and sucursal_id.isdigit():
+        compras = compras.filter(sucursal_id=int(sucursal_id))
+
+    if proveedor_id and proveedor_id.isdigit():
+        compras = compras.filter(proveedor_id=int(proveedor_id))
+
+    if usuario_id and usuario_id.isdigit():
+        compras = compras.filter(usuario_id=int(usuario_id))
+
+    if estado_compra in ['0', '1']:
+        compras = compras.filter(is_active=bool(int(estado_compra)))
+
+    sucursales = Sucursal.objects.filter(estado=True, fk_empresa=request.user.sucursal.fk_empresa)
+    usuarios = Usuario.objects.filter(is_active=True, sucursal=request.user.sucursal.fk_empresa.id)
+    proveedores = Proveedor.objects.filter(is_active=True, empresa=request.user.sucursal.fk_empresa)
+
+    return render(request, 'inventario/lista_compras.html', {
+        'compras': compras,
+        'sucursales': sucursales,
+        'usuarios': usuarios,
+        'proveedores': proveedores,
+        'fecha_desde': fecha_desde or timezone.now().date().strftime('%Y-%m-%d'),
+        'fecha_hasta': fecha_hasta or '',
+        'sucursal_id': sucursal_id or '',
+        'usuario_id': usuario_id or '',
+        'proveedor_id': proveedor_id or '',
+        'estado_compra': estado_compra or '',
+    })
+
+
+@login_required
+def almacenes_por_sucursal(request):
+    sucursal_id = request.GET.get('sucursal')
+
+    if not sucursal_id:
+        return JsonResponse({'almacenes': []})
+
+    empresa = request.user.sucursal.fk_empresa
+
+    almacenes = Almacen.objects.filter(
+        is_active=True,
+        sucursal_id=sucursal_id,
+        sucursal__fk_empresa=empresa
+    ).values('id', 'nombre')
+
+    return JsonResponse({'almacenes': list(almacenes)})
+
+@login_required
+@permiso_requerido('compra_list', 'crear')
+def crear_compra(request):
+    
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                usuario = request.user
+                sucursal_id = request.POST.get('sucursal')
+                proveedor_id = request.POST.get('proveedor')
+                almacen_id = request.POST.get('almacen')
+                total = safe_decimal(request.POST.get('total', 0))
+                fecha = request.POST.get('fecha') or timezone.now()
+                observaciones = request.POST.get('observaciones', '')
+
+                # Validar almacen
+                almacen = Almacen.objects.get(
+                    id=almacen_id,
+                    sucursal_id=sucursal_id,
+                    sucursal__fk_empresa=request.user.sucursal.fk_empresa
+                )
+
+                # Crear compra
+                compra = Compra.objects.create(
+                    usuario=usuario,
+                    sucursal_id=sucursal_id,
+                    proveedor_id=proveedor_id,
+                    almacen=almacen,
+                    total=total,
+                    fecha=fecha,
+                    observaciones=observaciones
+                )
+
+                # Detalles de productos
+                productos = request.POST.getlist('producto[]')
+                cantidades = request.POST.getlist('cantidad[]')
+                precios = request.POST.getlist('precio[]')
+                subtotales = request.POST.getlist('subtotal[]')
+
+                for p_id, cant, precio, sub in zip(productos, cantidades, precios, subtotales):
+                    if not p_id:
+                        continue
+                    detalle = DetalleCompra.objects.create(
+                        compra=compra,
+                        producto_id=p_id,
+                        cantidad=safe_decimal(cant),
+                        precio=safe_decimal(precio),
+                        subtotal=safe_decimal(sub)
+                    )
+                    detalle._usuario_actual = request.user 
+                    # 🔹 Crear Kardex automáticamente
+                    Kardex.objects.create(
+                        producto_id=p_id,
+                        sucursal_id=sucursal_id,
+                        almacen_id=almacen_id,
+                        tipo_movimiento='entrada',
+                        cantidad=safe_decimal(cant),
+                        precio_unitario=safe_decimal(precio),
+                        total=safe_decimal(sub),
+                        referencia=f'Compra #{compra.id}'
+                    )
+                messages.success(request, f'✅ Compra #{compra.id} registrada correctamente.')
+                return redirect(reverse('comprobante_compra', args=[compra.id]))
+
+        except Exception as e:
+            messages.error(request, f'❌ Error al registrar la compra: {e}')
+
+    # GET → mostrar formulario
+    producto = ProductoVariante.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa).select_related('producto')
+    productos = Producto.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa)
+    sucursales = Sucursal.objects.filter(estado=True, fk_empresa=request.user.sucursal.fk_empresa)
+    almacenes = []
+    proveedores = Proveedor.objects.filter(is_active=True, empresa=request.user.sucursal.fk_empresa)
+
+    return render(request, 'inventario/registro_compra.html', {
+        'producto': producto,
+        'productos': productos,
+        'sucursales': sucursales,
+        'almacenes': almacenes, 
+        'proveedores': proveedores,
+        'fecha_actual': timezone.now().strftime('%Y-%m-%d')
+    })
+
+@login_required
+@permiso_requerido('compra_list', 'eliminar')
+def eliminar_compra(request):
+    if request.method == 'POST':
+        compra_id = request.POST.get('id')
+        motivo = request.POST.get('motivo', '').strip()
+        compra = get_object_or_404(Compra, id=compra_id)
+        compra.is_active = False
+        compra.motivo_anulacion = motivo
+        compra.save()
+
+        # Detalles inactivos
+        compra.detallecompra_set.update(is_active=False)
+        messages.success(request, f'Compra #{compra.id} eliminada correctamente.')
+        return redirect('lista_compras')
+
+@login_required
+@permiso_requerido('compra_list', 'ver')
+def comprobante_compra(request, compra_id):
+    compra = get_object_or_404(Compra.objects.prefetch_related('detallecompra_set__producto', 'sucursal', 'usuario', 'proveedor'), id=compra_id, is_active=True)
+    empresa_nombre = request.user.sucursal.fk_empresa.nombre
+    return render(request, 'inventario/comprobante_compra.html', {'compra': compra, 'empresa_nombre': empresa_nombre})
+
+# ====================================================
+#  VENTA (MAESTRO-DETALLE)
+# ====================================================
+
+@login_required
+def ticket_cliente(request, venta_id):
+    """
+    Ticket completo para el cliente:
+    datos empresa, cliente, items, totales, pago.
+    """
+    venta = get_object_or_404(Venta, pk=venta_id, is_active=True)
+    sucursal = venta.sucursal
+    empresa  = sucursal.fk_empresa
+
+    # Solo detalles activos y de nivel raíz (sin detalle_padre)
+    detalles = venta.detalles.filter(is_active=True).select_related(
+        'producto_variante', 'producto_padre', 'detalle_padre'
+    )
+
+    # Subtotal antes de descuento
+    subtotal = venta.total + venta.descuento
+
+    # Pagos registrados
+    pagos = venta.pagos.select_related('metodo_pago').all()
+
+    # Calcular monto recibido y vuelto si hay un solo pago en efectivo
+    monto_recibido = None
+    vuelto = None
+    primer_pago = pagos.first()
+    if primer_pago and primer_pago.monto > venta.total:
+        monto_recibido = primer_pago.monto
+        vuelto = primer_pago.monto - venta.total
+
+    context = {
+        'venta':          venta,
+        'sucursal':       sucursal,
+        'empresa':        empresa,
+        'detalles':       detalles,
+        'subtotal':       subtotal,
+        'pagos':          pagos,
+        'monto_recibido': monto_recibido,
+        'vuelto':         vuelto,
+    }
+    return render(request, 'ventas/ticket_cliente.html', context)
+
+@login_required
+def ticket_cocina(request, venta_id):
+    """
+    Ticket para cocina/producción:
+    solo items + cantidades + canal + observaciones.
+    Sin precios.
+    """
+    venta = get_object_or_404(Venta, pk=venta_id, is_active=True)
+    sucursal = venta.sucursal
+
+    detalles = venta.detalles.filter(is_active=True).select_related(
+        'producto_variante', 'producto_padre', 'detalle_padre'
+    )
+
+    # Total de items (solo raíz, sin componentes de pack)
+    total_items = detalles.filter(detalle_padre__isnull=True).count()
+
+    context = {
+        'venta':       venta,
+        'sucursal':    sucursal,
+        'detalles':    detalles,
+        'total_items': total_items,
+    }
+    return render(request, 'ventas/ticket_cocina.html', context)
+
+@login_required
+@permiso_requerido('abrir_caja', 'ver')
+def venta_list(request):
+    ventas = Venta.objects.select_related('usuario', 'sucursal', 'canal').all().order_by('-created_at')
+    return render(request, 'venta/list.html', {'ventas': ventas})
+
+def safe_decimal(value, default=Decimal('0.00')):
+    try:
+        if not value or value == '':
+            return default
+        return Decimal(str(value))
+    except (InvalidOperation, TypeError):
+        return default
+
+def obtener_precio_producto(producto_variante, sucursal, canal):
+    """Obtiene el precio del producto según: PrecioProducto > precio_referencial"""
+    # Buscar precio configurado en PrecioProducto
+    precio_config = producto_variante.precios.filter(
+        sucursal=sucursal,
+        canal=canal,
+        activo=True
+    ).order_by('-fecha').first()
+    
+    if precio_config:
+        return precio_config.precio
+    
+    # Si no hay precio configurado, usar precio_referencial
+    return producto_variante.precio_referencial
+
+def validar_stock(producto_variante, almacen, cantidad):
+    """Valida stock solo si el producto maneja stock"""
+    if not producto_variante.maneja_stock:
+        return True  # Si no maneja stock, siempre hay disponible
+    
+    try:
+        stock = Stock.objects.get(
+            almacen=almacen,
+            producto_variante=producto_variante
+        )
+        return stock.cantidad_actual >= cantidad
+    except Stock.DoesNotExist:
+        return cantidad <= 0  # Si no existe registro y cantidad es 0, ok
+@login_required
+def obtener_stocks(request):
+    almacen_id = request.GET.get('almacen')
+    if not almacen_id:
+        return JsonResponse([], safe=False)
+    
+    stocks = Stock.objects.filter(
+        almacen_id=almacen_id,
+        almacen__sucursal=request.user.sucursal
+    )
+    
+    data = [{
+        'producto_variante_id': s.producto_variante_id,
+        'cantidad_actual': float(s.cantidad_actual)
+    } for s in stocks]
+    
+    return JsonResponse(data, safe=False)
+
+def actualizar_stock(producto_variante, almacen, cantidad, es_salida=True):
+    """Actualiza stock solo si el producto maneja stock"""
+    if not producto_variante.maneja_stock:
+        return  # No hacer nada si no maneja stock
+    
+    stock, created = Stock.objects.get_or_create(
+        almacen=almacen,
+        producto_variante=producto_variante,
+        defaults={
+            'cantidad_actual': 0,
+            'costo_unitario_promedio': 0,
+            'valor_total': 0,
+            'cajas_actual': 0,
+            'peso_neto_total': 0
+        }
+    )
+    
+    if es_salida:
+        stock.cantidad_actual -= cantidad
+    else:
+        stock.cantidad_actual += cantidad
+    
+    stock.save()
+
+def api_precios_canal(request):
+    canal_id = request.GET.get('canal')
+    almacen_id = request.GET.get('almacen') # Capturamos el almacén desde el frontend
+    
+    if not canal_id:
+        return JsonResponse({'ok': False, 'error': 'Falta el parámetro canal'}, status=400)
+    
+    try:
+        # Filtros base obligatorios: canal y que el precio esté vigente
+        filtros = {'canal_id': canal_id, 'activo': True}
+        
+        # Si vino el almacén, obtenemos su sucursal para afinar el precio geográfico
+        if almacen_id:
+            almacen = Almacen.objects.filter(id=almacen_id).first()
+            if almacen:
+                filtros['sucursal_id'] = almacen.sucursal_id
+
+        # Consultamos la base de datos con los filtros
+        precios_query = PrecioProducto.objects.filter(**filtros)
+        
+        precios_dict = {}
+        for p in precios_query:
+            # USAMOS producto_variante_id porque tu JS maneja IDs de variantes en las tarjetas
+            precios_dict[p.producto_variante_id] = float(p.precio)
+            
+        return JsonResponse({
+            'ok': True,
+            'precios': precios_dict
+        })
+        
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+@login_required
+@permiso_requerido('abrir_caja', 'crear')
+def crear_venta(request):
+    usuario = request.user
+    sucursal = usuario.sucursal
+
+    # ========== PETICIÓN POST JSON ==========
+    if request.method == 'POST':
+        try:
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({'ok': False, 'error': 'Datos inválidos'}, status=400)
+
+            with transaction.atomic():
+                almacen_id      = data.get('almacen')
+                canal_id        = data.get('canal')
+                cliente_id      = data.get('cliente')
+                total           = Decimal(str(data.get('total', 0)))
+                descuento_total = Decimal(str(data.get('descuento', 0)))
+                observaciones   = data.get('observaciones', '')
+                costo_envio     = Decimal(str(data.get('costo_envio', 0)))
+                direccion_entrega = data.get('direccion_entrega', '')
+                telefono_entrega  = data.get('telefono_entrega', '')
+                items           = data.get('items', [])
+                pagos           = data.get('pagos', [])   # ← NUEVO: lista de pagos múltiples
+
+                if not items:
+                    return JsonResponse({'ok': False, 'error': 'No hay productos'}, status=400)
+
+                # Validar que haya al menos un pago
+                if not pagos:
+                    return JsonResponse({'ok': False, 'error': 'Debe ingresar al menos un método de pago'}, status=400)
+
+                # Validar que el total de pagos cubra (total - descuento + costo_envio)
+                monto_a_cobrar = total - descuento_total + costo_envio
+                total_pagado   = sum(Decimal(str(p.get('monto', 0))) for p in pagos)
+                if total_pagado < monto_a_cobrar:
+                    return JsonResponse({
+                        'ok': False,
+                        'error': f'El monto pagado ({total_pagado}) es menor al total a cobrar ({monto_a_cobrar})'
+                    }, status=400)
+
+                # Obtener objetos
+                almacen = Almacen.objects.get(id=almacen_id, sucursal=sucursal, is_active=True)
+                canal   = CanalVenta.objects.get(id=canal_id, is_active=True, fk_empresa=sucursal.fk_empresa)
+
+                cliente_obj = None
+                if cliente_id and cliente_id != '':
+                    try:
+                        cliente_obj = Cliente.objects.get(id=cliente_id, fk_empresa=sucursal.fk_empresa)
+                    except Cliente.DoesNotExist:
+                        pass
+
+                # Caja turno activa
+                caja_turno = CajaTurno.objects.filter(
+                    sucursal=sucursal,
+                    usuario=usuario,
+                    is_active=True,
+                    fecha_cierre__isnull=True
+                ).first()
+
+                if not caja_turno:
+                    return JsonResponse({'ok': False, 'error': 'No hay caja turno activa'}, status=400)
+
+                # ========== CREAR VENTA ==========
+                venta = Venta(
+                    usuario=usuario,
+                    sucursal=sucursal,
+                    almacen=almacen,
+                    canal=canal,
+                    cliente=cliente_obj,
+                    caja_turno=caja_turno,
+                    total=total,
+                    descuento=descuento_total,
+                    costo_envio=costo_envio,
+                    direccion_entrega=direccion_entrega,
+                    telefono_entrega=telefono_entrega,
+                    fecha=timezone.now(),
+                    observaciones=observaciones,
+                )
+                venta.save()
+
+                # ==========================
+                # MOVIMIENTO DE CAJA: el total de la venta (sin separar envío aquí)
+                # El egreso del delivery se registra aparte si el operador lo decide
+                # ==========================
+                MovimientoCaja.objects.create(
+                    caja_turno=caja_turno,
+                    tipo='VENTA',
+                    monto=monto_a_cobrar,
+                    referencia=str(venta.id),
+                    descripcion=f'Venta #{venta.id}',
+                    usuario=usuario
+                )
+
+                # ==========================
+                # EGRESO DE CAJA: costo de envío (sale de caja para el delivery)
+                # ==========================
+                if costo_envio > 0:
+                    MovimientoCaja.objects.create(
+                        caja_turno=caja_turno,
+                        tipo='EGRESO',
+                        monto=costo_envio,
+                        referencia=str(venta.id),
+                        descripcion=f'Costo envío Venta #{venta.id}',
+                        usuario=usuario
+                    )
+
+                # Procesar items
+                for item in items:
+                    tipo     = item.get('tipo', 'producto')
+                    item_id  = item.get('id')
+                    cantidad = Decimal(str(item.get('cantidad', 1)))
+                    precio   = Decimal(str(item.get('precio', 0)))
+                    subtotal = Decimal(str(item.get('subtotal', 0)))
+                    nombre   = item.get('nombre', '')
+
+                    if cantidad <= 0:
+                        continue
+
+                    if tipo == 'producto':
+                        producto_variante = ProductoVariante.objects.get(id=item_id, is_active=True)
+
+                        DetalleVenta.objects.create(
+                            venta=venta,
+                            producto_variante=producto_variante,
+                            nombre_producto=nombre or producto_variante.nombre_variante,
+                            cantidad=cantidad,
+                            precio=precio,
+                            subtotal=subtotal,
+                            descuento=0
+                        )
+
+                        Kardex.objects.create(
+                            producto_variante=producto_variante,
+                            sucursal=sucursal,
+                            almacen=almacen,
+                            tipo_movimiento='salida',
+                            cantidad=cantidad,
+                            precio_unitario=precio,
+                            total=subtotal,
+                            referencia=f'Venta #{venta.id}'
+                        )
+
+                        if producto_variante.maneja_stock:
+                            stock, _ = Stock.objects.get_or_create(
+                                almacen=almacen,
+                                producto_variante=producto_variante,
+                                defaults={
+                                    'cantidad_actual': 0,
+                                    'costo_unitario_promedio': 0,
+                                    'valor_total': 0,
+                                    'cajas_actual': 0,
+                                    'peso_neto_total': 0
+                                }
+                            )
+                            stock.cantidad_actual -= cantidad
+                            stock.save()
+
+                    elif tipo == 'pack':
+                        producto_padre = Producto.objects.get(id=item_id, is_active=True)
+                        pack_variante  = ProductoVariante.objects.filter(producto=producto_padre, is_active=True).first()
+
+                        DetalleVenta.objects.create(
+                            venta=venta,
+                            producto_variante=pack_variante,
+                            producto_padre=producto_padre,
+                            nombre_producto=nombre or producto_padre.nombre,
+                            cantidad=cantidad,
+                            precio=precio,
+                            subtotal=subtotal,
+                            descuento=0
+                        )
+
+                # ==========================
+                # PAGOS MÚLTIPLES
+                # ==========================
+                for pago_data in pagos:
+                    metodo_id  = pago_data.get('metodo_id')
+                    monto_pago = Decimal(str(pago_data.get('monto', 0)))
+                    referencia = pago_data.get('referencia', '')
+
+                    if monto_pago <= 0:
+                        continue
+
+                    try:
+                        metodo = MetodoPago.objects.get(id=metodo_id, empresa=sucursal.fk_empresa, estado=True)
+                    except MetodoPago.DoesNotExist:
+                        continue
+
+                    PagoVenta.objects.create(
+                        venta=venta,
+                        metodo_pago=metodo,
+                        monto=monto_pago,
+                        referencia_pago=referencia
+                    )
+
+                return JsonResponse({
+                    'ok': True,
+                    'venta_id': venta.id,
+                    'mensaje': f'✅ Venta #{venta.id} registrada correctamente'
+                })
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+    # ========== GET - Mostrar formulario ==========
+    canal_qs      = CanalVenta.objects.filter(is_active=True, fk_empresa=sucursal.fk_empresa)
+    categorias    = Category.objects.filter(is_active=True, fk_empresa=sucursal.fk_empresa)
+    almacenes     = Almacen.objects.filter(sucursal=sucursal, is_active=True)
+    clientes      = Cliente.objects.filter(estado=True, fk_empresa=sucursal.fk_empresa)
+    metodos_pago  = MetodoPago.objects.filter(empresa=sucursal.fk_empresa, estado=True)
+    tipos_ingreso = TipoIngreso.objects.filter(is_active=True, fk_empresa=sucursal.fk_empresa)
+    tipos_egreso  = TipoEgreso.objects.filter(is_active=True, fk_empresa=sucursal.fk_empresa)
+
+    variantes = ProductoVariante.objects.filter(
+        is_active=True,
+        producto__fk_empresa=sucursal.fk_empresa
+    ).select_related('producto', 'producto__category')
+
+    packs_ids = list(set(
+        DetallePack.objects.filter(
+            producto_padre__producto__fk_empresa=sucursal.fk_empresa
+        ).values_list('producto_padre__producto_id', flat=True).distinct()
+    ))
+    packs = Producto.objects.filter(id__in=packs_ids, is_active=True) if packs_ids else Producto.objects.none()
+
+    canal_default = canal_qs.first()
+
+    precio_producto = {}
+    for v in variantes:
+        precio_producto[v.id] = float(obtener_precio_producto(v, sucursal, canal_default))
+
+    precio_pack = {}
+    for pack in packs:
+        pack_variante = ProductoVariante.objects.filter(producto=pack, is_active=True).first()
+        if pack_variante:
+            precio_pack[pack.id] = float(obtener_precio_producto(pack_variante, sucursal, canal_default))
+        else:
+            precio_pack[pack.id] = 0.00
+
+    context = {
+        'usuario': usuario,
+        'sucursal': sucursal,
+        'canales': canal_qs,
+        'almacenes': almacenes,
+        'clientes': clientes,
+        'metodos_pago': metodos_pago,
+        'tipos_ingreso': tipos_ingreso,
+        'tipos_egreso': tipos_egreso,
+        'categorias': categorias,
+        'productos': variantes,
+        'packs': packs,
+        'precio_producto': precio_producto,
+        'precio_pack': precio_pack,
+        'fecha_actual': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
+    }
+
+    return render(request, 'ventas/registro_venta.html', context)
+
+@login_required
+@permiso_requerido('cocina_kanban', 'ver')
+def cocina_kanban(request):
+    usuario = request.user
+    sucursal = usuario.sucursal
+
+    caja_turno = CajaTurno.objects.filter(
+        sucursal=sucursal,
+        is_active=True,
+        fecha_cierre__isnull=True).first()
+
+    ventas_registradas = []
+    ventas_en_proceso = []
+    ventas_despachadas = []
+
+    if caja_turno:
+        base_qs = Venta.objects.filter(
+            caja_turno=caja_turno,
+            is_active=True
+        ).select_related(
+            'canal', 'cliente', 'usuario'
+        ).prefetch_related(
+            'detalles'
+        ).order_by('fecha')
+
+        # ✅ Filtrar por estado_venta
+        ventas_registradas = list(base_qs.filter(estado_venta='registrado'))
+        ventas_en_proceso = list(base_qs.filter(estado_venta='en_proceso'))
+        ventas_despachadas = list(base_qs.filter(estado_venta='despachado'))
+
+    context = {
+        'sucursal': sucursal,
+        'caja_turno': caja_turno,
+        'ventas_registradas': ventas_registradas,      # ← Cambié el nombre
+        'ventas_en_proceso': ventas_en_proceso,
+        'ventas_despachadas': ventas_despachadas,
+    }
+    return render(request, 'ventas/cocina_kanban.html', context)
+
+
+@login_required
+@permiso_requerido('cocina_kanban', 'editar')
+def actualizar_estado_cocina(request):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        venta_id = data.get('venta_id')
+        nuevo_estado = data.get('nuevo_estado')
+
+        # ✅ Estados válidos para el negocio
+        ESTADOS_VALIDOS = ['registrado', 'en_proceso', 'despachado']
+        if nuevo_estado not in ESTADOS_VALIDOS:
+            return JsonResponse({'ok': False, 'error': 'Estado inválido'}, status=400)
+
+        venta = Venta.objects.get(
+            id=venta_id,
+            sucursal=request.user.sucursal,
+            is_active=True
+        )
+        
+        # ✅ ACTUALIZAR estado_venta (el único campo)
+        venta.estado_venta = nuevo_estado
+        venta.save(update_fields=['estado_venta', 'updated_at'])
+
+        return JsonResponse({
+            'ok': True,
+            'venta_id': venta.id,
+            'estado': nuevo_estado
+        })
+
+    except Venta.DoesNotExist:
+        return JsonResponse({'ok': False, 'error': 'Venta no encontrada'}, status=404)
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+
+@login_required
+def kanban_pedidos_json(request):
+    usuario = request.user
+    sucursal = usuario.sucursal
+
+    caja_turno = CajaTurno.objects.filter(
+        sucursal=sucursal,
+        is_active=True,
+        fecha_cierre__isnull=True
+    ).first()
+
+    if not caja_turno:
+        return JsonResponse({'ok': True, 'ventas': []})
+
+    ventas = Venta.objects.filter(
+        caja_turno=caja_turno,
+        is_active=True
+    ).select_related('canal', 'cliente', 'usuario').prefetch_related('detalles')
+
+    data = []
+    for v in ventas:
+        detalles = []
+        for d in v.detalles.filter(is_active=True, detalle_padre__isnull=True):
+            detalles.append({
+                'nombre': d.nombre_producto if d.nombre_producto else 'Producto',
+                'cantidad': float(d.cantidad),
+                'es_pack': bool(d.producto_padre),
+            })
+        
+        data.append({
+            'id': v.id,
+            'estado_venta': v.estado_venta,  # ✅ Usar estado_venta
+            'canal': v.canal.nombre if v.canal else 'Sin canal',
+            'hora': v.fecha.strftime('%H:%M'),
+            'cliente': v.cliente.nombre if v.cliente else 'General',
+            'vendedor': v.usuario.nombre if v.usuario else 'Admin',
+            'observaciones': v.observaciones or '',
+            'detalles': detalles,
+            'total_items': len(detalles),
+        })
+
+    return JsonResponse({'ok': True, 'ventas': data})
+
+@csrf_exempt
+def sse_nuevos_pedidos(request, sucursal_id):
+    """Endpoint SSE para recibir notificaciones de nuevos pedidos"""
+    
+    def event_stream():
+        ultimo_id = None
+        
+        while True:
+            # Buscar pedidos nuevos (últimos 10 segundos)
+            desde = time.time() - 10
+            fecha_limite = datetime.now()
+            
+            nuevos = Venta.objects.filter(
+                sucursal_id=sucursal_id,
+                fecha__gte=datetime.now() - timedelta(seconds=10)
+            ).exclude(
+                estado_venta='despachado'
+            ).order_by('-fecha')
+            
+            # Si hay pedidos nuevos y no es el mismo que el último enviado
+            if nuevos.exists() and (ultimo_id != nuevos.first().id):
+                ultimo_id = nuevos.first().id
+                
+                # Formatear datos del nuevo pedido
+                data = {
+                    'id': nuevos.first().id,
+                    'estado': nuevos.first().estado_venta,
+                    'timestamp': time.time()
+                }
+                yield f"data: {json.dumps(data)}\n\n"
+            
+            time.sleep(2)  # Revisar cada 2 segundos
+    
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
+    return response
+
+@login_required
+@permiso_requerido('abrir_caja', 'eliminar')
+def venta_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        venta = get_object_or_404(Venta, pk=id)
+        venta.is_active = False
+        venta.save()
+        DetalleVenta.objects.filter(venta=venta).update(is_active=False)
+        messages.success(request, 'Venta desactivada correctamente.')
+    return redirect('venta_list')
+
+
+# ====================================================
+#  TRASPASO (MAESTRO-DETALLE)
+# ====================================================
+@login_required
+def traspaso_list(request):
+    traspasos = Traspaso.objects.select_related('usuario', 'sucursal_origen', 'sucursal_destino').all().order_by('-created_at')
+    return render(request, 'traspaso/list.html', {'traspasos': traspasos})
+
+@login_required
+@transaction.atomic
+def traspaso_create(request):
+    sucursales = Sucursal.objects.filter(estado=True)
+    productos = Producto.objects.filter(is_active=True)
+    usuarios = Usuario.objects.filter(is_active=True)
+    if request.method == 'POST':
+        usuario_id = request.POST.get('usuario') or request.user.id
+        sucursal_origen_id = request.POST.get('sucursal_origen')
+        sucursal_destino_id = request.POST.get('sucursal_destino')
+        fecha = request.POST.get('fecha')
+        observaciones = request.POST.get('observaciones') or ''
+
+        traspaso = Traspaso.objects.create(
+            usuario_id=usuario_id,
+            sucursal_origen_id=sucursal_origen_id,
+            sucursal_destino_id=sucursal_destino_id,
+            fecha=fecha,
+            observaciones=observaciones,
+            total=0
+        )
+
+        productos_list = request.POST.getlist('producto')
+        cantidades = request.POST.getlist('cantidad')
+        precios = request.POST.getlist('precio')
+
+        total = 0
+        for i, prod_id in enumerate(productos_list):
+            if not prod_id:
+                continue
+            cantidad = float(cantidades[i]) if i < len(cantidades) and cantidades[i] else 0
+            precio = float(precios[i]) if i < len(precios) and precios[i] else 0
+            subtotal = cantidad * precio
+            DetalleTraspaso.objects.create(traspaso=traspaso, producto_id=prod_id, cantidad=cantidad, precio=precio, subtotal=subtotal)
+            total += subtotal
+
+            # restar del stock origen
+            try:
+                stock_or = Stock.objects.get(producto_id=prod_id, sucursal_id=sucursal_origen_id)
+                stock_or.cantidad_actual = float(stock_or.cantidad_actual or 0) - cantidad
+                stock_or.save()
+            except Stock.DoesNotExist:
+                pass
+
+            # sumar al stock destino
+            stock_dest, created = Stock.objects.get_or_create(producto_id=prod_id, sucursal_id=sucursal_destino_id, defaults={
+                'cantidad_actual': cantidad, 'cajas_actual': 0, 'peso_neto_total': 0, 'costo_unitario_promedio': precio, 'valor_total': cantidad * precio
+            })
+            if not created:
+                stock_dest.cantidad_actual = float(stock_dest.cantidad_actual or 0) + cantidad
+                stock_dest.save()
+
+        traspaso.total = total
+        traspaso.save()
+        messages.success(request, 'Traspaso registrado correctamente.')
+        return redirect('traspaso_list')
+
+    return render(request, 'traspaso/create.html', {'sucursales': sucursales, 'productos': productos, 'usuarios': usuarios})
+
+@login_required
+@transaction.atomic
+def traspaso_edit(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        traspaso = get_object_or_404(Traspaso, pk=id)
+        # editar campos maestro y reemplazar detalles (implementar reversión stock si querés)
+        traspaso.sucursal_origen_id = request.POST.get('sucursal_origen')
+        traspaso.sucursal_destino_id = request.POST.get('sucursal_destino')
+        traspaso.fecha = request.POST.get('fecha')
+        traspaso.observaciones = request.POST.get('observaciones') or ''
+        traspaso.save()
+        DetalleTraspaso.objects.filter(traspaso=traspaso).delete()
+        productos_list = request.POST.getlist('producto')
+        cantidades = request.POST.getlist('cantidad')
+        precios = request.POST.getlist('precio')
+        total = 0
+        for i, prod_id in enumerate(productos_list):
+            if not prod_id:
+                continue
+            cantidad = float(cantidades[i]) if i < len(cantidades) and cantidades[i] else 0
+            precio = float(precios[i]) if i < len(precios) and precios[i] else 0
+            subtotal = cantidad * precio
+            DetalleTraspaso.objects.create(traspaso=traspaso, producto_id=prod_id, cantidad=cantidad, precio=precio, subtotal=subtotal)
+            total += subtotal
+        traspaso.total = total
+        traspaso.save()
+        messages.success(request, 'Traspaso actualizado correctamente.')
+        return redirect('traspaso_list')
+    else:
+        id = request.GET.get('id')
+        traspaso = get_object_or_404(Traspaso, pk=id)
+        detalles = DetalleTraspaso.objects.filter(traspaso=traspaso)
+        sucursales = Sucursal.objects.filter(estado=True)
+        productos = Producto.objects.filter(is_active=True)
+        return render(request, 'traspaso/edit.html', {'traspaso': traspaso, 'detalles': detalles, 'sucursales': sucursales, 'productos': productos})
+
+@login_required
+def traspaso_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        traspaso = get_object_or_404(Traspaso, pk=id)
+        traspaso.is_active = False
+        traspaso.save()
+        DetalleTraspaso.objects.filter(traspaso=traspaso).update(is_active=False)
+        messages.success(request, 'Traspaso desactivado correctamente.')
+    return redirect('traspaso_list')
+
+
+# ====================================================
+#  INGRESO MONETARIO
+# ====================================================
+@login_required
+def crear_ingreso_monetario(request):
+
+    if request.method != 'POST':
+        return redirect('crear_venta')
+
+    usuario = request.user
+
+    caja_turno = CajaTurno.objects.filter(
+        usuario=usuario,
+        sucursal=usuario.sucursal,
+        estado='ABIERTA',
+        is_active=True
+    ).first()
+
+    if not caja_turno:
+        messages.error(
+            request,
+            'No existe una caja abierta.'
+        )
+        return redirect('crear_venta')
+
+    ingreso = IngresoMonetario.objects.create(
+        fecha=timezone.now(),
+        monto=request.POST.get('monto') or 0,
+        motivo_id=request.POST.get('motivo'),
+        observaciones=request.POST.get(
+            'observaciones',
+            ''
+        ),
+        usuario=usuario,
+        caja_turno=caja_turno
+    )
+
+    MovimientoCaja.objects.create(
+        caja_turno=caja_turno,
+        tipo='INGRESO',
+        monto=ingreso.monto,
+        referencia=str(ingreso.id),
+        descripcion=f'Ingreso monetario #{ingreso.id}',
+        usuario=usuario
+    )
+
+    messages.success(
+        request,
+        'Ingreso monetario registrado.'
+    )
+
+    return redirect(
+        'ticket_ingreso_monetario',
+        ingreso.id
+    )
+
+@login_required
+def ticket_ingreso_monetario(request, id):
+
+    ingreso = get_object_or_404(
+        IngresoMonetario,
+        id=id
+    )
+
+    return render(
+        request,
+        'print/ingreso_ticket.html',
+        {
+            'titulo': 'Ingreso Monetario',
+            'ingreso': ingreso
+        }
+    )
+# ====================================================
+#  EGRESO MONETARIO
+# ====================================================
+@login_required
+def crear_egreso_monetario(request):
+
+    if request.method != 'POST':
+        return redirect('crear_venta')
+
+    usuario = request.user
+
+    caja_turno = CajaTurno.objects.filter(
+        usuario=usuario,
+        sucursal=usuario.sucursal,
+        estado='ABIERTA',
+        is_active=True
+    ).first()
+
+    if not caja_turno:
+        messages.error(
+            request,
+            'No existe una caja abierta.'
+        )
+        return redirect('crear_venta')
+
+    egreso = EgresoMonetario.objects.create(
+        fecha=timezone.now(),
+        monto=request.POST.get('monto') or 0,
+        motivo_id=request.POST.get('motivo'),
+        observaciones=request.POST.get(
+            'observaciones',
+            ''
+        ),
+        usuario=usuario,
+        caja_turno=caja_turno
+    )
+
+    MovimientoCaja.objects.create(
+        caja_turno=caja_turno,
+        tipo='EGRESO',
+        monto=egreso.monto,
+        referencia=str(egreso.id),
+        descripcion=f'Egreso monetario #{egreso.id}',
+        usuario=usuario
+    )
+
+    messages.success(
+        request,
+        'Egreso monetario registrado.'
+    )
+
+    return redirect(
+        'ticket_egreso_monetario',
+        egreso.id
+    )
+
+@login_required
+def ticket_egreso_monetario(request, id):
+
+    egreso = get_object_or_404(
+        EgresoMonetario,
+        id=id
+    )
+
+    return render(
+        request,
+        'print/egreso_ticket.html',
+        {
+            'titulo': 'Egreso Monetario',
+            'egreso': egreso
+        }
+    )
+# ====================================================
+#  PLANES (Membresías/Servicios)
+# ====================================================
+@login_required
+def plan_list(request):
+    empresa = request.user.sucursal.fk_empresa
+    plans = Plan.objects.filter(fk_empresa=empresa, estado=True).order_by('-fecha_creacion')
+    return render(request, 'membresia/lista_planes.html', {'plans': plans})
+
+@login_required
+def plan_create(request):
+    
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        nombre = request.POST.get('nombre', '').strip()
+        tarifa = request.POST.get('tarifa') or 0
+        duracion = request.POST.get('membresia') # Viene del select del HTML
+        descripcion = request.POST.get('descripcion', '').strip()
+
+        if not nombre:
+            messages.error(request, 'El nombre del plan es obligatorio.')
+            return redirect('plan_list')
+
+        if Plan.objects.filter(nombre__iexact=nombre, fk_empresa=empresa, estado=True).exists():
+            messages.error(request, f'Ya tienes un plan llamado "{nombre}".')
+            return redirect('plan_list')
+
+        Plan.objects.create(
+            nombre=nombre,
+            tarifa=tarifa,
+            duracion_dias=duracion, # Cambiado: antes decía membresia
+            descripcion=descripcion,
+            fk_empresa=empresa,
+            # Agregamos los nuevos campos por defecto si quieres
+            permite_congelar=request.POST.get('permite_congelar') == 'on',
+            cantidad_dias_congelamiento=request.POST.get('cantidad_dias_congelamiento') or 0
+        )
+        messages.success(request, 'Plan creado correctamente.')
+    return redirect('plan_list')
+
+@login_required
+def plan_edit(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        id_plan = request.POST.get('id')
+        p = get_object_or_404(Plan, pk=id_plan, fk_empresa=empresa)
+        
+        nombre = request.POST.get('nombre', '').strip()
+
+        if Plan.objects.filter(nombre__iexact=nombre, fk_empresa=empresa, estado=True).exclude(id=p.id).exists():
+            messages.error(request, f'Ya existe otro plan con el nombre "{nombre}".')
+            return redirect('plan_list')
+
+        p.nombre = nombre
+        p.tarifa = request.POST.get('tarifa') or p.tarifa
+        p.duracion_dias = request.POST.get('membresia') # Cambiado: antes decía membresia
+        p.descripcion = request.POST.get('descripcion')
+        p.permite_congelar = request.POST.get('permite_congelar') == 'on'
+        p.cantidad_dias_congelamiento = request.POST.get('cantidad_dias_congelamiento') or 0
+        p.save()
+        
+        messages.success(request, 'Plan actualizado correctamente.')
+    return redirect('plan_list')
+
+@login_required
+def plan_delete(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        id_plan = request.POST.get('id')
+        p = get_object_or_404(Plan, pk=id_plan, fk_empresa=empresa)
+        
+        # OJO: Aquí ya no puedes filtrar por Cliente.fk_plan porque ese campo NO EXISTE
+        # Por ahora lo hacemos simple, luego validaremos con la tabla Membresia
+        p.estado = False 
+        p.save()
+        messages.success(request, 'Plan eliminado correctamente.')
+        
+    return redirect('plan_list')
+
+#====================================================
+#  CLIENTE
+#====================================================
+@login_required
+@permiso_requerido('cliente_list', 'ver')
+def cliente_list(request):
+    clientes = Cliente.objects.select_related('fk_empresa').filter(estado=True, fk_empresa=request.user.sucursal.fk_empresa).order_by('-fecha_creacion')
+    return render(request, 'empresa/lista_clientes.html', {'clientes': clientes})
+
+@login_required
+@permiso_requerido('cliente_list', 'crear')
+@transaction.atomic
+def cliente_create(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        nro_documento = request.POST.get('nro_documento', '').strip()
+        nombre = request.POST.get('nombre', '').strip()
+
+        # 1. Validaciones básicas de campos obligatorios
+        if not nombre or not nro_documento:
+            messages.error(request, 'El nombre y el número de documento son obligatorios.')
+            return redirect('cliente_list')
+
+        # 2. Validación de duplicados
+        if Cliente.objects.filter(nro_documento=nro_documento, fk_empresa=empresa, estado=True).exists():
+            messages.error(request, f'Ya existe un cliente con el documento {nro_documento}.')
+            return redirect('cliente_list')
+
+        # 3. Preparar el objeto (sin guardar en DB todavía)
+        nuevo_cliente = Cliente(
+            nombre=nombre,
+            apellido=request.POST.get('apellido', '').strip(),
+            nro_documento=nro_documento,
+            fk_empresa=empresa,
+            telefono=request.POST.get('telefono', '').strip(),
+            email=request.POST.get('email', '').strip(),
+            fecha_nacimiento=request.POST.get('fecha_nacimiento') or None,
+        )
+
+        # 4. MANEJO Y VALIDACIÓN DE LA FOTO
+        if 'foto_perfil' in request.FILES:
+            foto = request.FILES['foto_perfil']
+            
+            # Validar tamaño (2MB máximo)
+            if foto.size > 2 * 1024 * 1024:
+                messages.error(request, 'La foto es muy pesada. Máximo 2MB.')
+                return redirect('cliente_list')
+            
+            nuevo_cliente.foto_perfil = foto
+
+        # 5. Guardado final
+        nuevo_cliente.save()
+        messages.success(request, 'Cliente creado correctamente.')
+        
+    return redirect('cliente_list')
+
+@login_required
+@permiso_requerido('cliente_list', 'editar')
+@transaction.atomic
+def cliente_edit(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        cliente_id = request.POST.get('id')
+        
+        c = get_object_or_404(Cliente, pk=cliente_id, fk_empresa=empresa)
+        nro_documento = request.POST.get('nro_documento', '').strip()
+
+        # 1. Validaciones de negocio primero
+        if Cliente.objects.filter(nro_documento=nro_documento, fk_empresa=empresa, estado=True).exclude(id=c.id).exists():
+            messages.error(request, f'Ya existe otro cliente con el documento {nro_documento}.')
+            return redirect('cliente_list')
+
+        # 2. Validación de la FOTO (Antes de asignar nada)
+        if 'foto_perfil' in request.FILES:
+            nueva_foto = request.FILES['foto_perfil']
+            if nueva_foto.size > 2 * 1024 * 1024: # 2MB
+                messages.error(request, 'La foto es muy pesada. El máximo permitido es 2MB.')
+                return redirect('cliente_list')
+            c.foto_perfil = nueva_foto # Solo se asigna si pasó el tamaño
+
+        # 3. Asignación de los demás campos
+        c.nombre = request.POST.get('nombre')
+        c.apellido = request.POST.get('apellido')
+        c.nro_documento = nro_documento
+        c.telefono = request.POST.get('telefono')
+        c.email = request.POST.get('email')
+        c.fecha_nacimiento = request.POST.get('fecha_nacimiento') or None
+        
+        c.save()
+        messages.success(request, 'Cliente actualizado correctamente.')
+        
+    return redirect('cliente_list')
+
+@login_required
+@transaction.atomic
+@permiso_requerido('cliente_list', 'eliminar')
+def cliente_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        c = get_object_or_404(Cliente, pk=id, fk_empresa=request.user.sucursal.fk_empresa)
+        c.estado = False
+        c.save()
+        messages.success(request, 'Cliente eliminado correctamente.')
+
+    return redirect('cliente_list')
+
+#====================================================
+# Membresias
+#====================================================77
+
+@login_required
+@permiso_requerido('membresias', 'ver')
+def membresia_list(request):
+    empresa = request.user.sucursal.fk_empresa
+    # Traemos las membresías con select_related para que la tabla cargue rápido
+    membresias = Membresia.objects.select_related('fk_cliente', 'fk_plan').filter(
+        fk_empresa=empresa, 
+        is_active=True
+    ).order_by('-fecha_creacion')
+    
+    # Necesitamos clientes y planes para los selects de los modales
+    clientes = Cliente.objects.filter(fk_empresa=empresa, estado=True)
+    planes = Plan.objects.filter(fk_empresa=empresa, estado=True)
+    
+    context = {
+        'membresias': membresias,
+        'clientes': clientes,
+        'planes': planes
+    }
+    return render(request, 'membresia/lista_membresias.html', context)
+
+@login_required
+@permiso_requerido('membresias', 'crear')
+def membresia_create(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        
+        id_cliente = request.POST.get('fk_cliente')
+        id_plan = request.POST.get('fk_plan')
+        fecha_inicio = request.POST.get('fecha_inicio')
+        estado = request.POST.get('pendiente', 'pendiente') # Por defecto activa si no viene nada
+
+        cliente = get_object_or_404(Cliente, pk=id_cliente, fk_empresa=empresa)
+        plan = get_object_or_404(Plan, pk=id_plan, fk_empresa=empresa)
+
+        # Creamos la membresía (el modelo calculará la fecha_fin sola)
+        Membresia.objects.create(
+            fk_cliente=cliente,
+            fk_plan=plan,
+            fecha_inicio=fecha_inicio,
+            estado=estado,
+            fk_empresa=empresa
+        )
+        
+        messages.success(request, f'Membresía asignada correctamente a {cliente.nombre}.')
+    return redirect('membresia_list')
+
+@login_required
+@permiso_requerido('membresias', 'editar')
+def membresia_edit(request):
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        id_membresia = request.POST.get('id')
+        m = get_object_or_404(Membresia, pk=id_membresia, fk_empresa=empresa)
+        
+        # Actualizamos campos básicos
+        m.estado = request.POST.get('estado')
+        m.fecha_inicio = request.POST.get('fecha_inicio')
+        
+        # Si cambias el plan, forzamos que se recalcule la fecha_fin en el save
+        nuevo_plan_id = request.POST.get('fk_plan')
+        if int(nuevo_plan_id) != m.fk_plan.id:
+            m.fk_plan = get_object_or_404(Plan, pk=nuevo_plan_id, fk_empresa=empresa)
+            m.fecha_fin = None # Para que el save lo calcule de nuevo con el nuevo plan
+
+        m.save()
+        messages.success(request, 'Membresía actualizada correctamente.')
+    return redirect('membresia_list')
+
+@login_required
+@permiso_requerido('membresias', 'eliminar')
+def membresia_delete(request):
+    
+    if request.method == 'POST':
+        empresa = request.user.sucursal.fk_empresa
+        id_membresia = request.POST.get('id')
+        m = get_object_or_404(Membresia, pk=id_membresia, fk_empresa=empresa)
+        
+        m.is_active = False # Soft delete
+        m.save()
+        messages.success(request, 'Membresía eliminada.')
+    return redirect('membresia_list')
+
+# ====================================================
+#  PAGO Y DETALLE PAGO
+# ====================================================
+@login_required
+def pago_list(request):
+    pagos = Pago.objects.select_related('fk_cliente', 'fk_usuario').all().order_by('-fecha_creacion')
+    return render(request, 'pago/list.html', {'pagos': pagos})
+
+@login_required
+@transaction.atomic
+def pago_create(request):
+    if request.method == 'POST':
+        # 1. Datos del Maestro (Pago)
+        cliente_id = request.POST.get('fk_cliente')
+        metodo_id = request.POST.get('fk_metodo_pago')
+        descuento = float(request.POST.get('descuento', 0))
+        total = float(request.POST.get('total', 0))
+        deuda = float(request.POST.get('deuda', 0))
+        descripcion = request.POST.get('descripcion', '')
+        
+        # 2. Datos de los Detalles (Vienen como listas desde el form)
+        planes_ids = request.POST.getlist('planes[]')
+        cantidades = request.POST.getlist('cantidades[]')
+        subtotales = request.POST.getlist('subtotales[]')
+
+        # Creamos el objeto Pago
+        # Nota: Como fk_membresia es obligatoria en tu modelo, 
+        # primero deberías tener la membresía o ponerle null=True al modelo.
+        # Por ahora asumo que se la asignamos a la membresía principal.
+        pago = Pago.objects.create(
+            nombre_pagador=request.POST.get('nombre_pagador'),
+            fecha_hora_pago=timezone.now(),
+            descripcion=descripcion,
+            descuento=descuento,
+            total=total,
+            deuda=deuda,
+            fk_metodo_pago_id=metodo_id,
+            fk_usuario=request.user,
+            fk_sucursal=request.user.sucursal,
+            fk_membresia_id=request.POST.get('fk_membresia') # ID de la membresía que se está pagando
+        )
+
+        # 3. Registrar los detalles del pago
+        for i in range(len(planes_ids)):
+            DetallePago.objects.create(
+                fk_pago=pago,
+                fk_plan_id=planes_ids[i],
+                cantidad=cantidades[i],
+                subtotal=subtotales[i]
+            )
+
+        messages.success(request, f"Pago #{pago.id} registrado con éxito.")
+        return redirect('pago_list')
+
+    # Para cargar el formulario
+    context = {
+        'metodos': MetodoPago.objects.filter(empresa=request.user.sucursal.fk_empresa, estado=True),
+        'planes': Plan.objects.filter(fk_empresa=request.user.sucursal.fk_empresa, estado=True),
+    }
+    return render(request, 'pagos/pago_form.html', context)
+
+@login_required
+def pago_edit(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        p = get_object_or_404(Pago, pk=id)
+        p.fecha_hora_pago = request.POST.get('fecha_hora_pago')
+        p.fecha_hora_inicio = request.POST.get('fecha_hora_inicio')
+        p.descripcion = request.POST.get('descripcion')
+        p.descuento = request.POST.get('descuento') or p.descuento
+        p.total = request.POST.get('total') or p.total
+        p.deuda = request.POST.get('deuda') or p.deuda
+        p.fk_cliente_id = request.POST.get('fk_cliente') or p.fk_cliente_id
+        p.fk_usuario_id = request.POST.get('fk_usuario') or p.fk_usuario_id
+        p.save()
+        messages.success(request, 'Pago actualizado correctamente.')
+        return redirect('pago_list')
+    else:
+        id = request.GET.get('id')
+        p = get_object_or_404(Pago, pk=id)
+        clientes = Cliente.objects.filter(estado=True)
+        usuarios = Usuario.objects.filter(is_active=True)
+        return render(request, 'pago/edit.html', {'pago': p, 'clientes': clientes, 'usuarios': usuarios})
+
+@login_required
+def pago_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        p = get_object_or_404(Pago, pk=id)
+        p.estado = False
+        p.save()
+        messages.success(request, 'Pago desactivado correctamente.')
+    return redirect('pago_list')
+
+
+# ====================================================
+#  ASISTENCIA
+# ====================================================
+@login_required
+def asistencia_list(request):
+    asistencias = Asistencia.objects.select_related('fk_cliente', 'fk_usuario', 'fk_sucursal').all().order_by('-fecha_creacion')
+    return render(request, 'asistencia/list.html', {'asistencias': asistencias})
+
+@login_required
+def asistencia_create(request):
+    clientes = Cliente.objects.filter(estado=True)
+    usuarios = Usuario.objects.filter(is_active=True)
+    sucursales = Sucursal.objects.filter(estado=True)
+    if request.method == 'POST':
+        fecha_hora = request.POST.get('fecha_hora')
+        fk_cliente = request.POST.get('fk_cliente')
+        fk_usuario = request.POST.get('fk_usuario') or None
+        fk_sucursal = request.POST.get('fk_sucursal')
+        Asistencia.objects.create(fecha_hora=fecha_hora, fk_cliente_id=fk_cliente, fk_usuario_id=fk_usuario, fk_sucursal_id=fk_sucursal)
+        messages.success(request, 'Asistencia registrada correctamente.')
+        return redirect('asistencia_list')
+    return render(request, 'asistencia/create.html', {'clientes': clientes, 'usuarios': usuarios, 'sucursales': sucursales})
+
+@login_required
+def asistencia_edit(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        a = get_object_or_404(Asistencia, pk=id)
+        a.fecha_hora = request.POST.get('fecha_hora') or a.fecha_hora
+        a.fk_cliente_id = request.POST.get('fk_cliente') or a.fk_cliente_id
+        a.fk_usuario_id = request.POST.get('fk_usuario') or a.fk_usuario_id
+        a.fk_sucursal_id = request.POST.get('fk_sucursal') or a.fk_sucursal_id
+        a.save()
+        messages.success(request, 'Asistencia actualizada correctamente.')
+        return redirect('asistencia_list')
+    else:
+        id = request.GET.get('id')
+        a = get_object_or_404(Asistencia, pk=id)
+        clientes = Cliente.objects.filter(estado=True)
+        usuarios = Usuario.objects.filter(is_active=True)
+        sucursales = Sucursal.objects.filter(estado=True)
+        return render(request, 'asistencia/edit.html', {'asistencia': a, 'clientes': clientes, 'usuarios': usuarios, 'sucursales': sucursales})
+
+@login_required
+def asistencia_delete(request):
+    if request.method == 'POST':
+        id = request.POST.get('id')
+        a = get_object_or_404(Asistencia, pk=id)
+        a.estado = False
+        a.save()
+        messages.success(request, 'Asistencia desactivada correctamente.')
+    return redirect('asistencia_list')
+
+
+# ====================================================
+#  METODO DE PAGO
+# ====================================================
+
+@login_required
+@permiso_requerido('metodos_pago', 'ver')
+def metodopago_list(request):
+    empresa_user = request.user.sucursal.fk_empresa
+    # Solo vemos los métodos de MI empresa
+    metodos = MetodoPago.objects.filter(
+        empresa=empresa_user, 
+        estado=True
+    ).order_by('nombre')
+    
+    return render(request, 'membresia/lista_metodos.html', {'metodos': metodos})
+
+@login_required
+@permiso_requerido('metodos_pago', 'crear')
+def metodopago_create(request):
+    empresa = request.user.sucursal.fk_empresa
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre', '').strip()
+        descripcion = request.POST.get('descripcion', '').strip()
+
+        if not nombre:
+            messages.error(request, 'El nombre del método de pago es obligatorio.')
+            return redirect('metodopago_list')
+
+        # VALIDACIÓN DE REPETIDOS (Ignora mayúsculas/minúsculas)
+        if MetodoPago.objects.filter(nombre__iexact=nombre, estado=True, empresa=empresa).exists():
+            messages.error(request, f'El método de pago "{nombre}" ya existe.')
+            return redirect('metodopago_list')
+
+        MetodoPago.objects.create(
+            nombre=nombre,
+            descripcion=descripcion,
+            empresa=empresa 
+        )
+        messages.success(request, 'Método de pago creado correctamente.')
+    return redirect('metodopago_list')
+
+@login_required
+@permiso_requerido('metodos_pago', 'editar')
+def metodopago_edit(request):
+    empresa_user = request.user.sucursal.fk_empresa
+    if request.method == 'POST':
+        id_metodo = request.POST.get('id')
+        metodo_obj = get_object_or_404(MetodoPago, pk=id_metodo)
+        
+        nombre = request.POST.get('nombre', '').strip()
+        
+        # VALIDACIÓN DE REPETIDOS (Excluyendo al mismo que estamos editando)
+        if MetodoPago.objects.filter(nombre__iexact=nombre, estado=True, empresa=empresa_user).exclude(id=metodo_obj.id).exists():
+            messages.error(request, f'Ya existe otro método de pago con el nombre "{nombre}".')
+            return redirect('metodopago_list')
+
+        metodo_obj.nombre = nombre
+        metodo_obj.descripcion = request.POST.get('descripcion', '').strip()
+        metodo_obj.empresa = empresa_user
+        metodo_obj.save()
+        
+        messages.success(request, 'Método de pago actualizado.')
+    return redirect('metodopago_list')
+
+@login_required
+@permiso_requerido('metodos_pago', 'eliminar')
+@transaction.atomic
+def metodopago_delete(request):
+    if request.method == 'POST':
+        empresa_user = request.user.sucursal.fk_empresa
+
+        id = request.POST.get('id')
+        metodo = get_object_or_404(MetodoPago, pk=id, empresa=empresa_user)
+        metodo.estado = False
+        metodo.save()
+        
+        messages.success(request, 'Método de pago eliminado correctamente.')
+    return redirect('metodopago_list')

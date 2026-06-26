@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<meta charset="utf-8">
+
+<title>{{ titulo }}</title>
+
+<style>
+
+body{
+    font-family:Arial,sans-serif;
+    margin:20px;
+}
+
+.container{
+    width:100%;
+}
+
+@media print{
+
+    @page{
+        size:A4;
+        margin:10mm;
+    }
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+{% block content %}
+{% endblock %}
+
+<script>
+window.onload=function(){
+    window.print();
+}
+</script>
+
+</body>
+</html>

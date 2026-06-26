@@ -1,0 +1,192 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redrex - Login</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        /* Fondo: deja tu imagen */
+        body {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: url("{% static 'img/fondo.png' %}") no-repeat center center fixed;
+            background-size: cover;
+            color: #ffffff48;
+            overflow: hidden;
+        }
+
+        /* Contenedor login */
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 2rem;
+        }
+
+        /* Card futurista */
+        .login-card {
+            background: rgba(246, 246, 246, 0.87);
+            border: 1px solid rgba(5,46,106,0.2);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 20px rgba(5,46,106,0.15);
+            animation: fadeIn 1.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Logo */
+        .login-card img {
+            width: 250px;
+            margin-bottom: 1rem;
+            transition: transform 0.3s ease;
+        }
+
+        .login-card img:hover {
+            transform: scale(1.1) rotate(-5deg);
+        }
+
+        /* Texto de bienvenida */
+        .login-card p {
+            color: #aaa;
+            margin-bottom: 2rem;
+        }
+
+        /* Input group con label flotante */
+        .input-group {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: none;
+            border-bottom: 2px solid #aaa;
+            background: transparent;
+            color: #1e1c1cff;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .input-group label {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #aaa;
+            pointer-events: none;
+            transition: 0.3s ease;
+        }
+
+        .input-group input:focus,
+        .input-group input:valid {
+            border-bottom-color: #10b981;
+        }
+
+        .input-group input:focus + label,
+        .input-group input:valid + label {
+            top: -8px;
+            font-size: 0.8rem;
+            color: #052e6a;
+        }
+
+        /* Botón futurista */
+        .btn-login {
+            width: 100%;
+            padding: 0.9rem;
+            border: none;
+            border-radius: 2rem;
+            background: #10b981;
+            color: #fff;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(5,46,106,0.6);
+        }
+
+        .btn-login:hover {
+            background: #0d9c6c;
+            box-shadow: 0 0 25px rgba(30,144,255,0.9), 0 0 50px rgba(30,144,255,0.5);
+            transform: translateY(-2px);
+        }
+
+        /* Mensajes flotantes */
+        #messages-container {
+            margin-bottom: 1rem;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Footer */
+        .login-footer {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        .login-footer a {
+            color: #10b981;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container login-card">
+        <img src="{% static 'img/logoredrexx.png' %}" alt="Logo">
+        <p><b>Bienvenido, inicia sesión en tu cuenta</b></p>
+        <form method="POST" action="# 'login' %}">
+            {% csrf_token %}
+            {% if messages %}
+            <div id="messages-container">
+                {% for message in messages %}
+                    <div class="error-message">{{ message }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="input-group">
+                <input type="text" name="username" required value="{{ request.POST.username }}">
+                <label>Usuario</label>
+            </div>
+
+            <div class="input-group">
+                <input type="password" name="password" required>
+                <label>Contraseña</label>
+            </div>
+
+            <button type="submit" class="btn-login">Iniciar sesión</button>
+        </form>
+
+        <div class="login-footer">
+            ¿Olvidaste tu contraseña? <a href="#">Recuperar</a>
+        </div>
+    </div>
+
+<script>
+  // Mensajes automáticos
+  setTimeout(() => {
+    const messages = document.getElementById('messages-container');
+    if (messages) {
+      messages.style.transition = "opacity 0.5s ease";
+      messages.style.opacity = 0;
+      setTimeout(() => messages.remove(), 500);
+    }
+  }, 3000);
+</script>
+</body>
+</html>

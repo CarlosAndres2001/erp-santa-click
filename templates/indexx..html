@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>REDREX — Software de Gestión</title>
+
+  <!-- Fuentes -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Poppins:wght@600;700;800&display=swap" rel="stylesheet">
+
+  <!-- AOS para scroll animations -->
+  <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
+
+  <!-- Lottie -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.10.1/lottie.min.js"></script>
+
+  <style>
+    /* ===========================
+       PALETA (exacta que pediste)
+       =========================== */
+    :root{
+      /* Tema Dark */
+      --bg-dark: #1E3050;       /* fondo principal dark (Blue Zodiac) */
+      --text-dark: #FFFFFF;
+      --btn-dark: #2D3748;      /* botón gris oscuro */
+      --btn-dark-hover: #4A5568;
+      --glow-dark: rgba(58,74,107,0.55);
+
+      /* Tema Light */
+      --bg-light: #FFFFFF;
+      --text-light: #111111;
+      --btn-light: #20C997;     /* turquesa / verde agua */
+      --btn-light-hover: #17A589;
+      --glow-light: rgba(47,201,151,0.30);
+
+      /* misc */
+      --container-w: 1200px;
+      --radius: 14px;
+      --accent-shadow: 0 12px 30px rgba(12,18,30,0.18);
+    }
+
+    /* ===========================
+       BASE
+       =========================== */
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family:Inter, Poppins, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+      background:var(--bg-dark);
+      color:var(--text-dark);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      transition: background .35s ease, color .35s ease;
+      line-height:1.5;
+    }
+    .container{width:90%;max-width:var(--container-w);margin:0 auto}
+    a{color:inherit;text-decoration:none}
+    h1,h2,h3{margin:0 0 .5rem 0; font-weight:700; letter-spacing:.2px}
+
+    /* ===========================
+       THEME CLASS (light)
+       =========================== */
+    body.light{background:var(--bg-light); color:var(--text-light)}
+
+    /* ===========================
+       NAV
+       =========================== */
+    header.nav{
+      position:fixed;top:0;left:0;right:0;z-index:80;
+      display:flex;align-items:center;justify-content:space-between;
+      padding:14px 4%;backdrop-filter:blur(6px);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));
+    }
+    .brand{
+      font-family:Poppins, Inter; font-weight:800; font-size:1.05rem;
+      display:flex;align-items:center;gap:10px;
+    }
+    /* logo text stylized */
+    .brand .logo-dot{
+      width:12px;height:12px;border-radius:3px;background:#FF3B30;box-shadow:0 4px 10px rgba(255,59,48,0.18);
+    }
+    nav.main{display:flex;gap:18px;align-items:center;font-weight:600}
+    nav.main a{opacity:0.92}
+
+    /* theme toggle */
+    .theme-toggle{
+      border-radius:999px;padding:8px 12px;border:2px solid currentColor;background:transparent;cursor:pointer;
+      font-weight:600;
+    }
+
+    /* ===========================
+       HERO (parallax bg + animated shapes)
+       =========================== */
+    .hero{
+      position:relative;
+      min-height:calc(100vh - 72px);
+      display:flex;align-items:center;padding-top:72px;padding-bottom:60px;
+      overflow:hidden;
+    }
+    .hero__bg{
+      position:absolute;inset:0;z-index:0;
+      background-image: url('fondo.jpg'); /* reemplazá por tu imagen */
+      background-size:cover;background-position:center;
+      transform: translateZ(0);
+      transition: transform .2s linear;
+      filter: contrast(.98) saturate(.95) brightness(.95);
+    }
+    /* sutil overlay para contraste */
+    .hero__overlay{position:absolute;inset:0;background:linear-gradient(180deg, rgba(0,0,0,0.28), rgba(0,0,0,0.42));z-index:1;pointer-events:none}
+
+    /* animated abstract shapes (subtle, not loud) */
+    .hero::before, .hero::after{
+      content:"";position:absolute;border-radius:50%;z-index:0;pointer-events:none;opacity:.24;
+      mix-blend-mode:screen;
+      transition:opacity .35s ease;
+    }
+    .hero::before{width:520px;height:520px;right:-120px;top:-80px;background:radial-gradient(circle,#ff8a5b,transparent)}
+    .hero::after{width:640px;height:640px;left:-160px;bottom:-160px;background:radial-gradient(circle,#6ce2c5,transparent)}
+
+    .hero .content{position:relative;z-index:2;padding:80px 0}
+    .hero h1{font-size:clamp(28px,4.8vw,56px);line-height:1.02;margin-bottom:12px}
+    .hero p{font-size:1.05rem;color:rgba(255,255,255,0.92);max-width:720px;margin-bottom:18px}
+    body.light .hero p{color:rgba(17,17,17,0.9)}
+
+    .ctas{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px}
+    .btn{
+      display:inline-flex;align-items:center;gap:10px;border-radius:999px;padding:12px 20px;font-weight:800;
+      transition:transform .18s ease,box-shadow .18s ease,background .18s ease;
+    }
+
+    /* primary / secondary colors (strict to your palette) */
+    body:not(.light) .btn-primary{background:var(--btn-dark);color:var(--text-dark);box-shadow:0 12px 30px rgba(12,18,30,0.28)}
+    body:not(.light) .btn-primary:hover{background:var(--btn-dark-hover);transform:translateY(-4px)}
+    body.light .btn-primary{background:var(--btn-light);color:#fff;box-shadow:0 12px 30px rgba(32,201,151,0.12)}
+    body.light .btn-primary:hover{background:var(--btn-light-hover);transform:translateY(-4px)}
+
+    .btn-ghost{background:transparent;border:2px solid currentColor;padding:10px 18px;border-radius:999px}
+
+    /* ===========================
+       FEATURES (cards grid) + glow
+       =========================== */
+    .features{padding:85px 0}
+    .cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:28px;align-items:stretch}
+
+    .card{
+      position:relative;padding:28px;border-radius:var(--radius);min-height:280px;
+      display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:14px;
+      overflow:visible;z-index:1;backdrop-filter: blur(2px);
+      transition: transform .32s cubic-bezier(.2,.9,.2,1), box-shadow .32s, opacity .28s;
+      box-shadow: 0 8px 30px rgba(6,10,20,0.12);
+    }
+
+    /* background gradients strictly from palette */
+    body:not(.light) .card{background: linear-gradient(135deg, #1E3050 0%, #2D3748 100%); color:var(--text-dark)}
+    body.light .card{background: linear-gradient(135deg, #f6fffb 0%, #dff7ea 100%); color:var(--text-light)}
+
+    /* glow halo behind card (pulsing) */
+    .card::before{
+      content:"";position:absolute;left:50%;top:38%;
+      width:240%;height:200%;transform:translate(-50%,-50%);z-index:0;pointer-events:none;
+      filter: blur(120px);opacity:.95;transition:filter .4s ease, opacity .3s ease;
+      animation: pulseGlow 3.6s ease-in-out infinite;
+    }
+    @keyframes pulseGlow{
+      0%{filter:blur(100px);opacity:.75}
+      50%{filter:blur(140px);opacity:1}
+      100%{filter:blur(100px);opacity:.75}
+    }
+    body:not(.light) .card::before{background:radial-gradient(circle, var(--glow-dark) 0%, transparent 36%)}
+    body.light .card::before{background:radial-gradient(circle, var(--glow-light) 0%, transparent 36%)}
+
+    .card:hover{transform:translateY(-10px);box-shadow:var(--accent-shadow)}
+    .card > *{position:relative;z-index:2}
+
+    /* Lottie container */
+    .card-animation{width:140px;height:140px;margin:6px auto 8px;display:block}
+
+    /* title and text within card */
+    .card h3{font-size:1.05rem;margin-top:4px}
+    .card p{font-size:.95rem;opacity:.92;max-width:320px}
+
+    /* ===========================
+       PRICING
+       =========================== */
+    .pricing{padding:70px 0}
+    .price-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:20px}
+    .price-card{padding:26px;border-radius:12px;min-height:260px;display:flex;flex-direction:column;align-items:center;gap:14px}
+    body:not(.light) .price-card{background:linear-gradient(180deg,#162639,#243a50);color:var(--text-dark)}
+    body.light .price-card{background:linear-gradient(180deg,#f1fff7,#dff7ea);color:var(--text-light)}
+    .price{background:#131212;padding:10px 18px;border-radius:999px;font-weight:800;color:inherit;box-shadow:0 8px 20px rgba(0,0,0,0.06)}
+
+    /* ===========================
+       CONTACT + FOOTER
+       =========================== */
+    section#contact{padding:60px 0}
+    form input, form textarea{
+      width:100%;padding:12px;border-radius:8px;border:1px solid rgba(0,0,0,0.06);font-size:1rem;
+      background:transparent;color:inherit;
+    }
+    body.light form input, body.light form textarea{border:1px solid rgba(0,0,0,0.08)}
+    footer{padding:28px 0;text-align:center;opacity:.9}
+
+    /* ===========================
+       RESPONSIVE tweaks
+       =========================== */
+    @media (max-width:880px){
+      .hero{padding-top:90px;padding-bottom:40px}
+      header.nav{padding:10px 4%}
+    }
+    @media (max-width:520px){
+      .hero h1{font-size:28px}
+      .card{padding:18px;min-height:200px}
+      .card-animation{width:110px;height:110px}
+    }
+  </style>
+</head>
+<body class="dark">
+
+  <!-- NAV -->
+  <header class="nav">
+    <div class="container" style="display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="brand">
+          <span class="logo-dot" aria-hidden="true"></span>
+          <span style="font-family:Poppins, Inter;font-weight:800">REDREX</span>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:20px;align-items:center">
+        <nav class="main" aria-label="main navigation">
+          <a href="#features">Productos</a>
+          <a href="#precios">Precios</a>
+          <a href="#contact">Contacto</a>
+        </nav>
+        <button id="themeToggle" class="theme-toggle" aria-pressed="false">🌙 Dark</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <main>
+    <section class="hero" aria-label="hero">
+      <div class="hero__bg" id="heroBg"></div>
+      <div class="hero__overlay"></div>
+
+      <div class="container content" data-aos="fade-up">
+        <h1>REDREX — Control total para gimnasios y negocios.</h1>
+        <p>Administrá clientes, pagos y asistencia con una experiencia rápida, segura y diseñada para crecer con vos.</p>
+
+        <div class="ctas" role="group" aria-label="Call to actions">
+          <button class="btn btn-primary" onclick="location.href='#precios'">Probar gratis 7 días</button>
+          <a class="btn btn-ghost" href="#demo">Ver demo</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section id="features" class="features container" data-aos="fade-up">
+      <h2 style="text-align:center;margin-bottom:18px">Por qué REDREX</h2>
+
+      <div class="cards-grid">
+        <article class="card" data-aos="zoom-in" data-aos-delay="80">
+          <div class="card-animation" id="lottie-gestion" aria-hidden="true"></div>
+          <h3>Gestión completa</h3>
+          <p>Panel central con reportes, facturación y control de membresías en un solo lugar.</p>
+        </article>
+
+        <article class="card" data-aos="zoom-in" data-aos-delay="160">
+          <div class="card-animation" id="lottie-notif" aria-hidden="true"></div>
+          <h3>Notificaciones automáticas</h3>
+          <p>Recordatorios y alertas push/wa/ sms para mantener a tus clientes activos.</p>
+        </article>
+
+        <article class="card" data-aos="zoom-in" data-aos-delay="240">
+          <div class="card-animation" id="lottie-acceso" aria-hidden="true"></div>
+          <h3>Acceso multi dispositivo</h3>
+          <p>App web y móvil, sincronización en tiempo real y control por roles.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- PRICING -->
+    <section id="precios" class="pricing container" data-aos="fade-up">
+      <h2 style="text-align:center;margin-bottom:20px">Planes simples</h2>
+      <div class="price-grid">
+        <div class="price-card">
+          <h3>Básico</h3>
+          <div class="price">BOB 240</div>
+          <p>Hasta 100 clientes</p>
+          <button class="btn btn-primary">Probar gratis</button>
+        </div>
+
+        <div class="price-card">
+          <h3>Pro</h3>
+          <div class="price">BOB 290</div>
+          <p>Hasta 500 clientes</p>
+          <button class="btn btn-primary">Probar gratis</button>
+        </div>
+
+        <div class="price-card">
+          <h3>Enterprise</h3>
+          <div class="price">BOB 350</div>
+          <p>+500 clientes</p>
+          <button class="btn btn-primary">Contactar</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTACT -->
+    <section id="contact" class="container" data-aos="fade-up" style="padding-bottom:80px">
+      <h2 style="text-align:center;margin-bottom:18px">Contacto</h2>
+      <div style="display:grid;grid-template-columns:1fr 320px;gap:28px;align-items:start">
+        <div>
+          <p>¿Querés una demo personalizada? Dejá tu contacto y te escribimos.</p>
+          <form id="contactForm" style="display:flex;flex-direction:column;gap:12px">
+            <input name="name" placeholder="Nombre" required />
+            <input name="email" placeholder="Email" type="email" required />
+            <textarea name="message" placeholder="Mensaje" rows="4"></textarea>
+            <button type="submit" class="btn btn-primary">Enviar</button>
+          </form>
+        </div>
+
+        <aside style="background:rgba(255,255,255,0.02);padding:18px;border-radius:12px;">
+          <strong>Soporte:</strong><p>+591 · 700 000 000</p>
+          <strong>Oficina:</strong><p>Santa Cruz, Bolivia</p>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container" style="padding:18px 0;text-align:center">
+      <small>© 2025 REDREX — Todos los derechos reservados</small>
+    </div>
+  </footer>
+
+  <!-- SCRIPTS -->
+  <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
+
+  <script>
+    // Inicia AOS
+    AOS.init({ duration:900, once:true });
+
+    // Parallax hero bg (subtle)
+    const heroBg = document.getElementById('heroBg');
+    window.addEventListener('scroll', () => {
+      const sc = window.scrollY;
+      if(heroBg) heroBg.style.transform = `translateY(${sc * 0.12}px) scale(${1 + Math.min(sc/8000, 0.015)})`;
+    }, { passive: true });
+
+    // Theme toggle logic (REDREX palette enforced)
+    const btnTheme = document.getElementById('themeToggle');
+    const body = document.body;
+    btnTheme.addEventListener('click', () => {
+      if(body.classList.contains('dark')){
+        body.classList.replace('dark','light');
+        btnTheme.textContent = '☀️ Light';
+        btnTheme.setAttribute('aria-pressed','true');
+      } else {
+        body.classList.replace('light','dark');
+        btnTheme.textContent = '🌙 Dark';
+        btnTheme.setAttribute('aria-pressed','false');
+      }
+      recolorAllLotties();
+    });
+
+    // ========== LOTTIE: carga animaciones (REEMPLAZAR paths con tus JSON) ==========
+    // Bájate animaciones profesionales en LottieFiles (mobile notification, analytics/dashboard, devices)
+    // Nómbralas: 'gestion.json', 'notificaciones.json', 'acceso.json' y ponlas en la misma carpeta.
+    const lotties = {};
+    function loadLottie(id, path){
+      const anim = lottie.loadAnimation({
+        container: document.getElementById(id),
+        renderer: 'svg',
+        loop: true,
+        autoplay: true,
+        path
+      });
+      lotties[id] = anim;
+      anim.addEventListener('DOMLoaded', () => recolorLottie(anim) );
+      return anim;
+    }
+
+    // Si no tenés los json locales, podés usar links públicos de LottieFiles (pero recomendable bajarlos y servir localmente).
+    loadLottie('lottie-gestion','gestion.json');
+    loadLottie('lottie-notif','notificaciones.json');
+    loadLottie('lottie-acceso','acceso.json');
+
+    // Recolor: aplica colores a fills/strokes en SVG Lottie para adaptar al tema
+    function recolorLottie(anim){
+      try{
+        if(!anim || !anim.renderer || !anim.renderer.svgElement) return;
+        const svgRoot = anim.renderer.svgElement;
+        const isLight = body.classList.contains('light');
+
+        // paleta según theme (usamos variables definidas en :root)
+        const rootStyle = getComputedStyle(document.documentElement);
+        const accent = isLight ? rootStyle.getPropertyValue('--btn-light').trim() : rootStyle.getPropertyValue('--btn-dark').trim();
+        const main = isLight ? rootStyle.getPropertyValue('--text-light').trim() : rootStyle.getPropertyValue('--text-dark').trim();
+
+        // cambiar fills/strokes heurísticamente
+        const els = svgRoot.querySelectorAll('path, circle, rect, ellipse, polygon, line, polyline');
+        els.forEach(el => {
+          // solo si tiene atributo fill/stroke válido
+          const fill = el.getAttribute('fill');
+          const stroke = el.getAttribute('stroke');
+
+          try{
+            if(fill && fill !== 'none' && !fill.includes('rgba(0,0,0,0)') && !fill.includes('url(')){
+              // elementos grandes suelen ser relleno principal -> accent
+              el.setAttribute('fill', accent);
+            }
+            if(stroke && stroke !== 'none' && !stroke.includes('url(')){
+              el.setAttribute('stroke', main);
+            }
+            // para casos donde el elemento no tenga atributos explícitos, forzamos estilo
+            el.style.transition = 'fill .25s ease, stroke .25s ease';
+          }catch(e){}
+        });
+      }catch(e){}
+    }
+
+    function recolorAllLotties(){
+      Object.values(lotties).forEach(anim => recolorLottie(anim));
+    }
+
+    // recolor inicial después de cargar (algunos lotties tardan)
+    window.addEventListener('load', () => setTimeout(recolorAllLotties, 600));
+  </script>
+</body>
+</html>

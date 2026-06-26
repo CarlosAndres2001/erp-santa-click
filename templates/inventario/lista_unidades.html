@@ -1,0 +1,196 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h2>
+        <i class="bi bi-rulers me-2 text-primary"></i> Unidades de Medida
+    </h2>
+
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#createUnidadModal">
+        <i class="bi bi-plus-lg"></i> Nueva Unidad
+    </button>
+
+    <table class="table table-bordered table-striped align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th><i class="bi bi-tag-fill"></i> Nombre</th>
+                <th><i class="bi bi-award-fill"></i> Abreviatura</th>
+                <th><i class="bi bi-calendar-event-fill"></i> Fecha de Creación</th>
+                <th class="text-center"><i class="bi bi-gear-fill"></i> Acciones</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for u in unidades %}
+            <tr>
+                <td><i class="bi bi-rulers me-1 text-primary"></i> {{ u.nombre }}</td>
+                <td><i class="bi bi-type me-1 text-secondary"></i> {{ u.abreviatura }}</td>
+                <td><i class="bi bi-calendar2-event me-1"></i> {{ u.created_at|date:"d/m/Y H:i" }}</td>
+
+                <td class="text-center">
+                    <button class="btn btn-sm btn-warning"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editUnidadModal"
+                        data-id="{{ u.id }}"
+                        data-nombre="{{ u.nombre }}"
+                        data-abreviatura="{{ u.abreviatura }}">
+                        <i class="bi bi-pencil-fill"></i>   
+                    </button>
+
+                    <button class="btn btn-sm btn-danger"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteUnidadModal"
+                        data-id="{{ u.id }}"
+                        data-nombre="{{ u.nombre }}">
+                        <i class="bi bi-trash-fill"></i>    
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" class="text-center">
+                    <i class="bi bi-exclamation-circle text-warning"></i> No hay unidades registradas.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+
+    </table>
+
+</div>
+
+
+<!-- CREATE MODAL -->
+<div class="modal fade" id="createUnidadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'unidadmedida_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="bi bi-plus-circle me-2"></i> Nueva Unidad
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="nombre_create" class="form-label"><i class="bi bi-tag-fill me-1"></i> Nombre</label>
+                        <input id="nombre_create" class="form-control" name="nombre" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="abreviatura_create" class="form-label"><i class="bi bi-award-fill me-1"></i> Abreviatura</label>
+                        <input id="abreviatura_create" class="form-control" name="abreviatura" required>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-success"><i class="bi bi-check-lg"></i> Crear</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- EDIT MODAL -->
+<div class="modal fade" id="editUnidadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'unidadmedida_edit' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="edit_id">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="bi bi-pencil-square me-2"></i> Editar Unidad
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_nombre" class="form-label"><i class="bi bi-tag-fill me-1"></i> Nombre</label>
+                        <input id="edit_nombre" class="form-control" name="nombre" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="edit_abreviatura" class="form-label"><i class="bi bi-award-fill me-1"></i> Abreviatura</label>
+                        <input id="edit_abreviatura" class="form-control" name="abreviatura" required>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-primary"><i class="bi bi-pencil-fill"></i> Actualizar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
+                </div>
+
+            </div>
+
+        </form>
+    </div>
+</div>
+
+
+<!-- DELETE MODAL -->
+<div class="modal fade" id="deleteUnidadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'unidadmedida_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="delete_id">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h3 class="modal-title text-danger">
+                        <i class="bi bi-trash-fill me-2"></i> Eliminar Unidad
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p>¿Deseas eliminar la unidad <strong id="delete_nombre"></strong>?</p>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-danger"><i class="bi bi-trash-fill"></i> Eliminar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
+                </div>
+
+            </div>
+
+        </form>
+    </div>
+</div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    var editModal = document.getElementById('editUnidadModal');
+    editModal.addEventListener('show.bs.modal', function (event) {
+        var b = event.relatedTarget;
+        document.getElementById('edit_id').value = b.getAttribute('data-id');
+        document.getElementById('edit_nombre').value = b.getAttribute('data-nombre');
+        document.getElementById('edit_abreviatura').value = b.getAttribute('data-abreviatura');
+    });
+
+    var deleteModal = document.getElementById('deleteUnidadModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        var b = event.relatedTarget;
+        document.getElementById('delete_id').value = b.getAttribute('data-id');
+        document.getElementById('delete_nombre').textContent = b.getAttribute('data-nombre');
+    });
+
+});
+</script>
+
+{% endblock %}

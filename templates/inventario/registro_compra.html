@@ -1,0 +1,375 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+
+<style>
+.card-custom {
+    background: #ffffff;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+.product-block {
+    border: 1px solid #dee2e6;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    background-color: #f8f9fa;
+}
+.autocomplete-list {
+    position: absolute;
+    background: #fff;
+    border: 1px solid #ced4da;
+    z-index: 1000;
+    max-height: 150px;
+    overflow-y: auto;
+    width: 100%;
+}
+.autocomplete-item {
+    padding: 5px 10px;
+    cursor: pointer;
+}
+.autocomplete-item:hover {
+    background-color: #e9ecef;
+}
+.remove-btn i {
+    font-size: 1.6em;
+    color: red;
+    cursor: pointer;
+}
+</style>
+
+
+<div class="container mt-4">
+
+    <div class="card card-custom">
+
+        <h3 class="mb-4">Registrar Compra</h3>
+
+        <form method="POST" id="compraForm">
+            {% csrf_token %}
+
+            <!-- CABECERA -->
+            <div class="row mb-3">
+
+                <div class="col-md-3">
+                    <label class="form-label">Sucursal</label>
+                    <select id="sucursal_select" name="sucursal" class="form-select" required>
+                        <option value="">Seleccione...</option>
+                        {% for suc in sucursales %}
+                        <option value="{{ suc.id }}">{{ suc.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Almacén</label>
+                    <select id="almacen_select" name="almacen" class="form-select" required>
+                        <option value="">-- Seleccione almacén --</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Proveedor</label>
+                    <select name="proveedor" class="form-select">
+                        <option value="">Seleccione...</option>
+                        {% for prov in proveedores %}
+                        <option value="{{ prov.id }}">{{ prov.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Fecha</label>
+                    <input type="date" name="fecha" class="form-control" value="{{ fecha_actual }}" required>
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Observaciones</label>
+                    <input type="text" name="observaciones" class="form-control">
+                </div>
+
+            </div>
+
+            <hr>
+
+            <!-- DETALLES -->
+            <h5 class="mb-3">Detalles de Compra</h5>
+
+            <div id="productos-container"></div>
+
+            <!-- FOOTER DE ACCIONES Y TOTAL -->
+            <div class="row align-items-center mt-4">
+                <input type="hidden" id="total" name="total" value="0">
+                <!-- BOTÓN AGREGAR PRODUCTO -->
+                <div class="col-md-4">
+                    <button type="button" id="agregarProductoBtn" class="btn btn-outline-primary">
+                        <i class="bi bi-plus-circle"></i> Agregar Producto
+                    </button>
+                </div>
+
+                <!-- ESPACIO CENTRAL -->
+                <div class="col-md-4"></div>
+
+                <!-- TOTAL + BOTON GUARDAR -->
+                <div class="col-md-4 text-end">
+
+                    <label class="fw-bold" style="font-size: 1.4rem;">TOTAL: 
+                        <span id="totalLabel" class="text-success">0.00</span> Bs
+                    </label>
+
+                    <!-- BOTÓN GUARDAR (abre modal) -->
+                    <button type="button" class="btn btn-success ms-3" data-bs-toggle="modal" data-bs-target="#confirmModal">
+                        <i class="bi bi-check-circle-fill"></i> Guardar
+                    </button>
+
+                </div>
+            </div>
+
+
+            <!-- MODAL DE CONFIRMACIÓN -->
+            <div class="modal fade" id="confirmModal" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirmar Registro</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p class="mb-0">¿Estás seguro de que deseas registrar esta compra?</p>
+                    <p class="text-muted">Revisa bien los productos y cantidades antes de continuar.</p>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+
+                    <button type="button" class="btn btn-success" id="confirmarGuardarBtn">
+                        Sí, registrar
+                    </button>
+                </div>
+
+                </div>
+            </div>
+            </div>
+
+        </form>
+
+    </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const sucursalSelect = document.getElementById('sucursal_select');
+    const almacenSelect = document.getElementById('almacen_select');
+
+    sucursalSelect.addEventListener('change', function () {
+        const sucursalId = this.value;
+
+        // Limpiar almacenes
+        almacenSelect.innerHTML = '<option value="">-- Seleccione almacén --</option>';
+
+        if (!sucursalId) return;
+
+        fetch(`/ajax/almacenes-por-sucursal/?sucursal=${sucursalId}`)
+            .then(response => response.json())
+            .then(data => {
+                data.almacenes.forEach(almacen => {
+                    const option = document.createElement('option');
+                    option.value = almacen.id;
+                    option.textContent = almacen.nombre;
+                    almacenSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error cargando almacenes:', error);
+            });
+    });
+});
+</script>
+
+
+<script>
+const productosData = [
+    {% for p in productos %}
+    {id: {{ p.id }}, nombre: "{{ p.nombre }}", codigo: "{{ p.codigo|default:'' }}"},
+    {% endfor %}
+];
+
+let cont = document.getElementById('productos-container');
+let btnAdd = document.getElementById('agregarProductoBtn');
+let totalInput = document.getElementById('total');
+
+
+function crearProductoBlock() {
+    let block = document.createElement('div');
+    block.classList.add('product-block');
+
+    block.innerHTML = `
+        <div class="row position-relative">
+
+            <!-- CÓDIGO -->
+            <div class="col-md-2">
+                <label class="form-label">Código</label>
+                <input type="text" class="form-control input-codigo" placeholder="Código..." autocomplete="off">
+                <div class="autocomplete-list"></div>
+            </div>
+
+            <!-- NOMBRE -->
+            <div class="col-md-3">
+                <label class="form-label">Nombre</label>
+                <input type="text" class="form-control input-nombre" placeholder="Nombre..." autocomplete="off">
+                <div class="autocomplete-list"></div>
+                <input type="hidden" name="producto[]">
+            </div>
+
+            <!-- CANT -->
+            <div class="col-md-2">
+                <label class="form-label">Cantidad</label>
+                <input type="number" name="cantidad[]" class="form-control input-cant"
+                       min="0.01" step="0.01" value="1" required>
+            </div>
+
+            <!-- PRECIO -->
+            <div class="col-md-2">
+                <label class="form-label">Precio Compra</label>
+                <input type="number" name="precio[]" class="form-control input-precio"
+                       min="0.01" step="0.01" value="0" required>
+            </div>
+
+            <!-- SUBTOTAL -->
+            <div class="col-md-2">
+                <label class="form-label">Subt.</label>
+                <input type="text" name="subtotal[]" class="form-control input-sub" value="0" readonly>
+            </div>
+
+            <!-- ELIMINAR -->
+            <div class="col-md-1 d-flex align-items-end justify-content-center remove-btn">
+                <i class="bi bi-trash3-fill"></i>
+            </div>
+
+        </div>
+    `;
+
+    // Eliminar fila (validando mínimo 1)
+    block.querySelector('.remove-btn').onclick = () => {
+        if (document.querySelectorAll('.product-block').length === 1) {
+            alert("Debe existir al menos un producto.");
+            return;
+        }
+        block.remove();
+        calcularTotal();
+    };
+
+    // Autocomplete nombre y código
+    configurarAutocomplete(block);
+
+    // Cálculos
+    block.querySelector('.input-cant').oninput = () => actualizarSubtotal(block);
+    block.querySelector('.input-precio').oninput = () => actualizarSubtotal(block);
+
+    cont.appendChild(block);
+}
+
+function configurarAutocomplete(block) {
+
+    let inputCodigo = block.querySelector('.input-codigo');
+    let inputNombre = block.querySelector('.input-nombre');
+    let hidden = block.querySelector('input[type="hidden"]');
+    let listCodigo = inputCodigo.nextElementSibling;
+    let listNombre = inputNombre.nextElementSibling;
+
+    function renderList(list, filtro, tipo) {
+        list.innerHTML = '';
+        productosData
+            .filter(p => p[tipo].toLowerCase().includes(filtro))
+            .forEach(p => {
+                let item = document.createElement('div');
+                item.classList.add('autocomplete-item');
+                item.innerText = `${p.codigo} — ${p.nombre}`;
+                item.onclick = () => seleccionarProducto(p, inputCodigo, inputNombre, hidden, listCodigo, listNombre);
+                list.appendChild(item);
+            });
+    }
+
+    inputCodigo.addEventListener('input', () =>
+        renderList(listCodigo, inputCodigo.value.toLowerCase(), 'codigo')
+    );
+
+    inputNombre.addEventListener('input', () =>
+        renderList(listNombre, inputNombre.value.toLowerCase(), 'nombre')
+    );
+}
+
+function seleccionarProducto(p, inputCodigo, inputNombre, hidden, listCodigo, listNombre) {
+    inputCodigo.value = p.codigo;
+    inputNombre.value = p.nombre;
+    hidden.value = p.id;
+    listCodigo.innerHTML = '';
+    listNombre.innerHTML = '';
+}
+
+function actualizarSubtotal(block) {
+    let cant = parseFloat(block.querySelector('.input-cant').value) || 0;
+    let pre = parseFloat(block.querySelector('.input-precio').value) || 0;
+    block.querySelector('.input-sub').value = (cant * pre).toFixed(2);
+    calcularTotal();
+}
+
+function calcularTotal() {
+    let total = 0;
+    document.querySelectorAll('.input-sub').forEach(x => {
+        total += parseFloat(x.value) || 0;
+    });
+
+    // Guardar en input oculto
+    totalInput.value = total.toFixed(2);
+
+    // Actualizar label grande
+    document.getElementById('totalLabel').innerText = total.toFixed(2);
+}
+
+// VALIDAR ANTES DE ENVIAR
+document.getElementById('confirmarGuardarBtn').onclick = () => {
+    let filas = document.querySelectorAll('.product-block');
+
+    if (filas.length === 0) {
+        alert("Debe agregar al menos un producto.");
+        return;
+    }
+
+    for (let f of filas) {
+        let prod = f.querySelector('input[type="hidden"]').value;
+        let cant = parseFloat(f.querySelector('.input-cant').value);
+        let prec = parseFloat(f.querySelector('.input-precio').value);
+
+        if (!prod) {
+            alert("Hay productos sin seleccionar.");
+            return;
+        }
+        if (cant <= 0) {
+            alert("La cantidad debe ser mayor a 0.");
+            return;
+        }
+        if (prec <= 0) {
+            alert("El precio debe ser mayor a 0.");
+            return;
+        }
+    }
+
+    // Todo OK → enviar formulario
+    document.getElementById('compraForm').submit();
+};
+
+
+// Inicial
+crearProductoBlock();
+
+btnAdd.onclick = crearProductoBlock;
+</script>
+
+{% endblock %}

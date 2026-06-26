@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h2>
+        <i class="bi bi-wallet2 me-2 text-primary"></i> Cajas
+    </h2>
+
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#createCajaModal">
+        <i class="bi bi-plus-lg"></i> Nueva Caja
+    </button>
+
+    <table class="table table-bordered table-striped align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th><i class="bi bi-tag-fill"></i> Nombre</th>
+                <th><i class="bi bi-building"></i> Sucursal</th>
+                <th><i class="bi bi-cash-stack"></i> Saldo Inicial</th>
+                <th><i class="bi bi-calendar-event-fill"></i> Fecha de Creación</th>
+                <th class="text-center"><i class="bi bi-gear-fill"></i> Acciones</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for c in cajas %}
+            <tr>
+                <td><i class="bi bi-wallet2 me-1 text-primary"></i> {{ c.nombre }}</td>
+                <td><i class="bi bi-building me-1"></i> {{ c.sucursal.nombre }}</td>
+                <td><i class="bi bi-cash-stack me-1"></i> {{ c.saldo_inicial }}</td>
+                <td><i class="bi bi-calendar2-event me-1"></i> {{ c.created_at|date:"d/m/Y H:i" }}</td>
+
+                <td class="text-center">
+                    <button class="btn btn-sm btn-warning"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editCajaModal"
+                        data-id="{{ c.id }}"
+                        data-nombre="{{ c.nombre }}"
+                        data-sucursal="{{ c.sucursal.id }}"
+                        data-saldo="{{ c.saldo_inicial|floatformat:2|cut:',' }}">
+
+                        <i class="bi bi-pencil-fill"></i>
+                    </button>
+
+                    <button class="btn btn-sm btn-danger"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteCajaModal"
+                        data-id="{{ c.id }}"
+                        data-nombre="{{ c.nombre }}"
+                        data-saldo="{{ c.saldo_inicial|floatformat:2 }}">
+                        <i class="bi bi-trash-fill"></i>
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="text-center">
+                    <i class="bi bi-exclamation-circle text-warning"></i> No hay cajas registradas.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+
+<!-- ==================== CREATE MODAL ==================== -->
+<div class="modal fade" id="createCajaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'caja_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="bi bi-plus-circle me-2"></i> Nueva Caja</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-tag-fill me-1"></i> Nombre</label>
+                        <input class="form-control" name="nombre" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-building me-1"></i> Sucursal</label>
+                        <select class="form-select" name="sucursal" required>
+                            <option value="" selected disabled>Seleccione una sucursal</option>
+                            {% for s in sucursales %}
+                                <option value="{{ s.id }}">{{ s.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-cash-stack me-1"></i> Saldo Inicial</label>
+                        <input type="number" class="form-control" name="saldo_inicial" step="0.01">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-success"><i class="bi bi-check-lg"></i> Crear</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ==================== EDIT MODAL ==================== -->
+<div class="modal fade" id="editCajaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'caja_edit' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="edit_id">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="bi bi-pencil-square me-2"></i> Editar Caja</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-tag-fill me-1"></i> Nombre</label>
+                        <input id="edit_nombre" class="form-control" name="nombre" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-building me-1"></i> Sucursal</label>
+                        <select id="edit_sucursal" class="form-select" name="sucursal" required>
+                            {% for s in sucursales %}
+                                <option value="{{ s.id }}">{{ s.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-cash-stack me-1"></i> Saldo Inicial</label>
+                        <input id="edit_saldo" type="number" class="form-control" name="saldo_inicial" step="0.01">
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-primary"><i class="bi bi-pencil-fill"></i> Actualizar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ==================== DELETE MODAL ==================== -->
+<div class="modal fade" id="deleteCajaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'caja_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="delete_id">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h3 class="modal-title text-danger"><i class="bi bi-trash-fill me-2"></i> Eliminar Caja</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p>¿Deseas eliminar la caja <strong id="delete_nombre"></strong>?</p>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-danger"><i class="bi bi-trash-fill"></i> Eliminar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    var editModal = document.getElementById('editCajaModal');
+    editModal.addEventListener('show.bs.modal', function (event) {
+        var b = event.relatedTarget;
+        document.getElementById('edit_id').value = b.getAttribute('data-id');
+        document.getElementById('edit_nombre').value = b.getAttribute('data-nombre');
+        document.getElementById('edit_sucursal').value = b.getAttribute('data-sucursal');
+        document.getElementById('edit_saldo').value = b.getAttribute('data-saldo');
+    });
+
+    var deleteModal = document.getElementById('deleteCajaModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        var b = event.relatedTarget;
+        document.getElementById('delete_id').value = b.getAttribute('data-id');
+        document.getElementById('delete_nombre').textContent = b.getAttribute('data-nombre');
+    });
+
+});
+</script>
+
+{% endblock %}

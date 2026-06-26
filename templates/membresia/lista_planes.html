@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="container mt-4">
+    <h2>
+        <i class="bi bi-card-checklist me-2 text-primary"></i> Planes de Membresía
+    </h2>
+
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#createPlanModal">
+        <i class="bi bi-plus-lg"></i> Nuevo Plan
+    </button>
+
+    <table class="table table-bordered table-striped align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th><i class="bi bi-tag-fill"></i> Nombre</th>
+                <th><i class="bi bi-currency-dollar"></i> Tarifa</th>
+                <th><i class="bi bi-calendar-event"></i> Duración</th>
+                <th><i class="bi bi-snow"></i> Congelamiento</th>
+                <th><i class="bi bi-info-circle"></i> Descripción</th>
+                <th class="text-center"><i class="bi bi-gear-fill"></i> Acciones</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for p in plans %}
+            <tr>
+                <td><strong>{{ p.nombre }}</strong></td>
+                <td>Bs. {{ p.tarifa }}</td>
+                <td>
+                    <span class="badge bg-info text-dark">
+                        <i class="bi bi-clock-history me-1"></i> {{ p.duracion_dias }} días
+                    </span>
+                </td>
+                <td>
+                    {% if p.permite_congelar %}
+                        <span class="text-primary"><i class="bi bi-check-circle-fill"></i> {{ p.cantidad_dias_congelamiento }} días</span>
+                    {% else %}
+                        <span class="text-muted"><i class="bi bi-x-circle"></i> No permite</span>
+                    {% endif %}
+                </td>
+                <td>{{ p.descripcion|default:"---" }}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-warning"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editPlanModal"
+                        data-id="{{ p.id }}"
+                        data-nombre="{{ p.nombre }}"
+                        data-tarifa="{{ p.tarifa }}"
+                        data-duracion="{{ p.duracion_dias }}"
+                        data-congelar="{{ p.permite_congelar|yesno:'true,false' }}"
+                        data-dias-congelar="{{ p.cantidad_dias_congelamiento }}"
+                        data-descripcion="{{ p.descripcion }}">
+                        <i class="bi bi-pencil-fill"></i>
+                    </button>
+
+                    <button class="btn btn-sm btn-danger"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deletePlanModal"
+                        data-id="{{ p.id }}"
+                        data-nombre="{{ p.nombre }}">
+                        <i class="bi bi-trash-fill"></i>
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="text-center">
+                    <i class="bi bi-exclamation-circle text-warning"></i> No hay planes registrados.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="modal fade" id="createPlanModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'plan_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header text-white ">
+                    <h3 class="modal-title"><i class="bi bi-plus-circle me-2"></i> Nuevo Plan</h3>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nombre del Plan</label>
+                        <input class="form-control" name="nombre" placeholder="Ej: Mensualidad Pesas" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Tarifa (Bs.)</label>
+                            <input type="number" step="0.01" class="form-control" name="tarifa" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Duración (Días)</label>
+                            <input type="number" class="form-control" name="membresia" placeholder="Ej: 30" required>
+                        </div>
+                    </div>
+                    <div class="card bg-light mb-3">
+                        <div class="card-body">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="permite_congelar" id="checkCongelar">
+                                <label class="form-check-label fw-bold" for="checkCongelar">Permitir Congelar</label>
+                            </div>
+                            <div class="mt-2">
+                                <label class="form-label small">Días máximos de congelamiento</label>
+                                <input type="number" class="form-control form-control-sm" name="cantidad_dias_congelamiento" value="0">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descripción</label>
+                        <textarea class="form-control" name="descripcion" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success"><i class="bi bi-check-lg"></i> Guardar Plan</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="editPlanModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'plan_edit' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="edit_id">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h3 class="modal-title"><i class="bi bi-pencil-square me-2"></i> Editar Plan</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nombre del Plan</label>
+                        <input id="edit_nombre" class="form-control" name="nombre" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Tarifa</label>
+                            <input id="edit_tarifa" type="number" step="0.01" class="form-control" name="tarifa" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Duración (Días)</label>
+                            <input id="edit_membresia" type="number" class="form-control" name="membresia" required>
+                        </div>
+                    </div>
+                    <div class="card bg-light mb-3">
+                        <div class="card-body">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="permite_congelar" id="edit_permite_congelar">
+                                <label class="form-check-label fw-bold" for="edit_permite_congelar">Permitir Congelar</label>
+                            </div>
+                            <div class="mt-2">
+                                <label class="form-label small">Días máximos de congelamiento</label>
+                                <input type="number" id="edit_cantidad_dias_congelamiento" class="form-control form-control-sm" name="cantidad_dias_congelamiento">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descripción</label>
+                        <textarea id="edit_descripcion" class="form-control" name="descripcion" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-pencil-fill"></i> Actualizar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="deletePlanModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'plan_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="delete_id">
+            <div class="modal-content">
+                <div class="modal-header text-danger">
+                    <h3 class="modal-title"><i class="bi bi-trash-fill me-2"></i> Eliminar Plan</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Estás seguro de eliminar el plan <strong id="delete_nombre"></strong>?</p>
+                    <div class="alert alert-warning py-2">
+                        <small><i class="bi bi-exclamation-triangle-fill"></i> El plan se desactivará del sistema.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-danger">Eliminar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var editModal = document.getElementById('editPlanModal');
+    editModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        document.getElementById('edit_id').value = button.getAttribute('data-id');
+        document.getElementById('edit_nombre').value = button.getAttribute('data-nombre');
+        
+        let tarifa = button.getAttribute('data-tarifa').replace(',', '.');
+        document.getElementById('edit_tarifa').value = tarifa;
+        document.getElementById('edit_membresia').value = button.getAttribute('data-duracion');
+        document.getElementById('edit_descripcion').value = button.getAttribute('data-descripcion');
+        
+        // Manejo del Switch de congelamiento
+        let permiteCongelar = button.getAttribute('data-congelar') === 'true';
+        document.getElementById('edit_permite_congelar').checked = permiteCongelar;
+        document.getElementById('edit_cantidad_dias_congelamiento').value = button.getAttribute('data-dias-congelar');
+    });
+
+    var deleteModal = document.getElementById('deletePlanModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        document.getElementById('delete_id').value = button.getAttribute('data-id');
+        document.getElementById('delete_nombre').textContent = button.getAttribute('data-nombre');
+    });
+});
+</script>
+
+{% endblock %}

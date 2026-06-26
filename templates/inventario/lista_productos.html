@@ -1,0 +1,408 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/responsive/2.5.0/css/responsive.dataTables.min.css">
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/responsive/2.5.0/js/dataTables.responsive.min.js"></script>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-box-seam me-2 text-primary"></i> Gestión de Productos e Inventario</h2>
+        <div class="btn-group" role="group">
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createProductoModal">
+                <i class="bi bi-box"></i> Nuevo Producto
+            </button>
+            <!--<button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createPackModal">
+                <i class="bi bi-box-seam"></i> Nuevo Pack
+            </button>-->
+        </div>
+    </div>
+
+
+    <div class="card-body">
+        <table id="productosTable" class="table table-hover align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th><i class="bi bi-upc-scan"></i> Código/SKU</th>
+                    <th><i class="bi bi-box"></i> Producto - Variante</th>
+                    <th><i class="bi bi-tags"></i> Categoría</th>
+                    <th><i class="bi bi-currency-dollar text-danger"></i> Costo</th>
+                    <th><i class="bi bi-currency-dollar text-success"></i> P. Venta</th>
+                    <th><i class="bi bi-building"></i> U. Medida</th>
+                    <th class="text-center"><i class="bi bi-gear"></i> Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in productos %}
+                    {% for v in p.variantes.all %}
+                    <tr>
+                        <td><small class="text-light">{{ v.sku|default:"-" }}</small></td>
+                        <td>
+                            <strong>{{ p.nombre }}</strong>
+                            {% if v.nombre_variante %}
+                                <span class="text-primary"> - {{ v.nombre_variante }}</span>
+                            {% endif %}
+                            <br><small class="text-muted">{{ p.fk_tipo_producto.nombre }}</small>
+                        </td>
+                        <td>{{ p.category.name|default:"-" }}</td>
+                        <td class="text-danger fw-bold">${{ v.costo|default:"0.00" }}</td>
+                        <td class="text-success fw-bold">${{ v.precio_referencial }}</td>
+                        <td>{{ p.unidad_medida.nombre }}</td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editProductoModal"
+                                data-id="{{ p.id }}" 
+                                data-nombre="{{ p.nombre }}"
+                                data-descripcion="{{ p.descripcion|default:'' }}"
+                                data-unidad="{{ p.unidad_medida.id }}"
+                                data-categoria="{{ p.category.id|default:'' }}"
+                                data-precio="{{ v.precio_referencial }}"
+                                data-costo="{{ v.costo|default:'0' }}"
+                                data-codigo="{{ v.sku }}">
+                                <i class="bi bi-pencil-fill"></i>
+                            </button>
+                            
+                            <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteProductoModal"
+                                data-id="{{ p.id }}" data-nombre="{{ p.nombre }} {% if v.nombre_variante %}({{ v.nombre_variante }}){% endif %}">
+                                <i class="bi bi-trash-fill"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<div class="modal fade" id="createProductoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'producto_create' %}" id="formProducto">
+            {% csrf_token %}
+            <input type="hidden" name="tipo_producto" value="1">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h3 class="modal-title"><i class="bi bi-plus-circle me-2"></i> Nuevo Producto</h3>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row border-bottom pb-3 mb-3">
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label fw-bold">Nombre del Producto</label>
+                            <input type="text" name="nombre" class="form-control" placeholder="Ej: Proteína Whey" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">Categoría</label>
+                            <select name="categoria" class="form-select">
+                                <option value="">-- Seleccione --</option>
+                                {% for c in categorias %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">Unidad Medida</label>
+                            <select name="unidad_medida" class="form-select" required>
+                                {% for u in unidades %}
+                                <option value="{{ u.id }}">{{ u.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <!-- EL BOTÓN QUE BUSCABAS -->
+                        <div class="col-md-8 mb-3 d-flex align-items-end">
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="maneja_inventario" id="id_maneja_inventario" checked>
+                                <label class="form-check-label fw-bold" for="id_maneja_inventario">¿Maneja Inventario / Control de Stock?</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" name="tiene_variantes" id="check_variantes" onchange="toggleVariantes(this.checked)">
+                        <label class="form-check-label fw-bold">¿Tiene múltiples variantes (sabores/tallas)?</label>
+                    </div>
+
+                    <div id="seccion_simple" class="row p-3 bg-dark rounded">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">SKU</label>
+                            <input type="text" name="sku_base" class="form-control" placeholder="Cód. Único">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-danger">Costo Compra</label>
+                            <input type="number" name="costo_base" class="form-control" step="0.01" value="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-success">Precio Venta</label>
+                            <input type="number" name="precio_base" class="form-control" step="0.01" value="0">
+                        </div>
+                    </div>
+
+                    <div id="seccion_variantes" style="display:none;">
+                        <div class="d-flex justify-content-between mb-2">
+                            <h5>Listado de Variantes</h5>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="agregarFilaVariante()">+ Añadir Variante</button>
+                        </div>
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Nombre (Sabor/Talla)</th>
+                                    <th>SKU</th>
+                                    <th>Costo</th>
+                                    <th>Precio Venta</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody_variantes"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary w-100 fw-bold">GUARDAR PRODUCTO</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="createPackModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <form method="post" action="{% url 'producto_create' %}" id="formPack">
+            {% csrf_token %}
+            <input type="hidden" name="tipo_producto" value="2">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h3 class="modal-title"><i class="bi bi-box-seam me-2"></i> Nuevo Pack / Combo</h3>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Nombre del Pack</label>
+                            <input type="text" name="nombre" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">SKU Pack</label>
+                            <input type="text" name="sku_base" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold text-success">Precio Venta Final</label>
+                            <input type="number" name="precio_base" class="form-control" step="0.01" required>
+                        </div>
+                    </div>
+
+                    <div class="card bg-light border-0 mb-3">
+                        <div class="card-body">
+                            <h6><i class="bi bi-list-check"></i> Composición del Pack</h6>
+                            <div class="row g-2">
+                                <div class="col-md-5">
+                                    <select class="form-select" id="pack_selector_productos" onchange="cargarVariantesProducto()">
+                                        <option value="">Seleccione Producto...</option>
+                                        {% for p in productos %}
+                                            <option value="{{ p.id }}">{{ p.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <select class="form-select" id="pack_selector_variantes">
+                                        <option value="">-- Variante --</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="number" id="pack_cantidad" class="form-control" value="1" min="1">
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-success w-100" onclick="agregarComponenteAPack()">+</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <table class="table bg-white border">
+                        <thead class="table-secondary">
+                            <tr>
+                                <th>Producto / Variante</th>
+                                <th>Cantidad</th>
+                                <th class="text-center">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody_pack"></tbody>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success w-100 fw-bold">CREAR PACK</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="editProductoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'producto_edit' %}" id="formEdit">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="edit_id">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title fw-bold">Editar Producto / Variante</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Nombre</label>
+                            <input type="text" name="nombre" id="edit_nombre" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">SKU / Código</label>
+                            <input type="text" name="sku_base" id="edit_codigo" class="form-control">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold text-danger">Costo Compra</label>
+                            <input type="number" name="costo_base" id="edit_costo" class="form-control" step="0.01">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold text-success">Precio Venta</label>
+                            <input type="number" name="precio_base" id="edit_precio" class="form-control" step="0.01">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label fw-bold">Unidad Medida</label>
+                            <select name="unidad_medida" id="edit_unidad" class="form-select">
+                                {% for u in unidades %}
+                                <option value="{{ u.id }}">{{ u.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-warning w-100 fw-bold">GUARDAR CAMBIOS</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteProductoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'producto_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="delete_id">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Confirmar Eliminación</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <p>¿Seguro que deseas eliminar?</p>
+                    <h4 id="delete_nombre" class="text-danger"></h4>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, cancelar</button>
+                    <button type="submit" class="btn btn-danger">Sí, eliminar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Diccionario dinámico para los Packs
+    let variantesPorProducto = {
+        {% for p in productos %}
+        "{{ p.id }}": [
+            {% for v in p.variantes.all %}
+            { "id": "{{ v.id }}", "nombre": "{{ v.nombre_variante|escapejs }}", "sku": "{{ v.sku|escapejs }}" }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        ],
+        {% endfor %}
+    };
+
+    function toggleVariantes(checked) {
+        const seccionSimple = document.getElementById('seccion_simple');
+        const seccionVar = document.getElementById('seccion_variantes');
+        if (checked) {
+            seccionSimple.style.display = 'none';
+            seccionVar.style.display = 'block';
+            if (document.getElementById('tbody_variantes').children.length === 0) agregarFilaVariante();
+        } else {
+            seccionSimple.style.display = 'flex';
+            seccionVar.style.display = 'none';
+        }
+    }
+
+    function agregarFilaVariante() {
+        const fila = `
+            <tr>
+                <td><input type="text" name="variante_nombre[]" class="form-control form-control-sm" required></td>
+                <td><input type="text" name="variante_sku[]" class="form-control form-control-sm" required></td>
+                <td><input type="number" name="variante_costo[]" class="form-control form-control-sm" step="0.01" value="0"></td>
+                <td><input type="number" name="variante_precio[]" class="form-control form-control-sm" step="0.01" value="0"></td>
+                <td><button type="button" class="btn btn-danger btn-sm" onclick="this.closest('tr').remove()">×</button></td>
+            </tr>`;
+        document.getElementById('tbody_variantes').insertAdjacentHTML('beforeend', fila);
+    }
+
+    function cargarVariantesProducto() {
+        const pId = document.getElementById('pack_selector_productos').value;
+        const vSelect = document.getElementById('pack_selector_variantes');
+        vSelect.innerHTML = '<option value="">-- Seleccione Variante --</option>';
+        if (variantesPorProducto[pId]) {
+            variantesPorProducto[pId].forEach(v => {
+                vSelect.insertAdjacentHTML('beforeend', `<option value="${v.id}">${v.nombre || 'Estándar'} (${v.sku})</option>`);
+            });
+        }
+    }
+
+    function agregarComponenteAPack() {
+        const pSelect = document.getElementById('pack_selector_productos');
+        const vSelect = document.getElementById('pack_selector_variantes');
+        const cant = document.getElementById('pack_cantidad').value;
+        if (!vSelect.value) return alert("Seleccione una variante");
+        const fila = `
+            <tr>
+                <td>
+                    ${pSelect.options[pSelect.selectedIndex].text} - ${vSelect.options[vSelect.selectedIndex].text}
+                    <input type="hidden" name="comp_producto_id[]" value="${pSelect.value}">
+                    <input type="hidden" name="comp_variante_id[]" value="${vSelect.value}">
+                </td>
+                <td>${cant} <input type="hidden" name="comp_cantidad[]" value="${cant}"></td>
+                <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()">Quitar</button></td>
+            </tr>`;
+        document.getElementById('tbody_pack').insertAdjacentHTML('beforeend', fila);
+    }
+
+    $(document).ready(function() {
+        $('#productosTable').DataTable({
+            responsive: true,
+            language: { url: '//cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
+            order: [[1, 'asc']]
+        });
+
+        // Lógica Editar
+        const editModal = document.getElementById('editProductoModal');
+        editModal.addEventListener('show.bs.modal', function (event) {
+            const b = event.relatedTarget;
+            document.getElementById('edit_id').value = b.getAttribute('data-id');
+            document.getElementById('edit_nombre').value = b.getAttribute('data-nombre');
+            document.getElementById('edit_codigo').value = b.getAttribute('data-codigo');
+            document.getElementById('edit_unidad').value = b.getAttribute('data-unidad');
+            document.getElementById('edit_precio').value = b.getAttribute('data-precio');
+            document.getElementById('edit_costo').value = b.getAttribute('data-costo');
+        });
+
+        // Lógica Eliminar
+        const deleteModal = document.getElementById('deleteProductoModal');
+        deleteModal.addEventListener('show.bs.modal', function (event) {
+            const b = event.relatedTarget;
+            document.getElementById('delete_id').value = b.getAttribute('data-id');
+            document.getElementById('delete_nombre').textContent = b.getAttribute('data-nombre');
+        });
+    });
+</script>
+{% endblock %}

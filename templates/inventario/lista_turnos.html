@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h2>
+        <i class="bi bi-clock me-2 text-primary"></i> Turnos
+    </h2>
+
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#createTurnoModal">
+        <i class="bi bi-plus-lg"></i> Nuevo Turno
+    </button>
+
+    <table class="table table-bordered table-striped align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th><i class="bi bi-person-lines-fill"></i> Nombre</th>
+                <th><i class="bi bi-alarm"></i> Hora Inicio</th>
+                <th><i class="bi bi-alarm-fill"></i> Hora Fin</th>
+                <th class="text-center"><i class="bi bi-gear-fill"></i> Acciones</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for t in turnos %}
+            <tr>
+                <td><i class="bi bi-person-fill me-1 text-primary"></i> {{ t.nombre }}</td>
+                <td><i class="bi bi-alarm me-1"></i> {{ t.hora_inicio|time:"H:i" }}</td>
+                <td><i class="bi bi-alarm-fill me-1"></i> {{ t.hora_fin|time:"H:i" }}</td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-warning"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editTurnoModal"
+                        data-id="{{ t.id }}"
+                        data-nombre="{{ t.nombre }}"
+                        data-hora_inicio="{{ t.hora_inicio|time:'H:i' }}"
+                        data-hora_fin="{{ t.hora_fin|time:'H:i' }}">
+                        <i class="bi bi-pencil-fill"></i>
+                    </button>
+
+                    <button class="btn btn-sm btn-danger"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteTurnoModal"
+                        data-id="{{ t.id }}"
+                        data-nombre="{{ t.nombre }}">
+                        <i class="bi bi-trash-fill"></i>
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" class="text-center">
+                    <i class="bi bi-exclamation-circle text-warning"></i> No hay turnos registrados.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+
+<!-- CREATE MODAL -->
+<div class="modal fade" id="createTurnoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'turno_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="bi bi-plus-circle me-2"></i> Nuevo Turno
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-person-lines-fill me-1"></i> Nombre</label>
+                        <input class="form-control" name="nombre" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-alarm me-1"></i> Hora Inicio</label>
+                        <input type="time" class="form-control" name="hora_inicio" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-alarm-fill me-1"></i> Hora Fin</label>
+                        <input type="time" class="form-control" name="hora_fin" required>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-success"><i class="bi bi-check-lg"></i> Crear</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal fade" id="editTurnoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'turno_edit' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="edit_id">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="bi bi-pencil-square me-2"></i> Editar Turno
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-person-lines-fill me-1"></i> Nombre</label>
+                        <input id="edit_nombre" class="form-control" name="nombre" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-alarm me-1"></i> Hora Inicio</label>
+                        <input id="edit_hora_inicio" type="time" class="form-control" name="hora_inicio" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-alarm-fill me-1"></i> Hora Fin</label>
+                        <input id="edit_hora_fin" type="time" class="form-control" name="hora_fin" required>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-primary"><i class="bi bi-pencil-fill"></i> Actualizar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- DELETE MODAL -->
+<div class="modal fade" id="deleteTurnoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'turno_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="delete_id">
+
+            <div class="modal-content">
+
+                <div class="modal-header text-danger">
+                    <h3 class="modal-title">
+                        <i class="bi bi-trash-fill me-2"></i> Eliminar Turno
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p>¿Deseas eliminar el turno <strong id="delete_nombre"></strong>?</p>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-danger"><i class="bi bi-trash-fill"></i> Eliminar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    var editModal = document.getElementById('editTurnoModal');
+    editModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        document.getElementById('edit_id').value = button.getAttribute('data-id');
+        document.getElementById('edit_nombre').value = button.getAttribute('data-nombre');
+        document.getElementById('edit_hora_inicio').value = button.getAttribute('data-hora_inicio');
+        document.getElementById('edit_hora_fin').value = button.getAttribute('data-hora_fin');
+    });
+
+    var deleteModal = document.getElementById('deleteTurnoModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        document.getElementById('delete_id').value = button.getAttribute('data-id');
+        document.getElementById('delete_nombre').textContent = button.getAttribute('data-nombre');
+    });
+
+});
+</script>
+
+{% endblock %}

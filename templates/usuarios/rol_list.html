@@ -1,0 +1,448 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+:root {
+    --primary:       #10b981;
+    --primary-hover: #0d9e6e;
+    --primary-light: rgba(16,185,129,0.1);
+    --primary-glow:  rgba(16,185,129,0.25);
+    --bg-card:       #1a1f2e;
+    --bg-elevated:   #1f2535;
+    --bg-input:      #161b27;
+    --border:        #232c3d;
+    --border-light:  #2d3852;
+    --text:          #f0f4f8;
+    --text-sec:      #8b9ab5;
+    --text-muted:    #4e5d73;
+    --danger:        #f43f5e;
+    --warning:       #f59e0b;
+    --radius:        12px;
+    --radius-sm:     8px;
+}
+
+.roles-page {
+    padding: 1.5rem;
+    max-width: 900px;
+}
+
+/* PAGE HEADER */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.page-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.page-title-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--primary-light);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    font-size: 1.1rem;
+}
+
+.page-title h2 {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0;
+}
+
+.page-title p {
+    font-size: 0.75rem;
+    color: var(--text-sec);
+    margin: 2px 0 0;
+}
+
+.btn-nuevo {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border: none;
+    color: white;
+    padding: 0.55rem 1.1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+}
+.btn-nuevo:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+/* ROLES GRID */
+.roles-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+}
+
+.rol-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    transition: all 0.2s;
+}
+
+.rol-card:hover {
+    border-color: var(--border-light);
+    background: var(--bg-elevated);
+    transform: translateX(3px);
+}
+
+.rol-info {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.rol-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    border: 1px solid rgba(16,185,129,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.rol-nombre {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text);
+}
+
+.rol-meta {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.rol-badge {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-sec);
+    font-size: 0.68rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.rol-badge.admin {
+    background: rgba(245,158,11,0.1);
+    border-color: rgba(245,158,11,0.3);
+    color: #f59e0b;
+}
+
+.rol-acciones {
+    display: flex;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.btn-accion {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-elevated);
+    color: var(--text-sec);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+    text-decoration: none;
+}
+
+.btn-accion:hover { transform: translateY(-1px); }
+.btn-accion.permisos:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+.btn-accion.editar:hover   { border-color: var(--warning); color: var(--warning); background: rgba(245,158,11,0.1); }
+.btn-accion.eliminar:hover { border-color: var(--danger); color: var(--danger); background: rgba(244,63,94,0.1); }
+
+/* EMPTY STATE */
+.empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-muted);
+}
+.empty-state i { font-size: 2.5rem; opacity: 0.4; margin-bottom: 0.75rem; }
+.empty-state p { font-size: 0.85rem; }
+
+/* MODALES */
+.modal-content {
+    background: #131720;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    color: var(--text);
+}
+.modal-header {
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 1.25rem;
+}
+.modal-header .modal-title { font-size: 0.95rem; font-weight: 700; }
+.modal-body { padding: 1.25rem; }
+.modal-footer { border-top: 1px solid var(--border); padding: 0.875rem 1.25rem; }
+.btn-close { filter: invert(1); opacity: 0.7; }
+
+.form-label { font-size: 0.78rem; font-weight: 600; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.35rem; }
+
+.form-control {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius-sm);
+    padding: 0.55rem 0.85rem;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+.form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); outline: none; background: var(--bg-input); color: var(--text); }
+.form-control::placeholder { color: var(--text-muted); }
+
+.btn-success-nexus {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border: none;
+    color: white;
+    padding: 0.5rem 1.1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-success-nexus:hover { filter: brightness(1.1); }
+
+.btn-danger-nexus {
+    background: linear-gradient(135deg, #f43f5e, #e11d48);
+    border: none;
+    color: white;
+    padding: 0.5rem 1.1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-danger-nexus:hover { filter: brightness(1.1); }
+
+.btn-cancel-nexus {
+    background: var(--bg-card);
+    border: 1px solid var(--border-light);
+    color: var(--text-sec);
+    padding: 0.5rem 1.1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-cancel-nexus:hover { border-color: var(--text-muted); color: var(--text); }
+
+.warning-box {
+    background: rgba(244,63,94,0.08);
+    border: 1px solid rgba(244,63,94,0.2);
+    border-radius: var(--radius-sm);
+    padding: 0.75rem 1rem;
+    font-size: 0.82rem;
+    color: #f87171;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+</style>
+
+<div class="roles-page">
+
+    <!-- HEADER -->
+    <div class="page-header">
+        <div class="page-title">
+            <div class="page-title-icon">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <div>
+                <h2>Gestión de Roles</h2>
+                <p>Creá roles y configurá sus permisos por módulo</p>
+            </div>
+        </div>
+        <button class="btn-nuevo" data-bs-toggle="modal" data-bs-target="#createRolModal">
+            <i class="fas fa-plus"></i> Nuevo Rol
+        </button>
+    </div>
+
+    <!-- LISTA DE ROLES -->
+    <div class="roles-grid">
+        {% for rol in roles %}
+        <div class="rol-card">
+            <div class="rol-info">
+                <div class="rol-avatar">
+                    <i class="fas fa-user-shield"></i>
+                </div>
+                <div>
+                    <div class="rol-nombre">{{ rol.nombre }}</div>
+                    <div class="rol-meta">Creado {{ rol.fecha_creacion|date:"d/m/Y" }}</div>
+                </div>
+            </div>
+
+            {% if rol.nombre|lower == 'administrador' %}
+            <span class="rol-badge admin"><i class="fas fa-crown"></i> Administrador</span>
+            {% else %}
+            <span class="rol-badge">{{ rol.permisos.count }} permisos</span>
+            {% endif %}
+
+            <div class="rol-acciones">
+                <!-- Configurar permisos -->
+                <a href="{% url 'rol_permisos' rol.id %}" class="btn-accion permisos" title="Configurar permisos">
+                    <i class="fas fa-key"></i>
+                </a>
+                <!-- Editar nombre -->
+                <button class="btn-accion editar"
+                    data-bs-toggle="modal"
+                    data-bs-target="#editRolModal"
+                    data-id="{{ rol.id }}"
+                    data-nombre="{{ rol.nombre }}"
+                    title="Editar nombre">
+                    <i class="fas fa-pen"></i>
+                </button>
+                <!-- Eliminar -->
+                {% if rol.nombre|lower != 'administrador' %}
+                <button class="btn-accion eliminar"
+                    data-bs-toggle="modal"
+                    data-bs-target="#deleteRolModal"
+                    data-id="{{ rol.id }}"
+                    data-nombre="{{ rol.nombre }}"
+                    title="Eliminar rol">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <div><i class="fas fa-shield-alt"></i></div>
+            <p>No hay roles registrados aún.<br>Creá el primero con el botón de arriba.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- MODAL CREAR -->
+<div class="modal fade" id="createRolModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" action="{% url 'rol_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-plus-circle me-2" style="color:var(--primary)"></i>Crear Nuevo Rol</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label">Nombre del Rol</label>
+                    <input type="text" class="form-control" name="nombre" placeholder="Ej: Vendedor, Cajero..." required autofocus>
+                    <div style="margin-top:0.75rem; font-size:0.75rem; color:var(--text-muted)">
+                        <i class="fas fa-info-circle"></i> Después podrás configurar los permisos con el botón <i class="fas fa-key"></i>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel-nexus" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn-success-nexus"><i class="fas fa-check me-1"></i>Crear Rol</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL EDITAR -->
+<div class="modal fade" id="editRolModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" action="{% url 'rol_edit' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="edit_id">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-pen me-2" style="color:var(--warning)"></i>Editar Rol</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label">Nombre del Rol</label>
+                    <input type="text" class="form-control" name="nombre" id="edit_nombre" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel-nexus" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn-success-nexus"><i class="fas fa-check me-1"></i>Actualizar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL ELIMINAR -->
+<div class="modal fade" id="deleteRolModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" action="{% url 'rol_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="delete_id">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="fas fa-trash-alt me-2" style="color:var(--danger)"></i>Eliminar Rol</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="warning-box">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>¿Eliminar el rol <strong id="delete_nombre"></strong>? Los usuarios asignados perderán sus permisos.</span>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel-nexus" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn-danger-nexus"><i class="fas fa-trash-alt me-1"></i>Eliminar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.getElementById('editRolModal').addEventListener('show.bs.modal', e => {
+        const btn = e.relatedTarget;
+        document.getElementById('edit_id').value    = btn.dataset.id;
+        document.getElementById('edit_nombre').value = btn.dataset.nombre;
+    });
+    document.getElementById('deleteRolModal').addEventListener('show.bs.modal', e => {
+        const btn = e.relatedTarget;
+        document.getElementById('delete_id').value       = btn.dataset.id;
+        document.getElementById('delete_nombre').textContent = btn.dataset.nombre;
+    });
+});
+</script>
+{% endblock %}

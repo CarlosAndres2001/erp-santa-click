@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h2>
+        <i class="bi bi-wallet2 me-2 text-primary"></i> Métodos de Pago
+    </h2>
+
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#createMetodoModal">
+        <i class="bi bi-plus-lg"></i> Nuevo Método
+    </button>
+
+    <table class="table table-bordered table-striped align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th><i class="bi bi-credit-card-2-back-fill"></i> Nombre</th>
+                <th><i class="bi bi-info-circle"></i> Descripción</th>
+                <th><i class="bi bi-calendar3"></i> Fecha Registro</th>
+                <th class="text-center"><i class="bi bi-gear-fill"></i> Acciones</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for m in metodos %}
+            <tr>
+                <td><strong>{{ m.nombre }}</strong></td>
+                <td>{{ m.descripcion|default:"---" }}</td>
+                <td>
+                    <span class="badge bg-light text-dark">
+                        <i class="bi bi-clock me-1"></i> {{ m.fecha_creacion|date:"d/m/Y" }}
+                    </span>
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-warning"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editMetodoModal"
+                        data-id="{{ m.id }}"
+                        data-nombre="{{ m.nombre }}"
+                        data-descripcion="{{ m.descripcion }}">
+                        <i class="bi bi-pencil-fill"></i>
+                    </button>
+
+                    <button class="btn btn-sm btn-danger"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteMetodoModal"
+                        data-id="{{ m.id }}"
+                        data-nombre="{{ m.nombre }}">
+                        <i class="bi bi-trash-fill"></i>
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" class="text-center">
+                    <i class="bi bi-exclamation-circle text-warning"></i> No hay métodos de pago registrados.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+
+<div class="modal fade" id="createMetodoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'metodopago_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="bi bi-plus-circle me-2"></i> Nuevo Método de Pago</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-input-cursor-text me-1"></i> Nombre del Método</label>
+                        <input class="form-control" name="nombre" placeholder="Ej: Efectivo, QR, Transferencia" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-card-text me-1"></i> Descripción</label>
+                        <textarea class="form-control" name="descripcion" rows="2" placeholder="Detalles opcionales..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-success"><i class="bi bi-check-lg"></i> Guardar Método</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="editMetodoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'metodopago_edit' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="edit_id">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="bi bi-pencil-square me-2"></i> Editar Método</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre del Método</label>
+                        <input id="edit_nombre" class="form-control" name="nombre" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <textarea id="edit_descripcion" class="form-control" name="descripcion" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary"><i class="bi bi-pencil-fill"></i> Actualizar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteMetodoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'metodopago_delete' %}"> {% csrf_token %}
+            <input type="hidden" name="id" id="delete_id">
+            <div class="modal-content">
+                <div class="modal-header text-danger">
+                    <h3 class="modal-title"><i class="bi bi-trash-fill me-2"></i> Eliminar Método</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Estás seguro de eliminar el método de pago <strong id="delete_nombre"></strong>?</p>
+                    <div class="alert alert-warning py-2">
+                        <small><i class="bi bi-exclamation-triangle-fill"></i> No aparecerá más en las nuevas ventas.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger">Eliminar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Lógica para Editar
+    var editModal = document.getElementById('editMetodoModal');
+    editModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        document.getElementById('edit_id').value = button.getAttribute('data-id');
+        document.getElementById('edit_nombre').value = button.getAttribute('data-nombre');
+        document.getElementById('edit_descripcion').value = button.getAttribute('data-descripcion');
+    });
+
+    // Lógica para Eliminar
+    var deleteModal = document.getElementById('deleteMetodoModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        document.getElementById('delete_id').value = button.getAttribute('data-id');
+        document.getElementById('delete_nombre').textContent = button.getAttribute('data-nombre');
+    });
+});
+</script>
+
+{% endblock %}

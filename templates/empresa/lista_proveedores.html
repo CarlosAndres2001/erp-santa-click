@@ -1,0 +1,276 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h2>
+        <i class="bi bi-truck text-primary me-2"></i> Proveedores
+    </h2>
+
+    <!-- Botón Crear -->
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#createProveedorModal">
+        <i class="bi bi-plus-lg"></i> Nuevo Proveedor
+    </button>
+
+    <!-- Tabla -->
+    <div class="table-responsive">
+        <table class="table table-bordered table-striped align-middle">
+            <thead class="table-dark">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Contacto</th>
+                    <th>Teléfono</th>
+                    <th>Email</th>
+                    <th>Dirección</th>
+                    <th>Activo</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in proveedores %}
+                <tr>
+                    <td>{{ p.nombre }}</td>
+                    <td>{{ p.contacto }}</td>
+                    <td>{{ p.telefono }}</td>
+                    <td>{{ p.email }}</td>
+                    <td>{{ p.direccion }}</td>
+
+                    <td>
+                        {% if p.is_active %}
+                            <span class="badge bg-success">Activo</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Inactivo</span>
+                        {% endif %}
+                    </td>
+
+                    <td class="text-center">
+
+                        <!-- BOTÓN EDITAR -->
+                        <button class="btn btn-sm btn-warning"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editProveedorModal"
+                            data-id="{{ p.id }}"
+                            data-nombre="{{ p.nombre }}"
+                            data-contacto="{{ p.contacto }}"
+                            data-telefono="{{ p.telefono }}"
+                            data-email="{{ p.email }}"
+                            data-direccion="{{ p.direccion }}">
+                            <i class="bi bi-pencil-fill"></i>
+                        </button>
+
+                        <!-- BOTÓN ELIMINAR -->
+                        <button class="btn btn-sm btn-danger"
+                            data-bs-toggle="modal"
+                            data-bs-target="#deleteProveedorModal"
+                            data-id="{{ p.id }}"
+                            data-nombre="{{ p.nombre }}">
+                            <i class="bi bi-trash3-fill"></i>
+                        </button>
+
+                    </td>
+                </tr>
+
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted">
+                        <i class="bi bi-exclamation-circle"></i> No hay proveedores registrados.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<!-- ================================================== -->
+<!-- MODAL CREAR -->
+<!-- ================================================== -->
+<div class="modal fade" id="createProveedorModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'proveedor_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h2 class="modal-title">
+                        <i class="bi bi-plus-circle text-primary me-2"></i> Nuevo Proveedor
+                    </h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row">
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" name="nombre" class="form-control" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre del contacto</label>
+                            <input type="text" name="contacto" class="form-control">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Teléfono</label>
+                            <input type="text" name="telefono" class="form-control">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" name="email" class="form-control">
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Dirección</label>
+                            <textarea name="direccion" rows="3" class="form-control"></textarea>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-success" type="submit">
+                        <i class="bi bi-check-lg"></i> Crear
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- ================================================== -->
+<!-- MODAL EDITAR -->
+<!-- ================================================== -->
+<div class="modal fade" id="editProveedorModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'proveedor_edit' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="edit_id">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h2 class="modal-title">
+                        <i class="bi bi-pencil-square text-warning me-2"></i> Editar Proveedor
+                    </h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="row">
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" id="edit_nombre" name="nombre" class="form-control" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre del contacto</label>
+                            <input type="text" id="edit_contacto" name="contacto" class="form-control">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Teléfono</label>
+                            <input type="text" id="edit_telefono" name="telefono" class="form-control">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" id="edit_email" name="email" class="form-control">
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label class="form-label">Dirección</label>
+                            <textarea id="edit_direccion" name="direccion" rows="3" class="form-control"></textarea>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="bi bi-pencil-fill"></i> Actualizar
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<!-- ================================================== -->
+<!-- MODAL ELIMINAR -->
+<!-- ================================================== -->
+<div class="modal fade" id="deleteProveedorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'proveedor_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="delete_id">
+
+            <div class="modal-content">
+
+                <div class="modal-header bg-danger text-white">
+                    <h3 class="modal-title">
+                        <i class="bi bi-trash-fill text-danger me-2"></i> Eliminar Proveedor
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    ¿Deseas eliminar el proveedor <strong id="delete_nombre"></strong>?
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-danger" type="submit">Eliminar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+
+            </div>
+
+        </form>
+    </div>
+</div>
+
+
+<!-- ================================================== -->
+<!-- JS PARA RELLENAR MODALES -->
+<!-- ================================================== -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+    const editModal = document.getElementById("editProveedorModal");
+    editModal.addEventListener("show.bs.modal", (event) => {
+        let btn = event.relatedTarget;
+
+        document.getElementById("edit_id").value = btn.dataset.id;
+        document.getElementById("edit_nombre").value = btn.dataset.nombre;
+        document.getElementById("edit_contacto").value = btn.dataset.contacto;
+        document.getElementById("edit_telefono").value = btn.dataset.telefono;
+        document.getElementById("edit_email").value = btn.dataset.email;
+        document.getElementById("edit_direccion").value = btn.dataset.direccion;
+    });
+
+    const deleteModal = document.getElementById("deleteProveedorModal");
+    deleteModal.addEventListener("show.bs.modal", (event) => {
+        let btn = event.relatedTarget;
+
+        document.getElementById("delete_id").value = btn.dataset.id;
+        document.getElementById("delete_nombre").textContent = btn.dataset.nombre;
+    });
+
+});
+</script>
+
+{% endblock %}

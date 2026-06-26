@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-card-checklist me-2"></i> Gestión de Membresías</h2>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createMembresiaModal">
+            <i class="bi bi-plus-lg"></i> Nueva Membresía
+        </button>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th><i class="bi bi-person-fill text-custom"></i> Cliente</th>
+                        <th><i class="bi bi-calendar-range text-custom"></i> Plan</th>
+                        <th><i class="bi bi-calendar3 text-custom"></i> Vigencia</th>
+                        <th class="text-center">Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for m in membresias %}
+                    <tr>
+                        <td>
+                            <strong>{{ m.fk_cliente.nombre }} {{ m.fk_cliente.apellido }}</strong><br>
+                            <small class="text-muted">{{ m.fk_cliente.nro_documento }}</small>
+                        </td>
+                        <td>
+                            <span class="badge border text-dark">{{ m.fk_plan.nombre }}</span>
+                        </td>
+                        <td>
+                            <small>
+                                <strong>Inicio:</strong> {{ m.fecha_inicio|date:"d/m/Y" }}<br>
+                                <strong>Fin:</strong> {{ m.fecha_fin|date:"d/m/Y" }}
+                            </small>
+                        </td>
+                        <td class="text-center">
+                            {% if m.estado == 'activa' %}
+                                <span class="badge bg-success">Activa</span>
+                            {% elif m.estado == 'vencida' %}
+                                <span class="badge bg-danger">Vencida</span>
+                            {% elif m.estado == 'pendiente' %}
+                                <span class="badge bg-warning text-dark">Pendiente</span>
+                            {% else %}
+                                <span class="badge bg-secondary">{{ m.estado|capfirst }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-outline-secondary" 
+                                    data-bs-toggle="modal" data-bs-target="#editMembresiaModal"
+                                    data-id="{{ m.id }}" 
+                                    data-cliente-nombre="{{ m.fk_cliente.nombre }} {{ m.fk_cliente.apellido }}"
+                                    data-plan="{{ m.fk_plan.id }}" 
+                                    data-inicio="{{ m.fecha_inicio|date:'Y-m-d' }}"
+                                    data-estado="{{ m.estado }}">
+                                <i class="bi bi-pencil-square"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger"
+                                    data-bs-toggle="modal" data-bs-target="#deleteMembresiaModal"
+                                    data-id="{{ m.id }}" 
+                                    data-nombre="{{ m.fk_cliente.nombre }} {{ m.fk_cliente.apellido }}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">No hay membresías registradas.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="createMembresiaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'membresia_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-plus-circle me-2 text-custom"></i> Asignar Membresía</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Cliente</label>
+                        <select name="fk_cliente" class="form-select" required>
+                            <option value="">Seleccione un cliente...</option>
+                            {% for c in clientes %}
+                                <option value="{{ c.id }}">{{ c.nombre }} {{ c.apellido }} ({{ c.nro_documento }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Plan</label>
+                        <select name="fk_plan" class="form-select" required>
+                            <option value="">Seleccione un plan...</option>
+                            {% for p in planes %}
+                                <option value="{{ p.id }}">{{ p.nombre }} - ${{ p.tarifa }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Fecha de Inicio</label>
+                        <input type="date" name="fecha_inicio" class="form-control" required value="{{ today|date:'Y-m-d' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Estado Inicial</label>
+                        <select name="estado" class="form-select">
+                            <option value="activa">Activa</option>
+                            <option value="pendiente">Pendiente</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Activar Membresía</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="editMembresiaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'membresia_edit' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="edit_id">
+            <div class="modal-content">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title"><i class="bi bi-pencil-square me-2 text-custom"></i> Editar Membresía</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Editando membresía de: <strong id="edit_cliente_nombre_display"></strong></p>
+                    <div class="mb-3">
+                        <label class="form-label">Plan</label>
+                        <select name="fk_plan" id="edit_plan" class="form-select" required>
+                            {% for p in planes %}
+                                <option value="{{ p.id }}">{{ p.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Fecha de Inicio</label>
+                        <input type="date" name="fecha_inicio" id="edit_inicio" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Estado</label>
+                        <select name="estado" id="edit_estado" class="form-select">
+                            <option value="activa">Activa</option>
+                            <option value="pendiente">Pendiente</option>
+                            <option value="vencida">Vencida</option>
+                            <option value="cancelada">Cancelada</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteMembresiaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'membresia_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="delete_id">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger"><i class="bi bi-trash-fill me-2"></i> Eliminar Membresía</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    ¿Estás seguro de que deseas eliminar (desactivar) la membresía de <strong id="delete_nombre_display"></strong>?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Confirmar Eliminación</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Lógica para cargar datos en el Modal de Editar
+    var editModal = document.getElementById('editMembresiaModal');
+    editModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        
+        // Extraer info de los atributos data-*
+        var id = button.getAttribute('data-id');
+        var clienteNombre = button.getAttribute('data-cliente-nombre');
+        var planId = button.getAttribute('data-plan');
+        var inicio = button.getAttribute('data-inicio');
+        var estado = button.getAttribute('data-estado');
+
+        // Llenar los campos del modal
+        document.getElementById('edit_id').value = id;
+        document.getElementById('edit_cliente_nombre_display').textContent = clienteNombre;
+        document.getElementById('edit_plan').value = planId;
+        document.getElementById('edit_inicio').value = inicio;
+        document.getElementById('edit_estado').value = estado;
+    });
+
+    // Lógica para cargar datos en el Modal de Eliminar
+    var deleteModal = document.getElementById('deleteMembresiaModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget;
+        var id = button.getAttribute('data-id');
+        var nombre = button.getAttribute('data-nombre');
+
+        document.getElementById('delete_id').value = id;
+        document.getElementById('delete_nombre_display').textContent = nombre;
+    });
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h2 ><i class="bi bi-bag-check me-2 text-primary"></i>Reporte de Compras</h2>
+    <!-- FILTROS -->
+    <form method="get" class="row g-3 mb-4">
+        <div class="col-md-2">
+            <label for="fecha_desde" class="form-label" style="color: #007bff;">Desde:</label>
+            <input type="date" name="fecha_desde" id="fecha_desde" class="form-control" value="{{ fecha_desde }}">
+        </div>
+        <div class="col-md-2">
+            <label for="fecha_hasta" class="form-label" style="color: #007bff;">Hasta:</label>
+            <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control" value="{{ fecha_hasta }}">
+        </div>
+        <div class="col-md-2">
+            <label for="sucursal_id" class="form-label" style="color: #007bff;">Sucursal:</label>
+            <select name="sucursal_id" id="sucursal_id" class="form-select">
+                <option value="">Todas</option>
+                {% for s in sucursales %}
+                    <option value="{{ s.id }}" {% if s.id|stringformat:"s" == sucursal_id %}selected{% endif %}>{{ s.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label for="proveedor_id" class="form-label" style="color: #007bff;">Proveedor:</label>
+            <select name="proveedor_id" id="proveedor_id" class="form-select">
+                <option value="">Todos</option>
+                {% for p in proveedores %}
+                    <option value="{{ p.id }}" {% if p.id|stringformat:"s" == proveedor_id %}selected{% endif %}>{{ p.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label for="usuario_id" class="form-label" style="color: #007bff;">Usuario:</label>
+            <select name="usuario_id" id="usuario_id" class="form-select">
+                <option value="">Todos</option>
+                {% for u in usuarios %}
+                    <option value="{{ u.id }}" {% if u.id|stringformat:"s" == usuario_id %}selected{% endif %}>{{ u.nombre }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label for="estado_compra" class="form-label" style="color: #007bff;">Estado:</label>
+            <select name="estado_compra" id="estado_compra" class="form-select">
+                <option value="">Todos</option>
+                <option value="1" {% if estado_compra == '1' %}selected{% endif %}>Activa</option>
+                <option value="0" {% if estado_compra == '0' %}selected{% endif %}>Anulada</option>
+            </select>
+        </div>
+        <div class="col-md-12 text-end">
+            <button type="submit" class="btn btn-primary mt-2"><i class="bi bi-funnel-fill"></i> Filtrar</button>
+            <a href="{% url 'compra_create' %}" class="btn btn-success mt-2"><i class="bi bi-plus-lg"></i> Nueva Compra</a>
+        </div>
+    </form>
+
+    <!-- TABLA DE COMPRAS -->
+    <div class="table-responsive">
+        <table id="tablaCompras" class="table table-hover table-bordered align-middle shadow-sm">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Fecha</th>
+                    <th>Proveedor</th>
+                    <th>Sucursal</th>
+                    <th>Usuario</th>
+                    <th>Total (Bs)</th>
+                    <th>Estado</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in compras %}
+                <tr>
+                    <td>{{ c.id }}</td>
+                    <td>{{ c.fecha|date:"d M Y H:i" }}</td>
+                    <td>{{ c.proveedor.nombre|default:"-" }}</td>
+                    <td>{{ c.sucursal.nombre|default:"-" }}</td>
+                    <td>{{ c.usuario.nombre }}</td>
+                    <td class="text-end">{{ c.total|floatformat:2 }}</td>
+                    <td>
+                        {% if c.is_active %}
+                            <span class="badge bg-success">Activa</span>
+                        {% else %}
+                            <span class="badge bg-danger">Anulada</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if c.is_active %}
+                            <a href="{% url 'comprobante_compra' c.id %}" target="_blank" class="btn btn-sm btn-primary" title="Reimprimir">
+                                <i class="bi bi-printer-fill"></i>
+                            </a>
+                            <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#anularModal" data-id="{{ c.id }}">
+                                <i class="bi bi-x-circle"></i>
+                            </button>
+                        {% else %}
+                            <a href="{% url 'comprobante_compra' c.id %}" target="_blank" class="btn btn-sm btn-secondary" title="Ver Comprobante">
+                                <i class="bi bi-eye-fill"></i>
+                            </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8" class="text-center text-muted">No se encontraron compras.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<!-- MODAL PARA ANULAR COMPRA -->
+<div class="modal fade" id="anularModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'compra_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="modalCompraId">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Anular Compra</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label for="motivo" class="form-label">Motivo de anulación:</label>
+                    <textarea name="motivo" id="motivo" class="form-control" rows="3" required></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">Anular Compra</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- DATATABLES -->
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+
+<script>
+    $(document).ready(function() {
+        $('#tablaCompras').DataTable({
+            dom: '<"d-flex justify-content-between mb-3"Bf>rtip',
+            buttons: [
+                {
+                    extend: 'excelHtml5',
+                    className: 'btn btn-success btn-sm',
+                    text: '<i class="bi bi-file-earmark-excel"></i> Excel'
+                    filename: 'Compras_{{ now|date:"Ymd_His" }}'
+                },
+                {
+                    extend: 'csvHtml5',
+                    className: 'btn btn-info btn-sm text-white',
+                    text: '<i class="bi bi-file-earmark-spreadsheet"></i> CSV'
+                    filename: 'Compras_{{ now|date:"Ymd_His" }}'
+                },  
+                {
+                    extend: 'pdfHtml5',
+                    className: 'btn btn-danger btn-sm',
+                    text: '<i class="bi bi-file-earmark-pdf"></i> PDF'
+                    filename: 'Compras_{{ now|date:"Ymd_His" }}'
+                },
+                {
+                    extend: 'print',
+                    className: 'btn btn-secondary btn-sm',
+                    text: '<i class="bi bi-printer"></i> Imprimir'
+                    filename: 'Compras_{{ now|date:"Ymd_His" }}'
+                },
+                {
+                    extend: 'colvis',
+                    className: 'btn btn-warning btn-sm',
+                    text: '<i class="bi bi-eye"></i> Columnas'
+                }
+            ],
+            order: [[0, 'desc']],
+            pageLength: 10,
+        });
+    });
+
+    var anularModal = document.getElementById('anularModal')
+    anularModal.addEventListener('show.bs.modal', function (event) {
+        var button = event.relatedTarget
+        var compraId = button.getAttribute('data-id')
+        document.getElementById('modalCompraId').value = compraId
+    })
+</script>
+
+<style>
+    /* Mejorar apariencia */
+    .dataTables_wrapper .dt-buttons {
+        margin-bottom: 10px;
+    }
+    #tablaCompras tbody tr:hover {
+        background-color: #f1f7ff;
+    }
+    .table thead th {
+        background-color: #e9ecef;
+        border-bottom: 2px solid #adb5bd;
+    }
+</style>
+
+{% endblock %}

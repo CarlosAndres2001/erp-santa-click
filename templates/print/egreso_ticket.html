@@ -1,0 +1,78 @@
+{% extends 'print/base_ticket.html' %}
+
+{% block content %}
+
+<div class="ticket-header">
+
+    <h4>
+        {{ egreso.usuario.sucursal.fk_empresa.nombre }}
+    </h4>
+
+    <strong>
+        EGRESO MONETARIO
+    </strong>
+
+</div>
+
+<div class="line"></div>
+
+<div>
+
+    Nro: {{ egreso.id }}
+
+    <br>
+
+    Fecha:
+    {{ egreso.fecha|date:"d/m/Y H:i" }}
+
+</div>
+
+<div class="line"></div>
+
+<div>
+
+    <strong>Sucursal:</strong><br>
+    {{ egreso.usuario.sucursal.nombre }}
+
+    <br><br>
+
+    <strong>Cajero:</strong><br>
+    {{ egreso.usuario }}
+
+    <br><br>
+
+    <strong>Motivo:</strong><br>
+    {{ egreso.motivo }}
+
+    <br><br>
+
+    <strong>Monto:</strong><br>
+    Bs {{ egreso.monto }}
+
+</div>
+
+{% if egreso.observaciones %}
+
+<div class="line"></div>
+
+<div>
+
+    <strong>Observaciones:</strong>
+
+    <br>
+
+    {{ egreso.observaciones }}
+
+</div>
+
+{% endif %}
+
+<div class="line"></div>
+
+<div style="text-align:center">
+
+    Documento generado por el sistema
+
+</div>
+
+{% endblock %}

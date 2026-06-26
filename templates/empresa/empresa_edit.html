@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+
+            <!-- Card del formulario -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white d-flex align-items-center">
+                    <i class="bi bi-building me-2 fs-4"></i>
+                    <h5 class="mb-0">Editar Datos de la Empresa</h5>
+                </div>
+
+                <div class="card-body">
+                    <form method="post" action="{% url 'empresa_edit' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="id" value="{{ empresa.id }}">
+
+                        <!-- Nombre -->
+                        <div class="mb-3">
+                            <label for="nombre" class="form-label">Nombre de la Empresa</label>
+                            <input type="text" class="form-control" id="nombre" name="nombre" 
+                                value="{{ empresa.nombre }}" required>
+                        </div>
+
+                        <!-- Rubro -->
+                        <div class="mb-3">
+                            <label for="rubro" class="form-label">Rubro</label>
+                            <input type="text" class="form-control" id="rubro" name="rubro" 
+                                value="{{ empresa.rubro }}" required readonly>
+                        </div>
+
+                        <!-- Plan Empresa -->
+                        <div class="mb-3" hidden="True">
+                            <label for="fk_plan_empresa" class="form-label">Plan</label>
+                            <select class="form-select" id="fk_plan_empresa" name="fk_plan_empresa">
+                                <option value="">-- Selecciona un plan --</option>
+                                {% for plan in planes %}
+                                    <option value="{{ plan.id }}" 
+                                        {% if empresa.fk_plan_empresa_id == plan.id %}selected{% endif %}>
+                                        {{ plan.nombre }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Botones -->
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check-circle me-1"></i> Guardar Cambios
+                            </button>
+                            <a href="{% url 'empresa_list' %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle me-1"></i> Cancelar
+                            </a>
+                        </div>
+
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Mensajes flotantes -->
+<div id="message-container">
+    {% if messages %}
+        {% for message in messages %}
+            <div class="message {{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const messages = document.querySelectorAll("#message-container .message");
+    messages.forEach(msg => {
+        setTimeout(() => {
+            msg.style.animation = "slideOut 0.5s forwards";
+            setTimeout(() => msg.remove(), 500);
+        }, 3000);
+    });
+});
+</script>
+
+{% endblock %}

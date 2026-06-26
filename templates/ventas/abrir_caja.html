@@ -1,0 +1,169 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <div class="card-header nexus-header">
+        <h4 class="mb-0">
+            <i class="bi bi-cash-stack"></i>
+            Apertura de Caja
+        </h4>
+    </div>
+    <br>
+    <form method="POST">
+        {% csrf_token %}
+
+        <div class="row">
+
+            <div class="col-12 col-md-6 mb-3">
+                <label class="nexus-label">
+                    Usuario
+                </label>
+                <input
+                    type="text"
+                    class="form-control nexus-input nexus-readonly"
+                    value="{{ usuario.username }}"
+                    readonly>
+            </div>
+
+            <div class="col-12 col-md-6 mb-3">
+                <label class="nexus-label">
+                    Sucursal
+                </label>
+                <input
+                    type="text"
+                    class="form-control nexus-input nexus-readonly"
+                    value="{{ sucursal.nombre }}"
+                    readonly>
+            </div>
+
+            <div class="col-12 col-md-6 mb-3">
+                <label class="nexus-label">
+                    Fecha Apertura
+                </label>
+                <input
+                    type="text"
+                    id="fecha_apertura"
+                    class="form-control nexus-input nexus-readonly"
+                    readonly>
+            </div>
+
+            <div class="col-12 col-md-6 mb-3">
+                <label class="nexus-label">
+                    Caja
+                </label>
+
+                <select
+                    name="caja"
+                    class="form-select nexus-input"
+                    required>
+
+                    <option value="">
+                        Seleccione una caja
+                    </option>
+
+                    {% for c in cajas %}
+                        <option value="{{ c.id }}">
+                            {{ c.nombre }}
+                        </option>
+                    {% endfor %}
+
+                </select>
+            </div>
+
+            <div class="col-12 col-md-6 mb-3">
+                <label class="nexus-label">
+                    Turno
+                </label>
+
+                <select
+                    name="turno"
+                    class="form-select nexus-input"
+                    required>
+
+                    <option value="">
+                        Seleccione un turno
+                    </option>
+
+                    {% for t in turnos %}
+                        <option value="{{ t.id }}">
+                            {{ t.nombre }}
+                        </option>
+                    {% endfor %}
+
+                </select>
+            </div>
+
+            <div class="col-12 col-md-6 mb-3">
+                <label class="nexus-label">
+                    Caja Chica Inicial
+                </label>
+
+                <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    name="cajachica_apertura"
+                    class="form-control nexus-input"
+                    value="0.00"
+                    required>
+            </div>
+
+            <div class="col-12">
+                <label class="nexus-label">
+                    Observaciones
+                </label>
+
+                <textarea
+                    name="observaciones_apertura"
+                    rows="3"
+                    class="form-control nexus-textarea"
+                    placeholder="Observaciones de apertura"></textarea>
+            </div>
+
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+
+            <a href="{% url 'abrir_caja' %}"
+                class="btn btn-secondary">
+                Cancelar
+            </a>
+
+            <button
+                type="submit"
+                class="btn btn-primary">
+
+                <i class="bi bi-unlock-fill"></i>
+                Abrir Caja
+            </button>
+
+        </div>
+
+    </form>
+
+</div>
+
+<script>
+
+function actualizarHora() {
+
+    const ahora = new Date();
+
+    const fecha =
+        ahora.getFullYear() + '-' +
+        String(ahora.getMonth() + 1).padStart(2, '0') + '-' +
+        String(ahora.getDate()).padStart(2, '0') + ' ' +
+        String(ahora.getHours()).padStart(2, '0') + ':' +
+        String(ahora.getMinutes()).padStart(2, '0') + ':' +
+        String(ahora.getSeconds()).padStart(2, '0');
+
+    document.getElementById('fecha_apertura').value = fecha;
+}
+
+actualizarHora();
+setInterval(actualizarHora, 1000);
+
+</script>
+
+{% endblock %}

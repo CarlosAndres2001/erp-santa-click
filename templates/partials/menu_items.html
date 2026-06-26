@@ -1,0 +1,215 @@
+{% for padre in modulos_padre %}
+<div class="accordion-item shadow-none border-0 mb-1" style="background: transparent;">
+    <h2 class="accordion-header" id="heading{{ padre.id }}">
+        <button class="accordion-button collapsed py-2 px-3" type="button" 
+                data-bs-toggle="collapse" data-bs-target="#collapse{{ padre.id }}" 
+                aria-expanded="false" aria-controls="collapse{{ padre.id }}"
+                data-nombre="{{ padre.nombre }}"
+                style="background: var(--bg-card); color: var(--text-main); border-radius: var(--radius); border: 1px solid var(--border);">
+            <i class="{{ padre.icono }} me-3" style="color: var(--primary); width: 20px;"></i>
+            <span class="menu-text" style="font-weight: 500; font-size: 0.9rem;">{{ padre.nombre }}</span>
+        </button>
+    </h2>
+    <div id="collapse{{ padre.id }}" class="accordion-collapse collapse" 
+         aria-labelledby="heading{{ padre.id }}" data-bs-parent="#sidebarMenu">
+        <div class="accordion-body p-0 mt-1">
+            <div class="list-group list-group-flush" style="border-radius: var(--radius); overflow: hidden;">
+                {% for hijo in padre.modulo_set.all %}
+                    {% if is_admin or hijo.codigo in user_permisos %}
+                        <a href="{% url hijo.codigo %}" 
+                           class="list-group-item list-group-item-action border-0 ps-5 py-2 submenu-link"
+                           data-nombre="{{ hijo.nombre }}"
+                           style="background: var(--bg-dark); color: var(--text-muted); font-size: 0.85rem; transition: var(--transition);">
+                            <i class="{{ hijo.icono }} me-2" style="font-size: 0.8rem;"></i>
+                            <span class="menu-text">{{ hijo.nombre }}</span>
+                        </a>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<style>
+    /* Ajustes específicos para que use tus variables de base.css */
+    .accordion-button:not(.collapsed) {
+        background-color: var(--bg-card) !important;
+        color: var(--primary) !important;
+        border-color: var(--primary) !important;
+        box-shadow: none;
+    }
+
+    /* Quitar el icono de flecha azul de Bootstrap por defecto y usar uno más sutil */
+    .accordion-button::after {
+        filter: invert(1) brightness(0.7);
+        background-size: 1rem;
+    }
+
+    /* Efecto hover en los sub-elementos usando tu color primario */
+    .list-group-item-action:hover {
+        background-color: var(--bg-sidebar) !important;
+        color: var(--primary) !important;
+        padding-left: 3.5rem !important; /* Un pequeño desplazamiento sutil */
+    }
+
+    /* Quitar bordes molestos de Bootstrap */
+    .accordion-button:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 0.1rem rgba(16, 185, 129, 0.25);
+    }
+
+    /* ============================================
+       TOOLTIPS PARA SIDEBAR COLLAPSED
+       ============================================ */
+    /* Tooltip que aparece al hacer hover en modo colapsado */
+    .sidebar.collapsed .accordion-button {
+        position: relative;
+    }
+    
+    .sidebar.collapsed .accordion-button:hover::after {
+        content: attr(data-nombre);
+        position: fixed;
+        left: 70px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: var(--primary);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        white-space: nowrap;
+        z-index: 9999;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        font-weight: 500;
+        pointer-events: none;
+        animation: tooltipFadeIn 0.2s ease;
+    }
+    
+    /* Tooltip para submenús */
+    .sidebar.collapsed .submenu-link {
+        position: relative;
+    }
+    
+    .sidebar.collapsed .submenu-link:hover::after {
+        content: attr(data-nombre);
+        position: fixed;
+        left: 70px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: var(--primary);
+        color: white;
+        padding: 4px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        white-space: nowrap;
+        z-index: 9999;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        font-weight: 500;
+        pointer-events: none;
+        animation: tooltipFadeIn 0.2s ease;
+    }
+    
+    /* Animación del tooltip */
+    @keyframes tooltipFadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-50%) scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(-50%) scale(1);
+        }
+    }
+    
+    /* Pequeña flecha en el tooltip */
+    .sidebar.collapsed .accordion-button:hover::before {
+        content: '';
+        position: fixed;
+        left: 65px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: 6px solid transparent;
+        border-right-color: var(--primary);
+        z-index: 10000;
+        pointer-events: none;
+    }
+    
+    .sidebar.collapsed .submenu-link:hover::before {
+        content: '';
+        position: fixed;
+        left: 65px;
+        top: 50%;
+        transform: translateY(-50%);
+        border: 6px solid transparent;
+        border-right-color: var(--primary);
+        z-index: 10000;
+        pointer-events: none;
+    }
+    
+    /* Al hacer clic en un icono colapsado, se abre el sidebar */
+    .sidebar.collapsed .accordion-button:active {
+        cursor: pointer;
+    }
+</style>
+
+<script>
+    // ============================================
+    // FUNCIONALIDAD: Click en icono colapsado abre sidebar
+    // ============================================
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebar = document.getElementById('sidebar');
+        const toggleBtn = document.getElementById('menu-toggle');
+        
+        // Función para expandir el sidebar
+        function expandSidebar() {
+            if (sidebar.classList.contains('collapsed')) {
+                sidebar.classList.remove('collapsed');
+                document.body.classList.remove('sidebar-collapsed');
+                // Guardar estado en localStorage
+                localStorage.setItem('sidebarCollapsed', 'false');
+                
+                // Disparar evento de resize para que el main-content se ajuste
+                window.dispatchEvent(new Event('resize'));
+            }
+        }
+        
+        // Al hacer clic en cualquier botón del accordion cuando está colapsado
+        document.querySelectorAll('.accordion-button').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                if (sidebar.classList.contains('collapsed')) {
+                    e.preventDefault(); // Evita que se abra el collapse
+                    expandSidebar();
+                    
+                    // Después de expandir, esperar un poco y abrir este accordion
+                    setTimeout(() => {
+                        const target = this.getAttribute('data-bs-target');
+                        if (target) {
+                            const collapseEl = document.querySelector(target);
+                            if (collapseEl) {
+                                const bsCollapse = new bootstrap.Collapse(collapseEl, {
+                                    toggle: true
+                                });
+                            }
+                        }
+                    }, 200);
+                }
+            });
+        });
+        
+        // Al hacer clic en cualquier submenú cuando está colapsado
+        document.querySelectorAll('.submenu-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                if (sidebar.classList.contains('collapsed')) {
+                    e.preventDefault(); // Evita la navegación
+                    expandSidebar();
+                    
+                    // Después de expandir, navegar al enlace
+                    setTimeout(() => {
+                        window.location.href = this.getAttribute('href');
+                    }, 300);
+                }
+            });
+        });
+    });
+</script>

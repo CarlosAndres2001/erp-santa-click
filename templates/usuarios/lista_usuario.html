@@ -1,0 +1,299 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+
+<div class="container mt-4">
+
+    <h2>
+        <i class="bi bi-people-fill me-2 text-primary"></i> Lista de Usuarios
+    </h2>
+
+    <!-- Botón Crear Usuario -->
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#createUsuarioModal">
+        <i class="bi bi-plus-lg"></i> Nuevo Usuario
+    </button>
+
+    <!-- Tabla de Usuarios -->
+    <table class="table table-bordered table-striped align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th><i class="bi bi-person-badge-fill"></i> Username</th>
+                <th><i class="bi bi-person-fill"></i> Nombre</th>
+                <th><i class="bi bi-person-fill"></i> Apellido</th>
+                <th><i class="bi bi-envelope-fill"></i> Email</th>
+                <th><i class="bi bi-shield-lock-fill"></i> Rol</th>
+                <th><i class="bi bi-building"></i> Sucursal</th>
+                <th><i class="bi bi-gear-fill"></i> Acciones</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            {% for u in usuarios %}
+            <tr>
+                <td><i class="bi bi-person-circle text-primary"></i> {{ u.username }}</td>
+                <td>{{ u.nombre }}</td>
+                <td>{{ u.apellido }}</td>
+                <td><i class="bi bi-envelope text-secondary"></i> {{ u.email }}</td>
+                <td>{{ u.rol.nombre }}</td>
+                <td>{{ u.sucursal.nombre }}</td>
+
+                <td class="text-center">
+                    <!-- Editar -->
+                    <button class="btn btn-sm btn-warning"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editUsuarioModal"
+                        data-id="{{ u.id }}"
+                        data-username="{{ u.username }}"
+                        data-nombre="{{ u.nombre }}"
+                        data-apellido="{{ u.apellido }}"
+                        data-email="{{ u.email }}"
+                        data-rol="{{ u.rol.id }}"
+                        data-sucursal="{{ u.sucursal.id }}">
+                        <i class="bi bi-pencil-fill"></i>   
+                    </button>
+
+                    <!-- Eliminar -->
+                    <button class="btn btn-sm btn-danger"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteUsuarioModal"
+                        data-id="{{ u.id }}"
+                        data-nombre="{{ u.username }}">
+                        <i class="bi bi-trash-fill"></i>    
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center">
+                    <i class="bi bi-exclamation-circle text-warning"></i> No hay usuarios registrados.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+
+<!-- MODAL CREAR USUARIO -->
+<div class="modal fade" id="createUsuarioModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'usuario_create' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="bi bi-plus-circle me-2"></i> Crear Usuario
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre Usuario</label>
+                            <input type="text" class="form-control" name="username" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Correo</label>
+                            <input type="email" class="form-control" name="email">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" class="form-control" name="nombre" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Apellido</label>
+                            <input type="text" class="form-control" name="apellido" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Contraseña</label>
+                            <input type="password" class="form-control" name="password">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Rol</label>
+                            <select class="form-control" name="rol" required>
+                                <option value="">-- Seleccionar --</option>
+                                {% for r in roles %}
+                                <option value="{{ r.id }}">{{ r.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Sucursal</label>
+                            <select class="form-control" name="sucursal" required>
+                                <option value="">-- Seleccionar --</option>
+                                {% for s in sucursales %}
+                                <option value="{{ s.id }}">{{ s.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-success">
+                        <i class="bi bi-check-lg"></i> Crear
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL EDITAR USUARIO -->
+<div class="modal fade" id="editUsuarioModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'usuario_edit' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="edit_id">
+
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="bi bi-pencil-square me-2"></i> Editar Usuario
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+
+                    <div class="row">
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre Usuario</label>
+                            <input type="text" class="form-control" id="edit_username" name="username" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="edit_email" name="email">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" class="form-control" id="edit_nombre" name="nombre" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Apellido</label>
+                            <input type="text" class="form-control" id="edit_apellido" name="apellido" required>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nueva Contraseña (opcional)</label>
+                            <input type="password" class="form-control" name="password">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Rol</label>
+                            <select class="form-control" id="edit_rol" name="rol" required>
+                                {% for r in roles %}
+                                <option value="{{ r.id }}">{{ r.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Sucursal</label>
+                            <select class="form-control" id="edit_sucursal" name="sucursal" required>
+                                {% for s in sucursales %}
+                                <option value="{{ s.id }}">{{ s.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                    </div>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-primary">
+                        <i class="bi bi-pencil-fill"></i> Actualizar
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL ELIMINAR USUARIO -->
+<div class="modal fade" id="deleteUsuarioModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'usuario_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="delete_id">
+
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="bi bi-trash-fill me-2 text-danger"></i> Eliminar Usuario
+                    </h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                    <p>¿Deseas eliminar al usuario <strong id="delete_nombre"></strong>?</p>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-danger">
+                        <i class="bi bi-trash-fill"></i> Eliminar
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancelar
+                    </button>
+                </div>
+
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- SCRIPT MODALS -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+
+    // EDITAR
+    var editModal = document.getElementById('editUsuarioModal');
+    editModal.addEventListener('show.bs.modal', function (event) {
+        var b = event.relatedTarget;
+
+        document.getElementById('edit_id').value = b.getAttribute('data-id');
+        document.getElementById('edit_username').value = b.getAttribute('data-username');
+        document.getElementById('edit_nombre').value = b.getAttribute('data-nombre');
+        document.getElementById('edit_apellido').value = b.getAttribute('data-apellido');
+        document.getElementById('edit_email').value = b.getAttribute('data-email');
+
+        document.getElementById('edit_rol').value = b.getAttribute('data-rol');
+        document.getElementById('edit_sucursal').value = b.getAttribute('data-sucursal');
+    });
+
+    // ELIMINAR
+    var deleteModal = document.getElementById('deleteUsuarioModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        var b = event.relatedTarget;
+
+        document.getElementById('delete_id').value = b.getAttribute('data-id');
+        document.getElementById('delete_nombre').textContent = b.getAttribute('data-nombre');
+    });
+
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends 'print/base_ticket.html' %}
+
+{% block content %}
+
+<div class="ticket-header">
+
+    <h4>
+        {{ ingreso.usuario.sucursal.fk_empresa.nombre }}
+    </h4>
+
+    <strong>
+        INGRESO MONETARIO
+    </strong>
+
+</div>
+
+<div class="line"></div>
+
+<div>
+
+    <div>
+        Nro: {{ ingreso.id }}
+    </div>
+
+    <div>
+        Fecha:
+        {{ ingreso.fecha|date:"d/m/Y H:i" }}
+    </div>
+
+</div>
+
+<div class="line"></div>
+
+<div>
+
+    <strong>Sucursal:</strong><br>
+    {{ ingreso.usuario.sucursal.nombre }}
+
+    <br><br>
+
+    <strong>Cajero:</strong><br>
+    {{ ingreso.usuario }}
+
+    <br><br>
+
+    <strong>Motivo:</strong><br>
+    {{ ingreso.motivo }}
+
+    <br><br>
+
+    <strong>Monto:</strong><br>
+    Bs {{ ingreso.monto }}
+
+</div>
+
+{% if ingreso.observaciones %}
+
+<div class="line"></div>
+
+<div>
+
+    <strong>Observaciones:</strong>
+
+    <br>
+
+    {{ ingreso.observaciones }}
+
+</div>
+
+{% endif %}
+
+<div class="line"></div>
+
+<div style="text-align:center">
+
+    Documento generado por el sistema
+
+</div>
+
+{% endblock %}

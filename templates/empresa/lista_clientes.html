@@ -1,0 +1,441 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2><i class="bi bi-people-fill me-2 text-primary"></i> Clientes</h2>
+    <button class="btn btn-primary mb-3"  data-bs-toggle="modal" data-bs-target="#createClienteModal">
+        <i class="bi bi-plus-lg"></i> Nuevo Cliente
+    </button>
+    <br>
+    <table class="table table-bordered table-striped align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Foto</th>
+                <th>Nombre Completo</th>
+                <th>Documento</th>
+                <th>Teléfono</th>
+                <th>Email</th>
+                <th>Estado</th>
+                <th class="text-center">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in clientes %}
+            <tr>
+                <td>
+                    {% if c.foto_perfil %}
+                        <img src="{{ c.foto_perfil.url }}" class="rounded-circle" width="40" height="40" style="object-fit: cover;">
+                    {% else %}
+                        <img src="{% static 'clientes/default-user.png' %}" class="rounded-circle" width="40" height="40">
+                    {% endif %}
+                </td>
+                <td>{{ c.nombre }} {{ c.apellido }}</td>
+                <td>{{ c.nro_documento }}</td>
+                <td>{{ c.telefono|default:"-" }}</td>
+                <td>{{ c.email|default:"-" }}</td>
+                <td>
+                    <span class="badge {% if c.estado %}bg-success{% else %}bg-secondary{% endif %}">
+                        {% if c.estado %}Activo{% else %}Inactivo{% endif %}
+                    </span>
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-info text-white" 
+                        data-bs-toggle="modal" data-bs-target="#viewClienteModal"
+                        data-nombre="{{ c.nombre }} {{ c.apellido }}"
+                        data-doc="{{ c.nro_documento }}"
+                        data-telefono="{{ c.telefono }}"
+                        data-email="{{ c.email }}"
+                        data-fechanac="{{ c.fecha_nacimiento|date:'Y-m-d' }}"
+                        data-foto="{% if c.foto_perfil %}{{ c.foto_perfil.url }}{% endif %}">
+                        <i class="bi bi-eye-fill"></i>
+                    </button>
+
+                    <button class="btn btn-sm btn-warning"
+                        data-bs-toggle="modal" data-bs-target="#editClienteModal"
+                        data-id="{{ c.id }}"
+                        data-nombre="{{ c.nombre }}"
+                        data-apellido="{{ c.apellido }}"
+                        data-doc="{{ c.nro_documento }}"
+                        data-telefono="{{ c.telefono }}"
+                        data-email="{{ c.email }}"
+                        data-fechanac="{{ c.fecha_nacimiento|date:'Y-m-d' }}">
+                        <i class="bi bi-pencil-fill"></i>
+                    </button>
+
+                    <button class="btn btn-sm btn-danger"
+                        data-bs-toggle="modal" data-bs-target="#deleteClienteModal"
+                        data-id="{{ c.id }}"
+                        data-nombre="{{ c.nombre }} {{ c.apellido }}">
+                        <i class="bi bi-trash-fill"></i>
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center text-muted py-4">No hay clientes registrados.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+
+<div class="modal fade" id="viewClienteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h3 class="modal-title"><i class="bi bi-person-badge"></i> Detalle del Cliente</h3>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="view_foto" src="" class="rounded-circle mb-3 shadow" width="120" height="120" style="object-fit: cover; display: none;">
+                <h4 id="view_nombre"></h4>
+                <hr>
+                <div class="text-start">
+                    <p><strong>Documento:</strong> <span id="view_doc"></span></p>
+                    <p><strong>Teléfono:</strong> <span id="view_telefono"></span></p>
+                    <p><strong>Email:</strong> <span id="view_email"></span></p>
+                    <p><strong>F. Nacimiento:</strong> <span id="view_fechanac"></span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!--<div class="modal fade" id="createClienteModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'cliente_create' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title">Crear Cliente</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-6"><label class="form-label">Nombre</label><input type="text" name="nombre" class="form-control" required></div>
+                    <div class="col-md-6"><label class="form-label">Apellido</label><input type="text" name="apellido" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Documento</label><input type="text" name="nro_documento" class="form-control" required></div>
+                    <div class="col-md-6"><label class="form-label">Teléfono</label><input type="text" name="telefono" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Email</label><input type="email" name="email" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Fecha Nacimiento</label><input type="date" name="fecha_nacimiento" class="form-control"></div>
+                    <div class="col-12"><label class="form-label">Foto de Perfil</label><input type="file" name="foto_perfil" class="form-control" accept="image/*"><small class="text-muted">Tamaño máximo: 2MB</small></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success">Guardar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>-->
+
+<style>
+    /* 1. Reset y Estilos Generales del Modal Oscuro */
+    #createClienteModal .modal-content {
+        background-color: #1a1d21; /* Gris muy oscuro, casi negro */
+        border: 1px solid #343a40; /* Borde muy sutil */
+        border-radius: 12px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.5); /* Sombra dramática */
+        color: #e0e6ed; /* Texto casi blanco, pero suave */
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    #createClienteModal .modal-header {
+        background-color: #141619; /* Fondo de cabecera más oscuro */
+        border-bottom: 1px solid #343a40;
+        padding: 1.25rem 1.5rem;
+    }
+
+    #createClienteModal .modal-title {
+        color: #21fb94; /* Verde vibrante de acento (puedes cambiarlo aquí) */
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
+
+    #createClienteModal .btn-close-custom {
+        color: #adb5bd;
+        background: transparent;
+        border: none;
+        font-size: 1.5rem;
+        transition: color 0.2s;
+    }
+    #createClienteModal .btn-close-custom:hover {
+        color: #21fb94;
+    }
+
+    #createClienteModal .modal-body {
+        padding: 2rem 2.5rem;
+    }
+
+    /* 2. Estilos para la Foto de Perfil */
+    #createClienteModal .avatar-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #createClienteModal #preview-image {
+        width: 130px;
+        height: 130px;
+        object-fit: cover;
+        border-radius: 50%;
+        border: 4px solid #2a2e33; /* Borde oscuro */
+        background-color: #2a2e33;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        margin-bottom: 1rem;
+        transition: border-color 0.3s;
+    }
+
+    #createClienteModal .btn-upload-custom {
+        background-color: #2a2e33;
+        color: #adb5bd;
+        border: 1px solid #343a40;
+        border-radius: 20px;
+        padding: 6px 16px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s;
+    }
+    #createClienteModal .btn-upload-custom:hover {
+        background-color: #21fb94;
+        color: #141619;
+        border-color: #21fb94;
+    }
+
+    /* 3. Estilos de Formulario Custom */
+    #createClienteModal .form-custom label {
+        color: #adb5bd; /* Texto de etiqueta suave */
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 0.4rem;
+    }
+
+    #createClienteModal .form-custom .form-control {
+        background-color: #2a2e33; /* Fondo de input oscuro */
+        border: 1px solid #343a40; /* Borde oscuro */
+        border-radius: 8px;
+        color: #e0e6ed;
+        padding: 10px 14px;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+    }
+
+    #createClienteModal .form-custom .form-control:focus {
+        background-color: #2f343a; /* Un poco más claro al enfocar */
+        border-color: #21fb94; /* Resaltado verde */
+        box-shadow: 0 0 0 3px rgba(33, 251, 148, 0.15); /* Sombra verde sutil */
+        outline: none;
+    }
+
+    #createClienteModal .form-custom .form-control::placeholder {
+        color: #6c757d;
+    }
+
+    /* 4. Separador Vertical */
+    #createClienteModal .border-right-divider {
+        border-right: 1px solid #343a40;
+    }
+
+    /* 5. Estilos de Footer y Botones */
+    #createClienteModal .modal-footer {
+        background-color: #141619;
+        border-top: 1px solid #343a40;
+        padding: 1rem 1.5rem;
+    }
+
+    #createClienteModal .btn-save-custom {
+        background-color: #21fb94;
+        color: #141619;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 24px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s;
+    }
+    #createClienteModal .btn-save-custom:hover {
+        background-color: #1edc82; /* Tono de verde ligeramente diferente al hover */
+        transform: translateY(-1px);
+    }
+
+    #createClienteModal .btn-cancel-custom {
+        background-color: transparent;
+        color: #adb5bd;
+        border: 1px solid #343a40;
+        border-radius: 8px;
+        padding: 10px 24px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.3s;
+    }
+    #createClienteModal .btn-cancel-custom:hover {
+        background-color: #2a2e33;
+        color: #e0e6ed;
+    }
+</style>
+
+<div class="modal fade" id="createClienteModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered"> <form method="post" action="{% url 'cliente_create' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title h6"><i class="bi bi-person-plus-fill me-2"></i>Añadir Nuevo Cliente</h3>
+                    <button type="button" class="btn-close-custom" data-bs-dismiss="modal" aria-label="Close">×</button>
+                </div>
+                
+                <div class="modal-body form-custom">
+                    <div class="row g-0 align-items-center"> <div class="col-md-3 border-right-divider pe-4 avatar-container">
+                            <img id="preview-image" src="{% static 'clientes/default-user.png' %}" alt="Vista previa">
+                            <label for="foto_perfil" class="btn-upload-custom w-100 text-center cursor-pointer">
+                                <i class="bi bi-camera me-1"></i> Subir Foto
+                            </label>
+                            <input type="file" name="foto_perfil" id="foto_perfil" class="d-none" accept="image/*" onchange="previewFile()">
+                            <small class="text-muted d-block mt-2 text-center" style="font-size: 0.65rem;">MÁX: 2MB (JPG/PNG)</small>
+                        </div>
+
+                        <div class="col-md-9 ps-5">
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <label class="form-label">Nombre</label>
+                                    <input type="text" name="nombre" class="form-control" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Apellido</label>
+                                    <input type="text" name="apellido" class="form-control">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Documento</label>
+                                    <input type="text" name="nro_documento" class="form-control" required>
+                                </div>
+                            </div>
+                            
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Teléfono</label>
+                                    <input type="text" name="telefono" class="form-control">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" name="email" class="form-control">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">F. Nacimiento</label>
+                                    <input type="date" name="fecha_nacimiento" class="form-control">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel-custom px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn-save-custom px-4">
+                        <i class="bi bi-check-lg me-1"></i> Guardar Cliente
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // ESTA FUNCIÓN HACE LA MAGIA DE LA PREVISUALIZACIÓN - NO TOCAR
+    function previewFile() {
+        const preview = document.getElementById('preview-image');
+        const file = document.getElementById('foto_perfil').files[0];
+        const reader = new FileReader();
+
+        reader.onloadend = function () {
+            preview.src = reader.result;
+        }
+
+        if (file) {
+            reader.readAsDataURL(file);
+        } else {
+            preview.src = "{% static 'clientes/default-user.png' %}";
+        }
+    }
+</script>
+
+<div class="modal fade" id="editClienteModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'cliente_edit' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="edit_id">
+            <div class="modal-content">
+                <div class="modal-header"><h3>Editar Cliente</h3></div>
+                <div class="modal-body row g-3">
+                    <div class="col-md-6"><label class="form-label">Nombre</label><input type="text" id="edit_nombre" name="nombre" class="form-control" required></div>
+                    <div class="col-md-6"><label class="form-label">Apellido</label><input type="text" id="edit_apellido" name="apellido" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Documento</label><input type="text" id="edit_doc" name="nro_documento" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Teléfono</label><input type="text" id="edit_telefono" name="telefono" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">Email</label><input type="email" id="edit_email" name="email" class="form-control"></div>
+                    <div class="col-md-6"><label class="form-label">F. Nacimiento</label><input type="date" id="edit_fechanac" name="fecha_nacimiento" class="form-control"></div>
+                    <div class="col-12"><label class="form-label">Cambiar Foto</label><input type="file" name="foto_perfil" class="form-control" accept="image/*"></div>
+                </div>
+                <div class="modal-footer"><button type="submit" class="btn btn-primary">Actualizar</button></div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteClienteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'cliente_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="delete_id">
+            <div class="modal-content">
+                <div class="modal-header"><h5 class="text-danger">Eliminar Cliente</h5></div>
+                <div class="modal-body text-center">¿Seguro que quieres eliminar a <strong id="delete_nombre"></strong>?</div>
+                <div class="modal-footer"><button type="submit" class="btn btn-danger">Eliminar</button></div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        // JS PARA VER (OJITO)
+        const viewModal = document.getElementById("viewClienteModal");
+        viewModal.addEventListener("show.bs.modal", (e) => {
+            let btn = e.relatedTarget;
+            document.getElementById("view_nombre").textContent = btn.getAttribute("data-nombre");
+            document.getElementById("view_doc").textContent = btn.getAttribute("data-doc");
+            document.getElementById("view_telefono").textContent = btn.getAttribute("data-telefono") || 'N/A';
+            document.getElementById("view_email").textContent = btn.getAttribute("data-email") || 'N/A';
+            document.getElementById("view_fechanac").textContent = btn.getAttribute("data-fechanac") || 'N/A';
+            let foto = btn.getAttribute("data-foto");
+            let imgTag = document.getElementById("view_foto");
+            if(foto) { imgTag.src = foto; imgTag.style.display = 'inline-block'; } else { imgTag.style.display = 'none'; }
+        });
+
+        // JS PARA EDITAR
+        const editModal = document.getElementById("editClienteModal");
+        editModal.addEventListener("show.bs.modal", (e) => {
+            let btn = e.relatedTarget;
+            document.getElementById("edit_id").value = btn.getAttribute("data-id");
+            document.getElementById("edit_nombre").value = btn.getAttribute("data-nombre");
+            document.getElementById("edit_apellido").value = btn.getAttribute("data-apellido");
+            document.getElementById("edit_doc").value = btn.getAttribute("data-doc");
+            document.getElementById("edit_telefono").value = btn.getAttribute("data-telefono");
+            document.getElementById("edit_email").value = btn.getAttribute("data-email");
+            document.getElementById("edit_fechanac").value = btn.getAttribute("data-fechanac");
+        });
+
+        // JS PARA ELIMINAR
+        const deleteModal = document.getElementById("deleteClienteModal");
+        deleteModal.addEventListener("show.bs.modal", (e) => {
+            let btn = e.relatedTarget;
+            document.getElementById("delete_id").value = btn.getAttribute("data-id");
+            document.getElementById("delete_nombre").textContent = btn.getAttribute("data-nombre");
+        });
+    });
+</script>
+{% endblock %}

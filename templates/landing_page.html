@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SISTEMAS REDREX - Soluciones Tecnológicas Profesionales</title>
+
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- Custom CSS -->
+    <link href="static/css/styles.css" rel="stylesheet" />
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <img src="static/img/logoredrex.png" alt="SISTEMAS REDREX" height="80" class="me-2" />
+            </a>
+            <button
+                class="navbar-toggler"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#navbarNav"
+                aria-controls="navbarNav"
+                aria-expanded="false"
+                aria-label="Toggle navigation"
+            >
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav mx-auto">
+                    <li class="nav-item"><a class="nav-link" href="#inicio">Inicio</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#modulos">Módulos</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#precios">Precios</a></li>
+                    <li class="nav-item"><a class="nav-link" href="#contacto">Contacto</a></li>
+                </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item me-2">
+                        <a class="btn btn-outline-custom" href="{% url 'login' %}">
+                            <i class="fas fa-sign-in-alt me-2"></i>Iniciar Sesión
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a
+                            class="btn btn-primary-custom"
+                            href="#"
+                            data-bs-toggle="modal"
+                            data-bs-target="#registerModal"
+                        >
+                            <i class="fas fa-user-plus me-2"></i>Registrarse
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    <!-- Hero Section -->
+    <section id="inicio" class="hero-section">
+        <div class="particles">
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+            <div class="particle"></div>
+        </div>
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-6">
+                    <div class="hero-content animate-fade-in-up">
+                        <h1 class="hero-title">Soluciones Tecnológicas Profesionales</h1>
+                        <p class="hero-subtitle">
+                            Desarrollamos sistemas integrales para optimizar tu negocio.
+                            Software personalizado, escalable y de alta calidad para impulsar tu empresa.
+                        </p>
+
+                        <!-- Stats Counter -->
+                        <div class="stats-counter">
+                            <div class="stat-item">
+                                <span class="stat-number" data-target="15">0</span>
+                                <span class="stat-label">Módulos Integrados</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number" data-target="100">0</span>
+                                <span class="stat-label">% Compatible</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-number" data-target="7">0</span>
+                                <span class="stat-label">Días Prueba Gratis</span>
+                            </div>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-3">
+                            <a href="#precios" class="btn btn-primary-custom btn-hero">
+                                <i class="fas fa-rocket me-2"></i>Comenzar Ahora
+                            </a>
+                            <a href="#modulos" class="btn btn-outline-custom btn-hero">
+                                <i class="fas fa-play me-2"></i>Ver Demo
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-6 text-center">
+                    <div class="mockup-container">
+                        <div class="mockup-screen">
+                            <div class="d-flex align-items-center justify-content-center h-100">
+                                <i class="fas fa-chart-line" style="font-size: 4rem; color: var(--secondary-color)"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Features Section -->
+    <section id="modulos" class="feature-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-12">
+                    <br>
+                    <h2 class="section-title">Módulos Principales</h2>
+                    <p class="section-subtitle">
+                        Descubre todas las funcionalidades que hacen de nuestros sistemas la solución perfecta para tu empresa
+                    </p>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-lg-4 col-md-6">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="fas fa-building"></i></div>
+                        <h3 class="feature-title">Gestión de Empresas</h3>
+                        <p class="feature-description">
+                            Administra tu empresa, sucursales y configuraciones empresariales.
+                            Personalización completa y gestión centralizada.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 col-md-6">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="fas fa-user-friends"></i></div>
+                        <h3 class="feature-title">Gestión de Clientes</h3>
+                        <p class="feature-description">
+                            Control completo de clientes, servicios,
+                            datos y perfiles personalizados.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 col-md-6">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="fas fa-cash-register"></i></div>
+                        <h3 class="feature-title">Ventas y Pagos</h3>
+                        <p class="feature-description">
+                            Sistema completo de ventas, pagos y
+                            control financiero. Gestión de planes y servicios.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 col-md-6">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="fas fa-boxes"></i></div>
+                        <h3 class="feature-title">Inventario y Productos</h3>
+                        <p class="feature-description">
+                            Control de stock, productos, servicios y equipamiento.
+                            Gestión de compras y ventas.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 col-md-6">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="fas fa-calendar-check"></i></div>
+                        <h3 class="feature-title">Control de Asistencia</h3>
+                        <p class="feature-description">
+                            Registro de asistencia, seguimiento de actividad y
+                            reportes detallados por sucursal.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 col-md-6">
+                    <div class="feature-card">
+                        <div class="feature-icon"><i class="fas fa-users-cog"></i></div>
+                        <h3 class="feature-title">Gestión de Usuarios</h3>
+                        <p class="feature-description">
+                            Administración de usuarios, roles por sucursal,
+                            control de acceso y gestión de empleados.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <br>
+    </section>
+    <!-- Pricing Section -->
+    <section id="precios" class="precios-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-12">
+                    <br>
+                    <h3 class="section-title">Planes y Precios Para Gimnasio</h3>
+                    <p class="section-subtitle">
+                        Elige el plan que mejor se adapte a las necesidades de tu gimnasio y comienza a optimizar tu gestión hoy mismo.
+                    </p>
+                </div>
+            </div>
+
+            <div class="row g-4 justify-content-center">
+                <div class="col-lg-4 col-md-6">
+                    <div class="pricing-card">
+                        <h3>PLAN BASICO MENSUAL</h3>
+                        <div class="price">Bs 280</div>
+                        <div class="price-period">30 días</div>
+                        <ul class="pricing-features">
+                            <li>2 sucursales</li>
+                            <li>Módulos de clientes y asistencias</li>
+                            <li>Hasta 4 Usuarios</li>
+                            <li>Sin límite de clientes</li>
+                            <li>Soporte 5 días a la semana</li>
+                            <li>Reportes detallados</li>
+                        </ul>
+                        <a href="#contacto" class="btn btn-outline-primary w-100">Comenzar Prueba</a>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 col-md-6">
+                    <div class="pricing-card">
+                        <h3>PLAN PRO ANUAL</h3>
+                        <div class="price">Bs 2,800</div>
+                        <div class="price-period">por año (2 meses gratis)</div>
+                        <ul class="pricing-features">
+                            <li>2 sucursales</li>
+                            <li>Módulos de clientes y asistencias</li>
+                            <li>Hasta 6 Usuarios</li>
+                            <li>Sin límite de clientes</li>
+                            <li>Soporte 6 días a la semana</li>
+                            <li>Reportes detallados</li>
+                            <li>Ahorro del 17%</li>
+                        </ul>
+                        <a href="#contacto" class="btn btn-outline-primary w-100">Comenzar</a>
+                    </div>
+                </div>
+
+                <div class="col-lg-4 col-md-6">
+                    <div class="pricing-card featured">
+                        <div class="popular-badge">🔥 Popular</div>
+                        <h3>PLAN ENTERPRISE</h3>
+                        <div class="price">Bs 3,200</div>
+                        <div class="price-period">por año</div>
+                        <ul class="pricing-features">
+                            <li>5 Sucursales</li>
+                            <li>Todos los Módulos (Punto de venta, Inventario)</li>
+                            <li>10 Usuarios</li>
+                            <li>Soporte 24/7</li>
+                            <li>Sin límite de clientes</li>
+                            <li>Sin límite de registros de ventas</li>
+                            <li>Integración con terceros</li>
+                            <li>Ahorro del 20% si pagas 2 años</li>
+                        </ul>
+                        <a href="#contacto" class="btn btn-primary-custom w-100">Comenzar</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <br>
+    </section>
+    <!-- Contact Section -->
+    <section id="contacto" class="section bg-light">
+        <div class="container">
+            <div class="row">
+                <div class="col-12">
+                    <h2 class="section-title">Contáctanos</h2>
+                    <p class="section-subtitle">
+                        ¿Tienes preguntas? Estamos aquí para ayudarte a encontrar la mejor solución
+                    </p>
+                </div>
+            </div>
+
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="contact-form">
+                        <div id="alert-container"></div>
+                        <form id="contactForm" onsubmit="return false;">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="nombre" class="form-label">Nombre completo</label>
+                                    <input type="text" class="form-control" id="nombre" name="nombre" required />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="email" class="form-label">Correo electrónico</label>
+                                    <input type="email" class="form-control" id="email" name="email" required />
+                                </div>
+                                <div class="col-12">
+                                    <label for="mensaje" class="form-label">Mensaje</label>
+                                    <textarea class="form-control" id="mensaje" name="mensaje" rows="5" required></textarea>
+                                </div>
+                                <div class="col-12 text-center">
+                                    <button type="submit" class="btn btn-submit">
+                                        <span class="loading">
+                                            <i class="fas fa-spinner fa-spin me-2"></i>Enviando...
+                                        </span>
+                                        <span class="button-text">
+                                            <i class="fas fa-paper-plane me-2"></i>Enviar Mensaje
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <h5>SISTEMAS REDREX</h5>
+                    <p>
+                        Empresa en crecimiento y enfocada en desarrollo de software empresarial. Creamos soluciones tecnológicas a medida.
+                    </p>
+                </div>
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <h5>Contacto</h5>
+                    <ul class="list-unstyled">
+                        <li><i class="fas fa-phone me-2"></i>+591 65002321</li>
+                        <li><i class="fas fa-envelope me-2"></i>info@redrex.com</li>
+                        <li><i class="fas fa-map-marker-alt me-2"></i>Santa Cruz, Bolivia</li>
+                    </ul>
+                </div>
+                <div class="col-lg-4 col-md-12 mb-4 text-lg-end">
+                    <h5>Síguenos en nuestras redes sociales</h5>
+                    <a href="#" class="social-link me-2"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#" class="social-link me-2"><i class="fab fa-twitter"></i></a>
+                    <a href="#" class="social-link me-2"><i class="fab fa-linkedin-in"></i></a>
+                    <a href="#" class="social-link"><i class="fab fa-instagram"></i></a>
+                </div>
+            </div>
+            <div class="text-center pt-3">
+                &copy; 2025 SISTEMAS REDREX. Todos los derechos reservados.
+            </div>
+        </div>
+    </footer>
+
+    <!-- Registration Modal -->
+    <div
+        class="modal fade"
+        id="registerModal"
+        tabindex="-1"
+        aria-labelledby="registerModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="registerModalLabel">
+                        <i class="fas fa-user-plus me-2"></i>Registro de Usuario
+                    </h5>
+                    <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Cerrar"
+                    ></button>
+                </div>
+                <div class="modal-body">
+                    <div id="registerAlert"></div>
+                    <form id="registerForm" onsubmit="return false;">
+                        <div class="row g-3">
+                            <!-- Personal Information -->
+                            <div class="col-md-6">
+                                <label for="nombre_registro" class="form-label">Nombre *</label>
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    id="nombre_registro"
+                                    name="nombre"
+                                    required
+                                />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="apellido_registro" class="form-label">Apellido *</label>
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    id="apellido_registro"
+                                    name="apellido"
+                                    required
+                                />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="nombre_usuario_registro" class="form-label"
+                                    >Nombre de Usuario *</label
+                                >
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    id="nombre_usuario_registro"
+                                    name="nombre_usuario"
+                                    required
+                                />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="telefono_registro" class="form-label">Teléfono *</label>
+                                <input
+                                    type="tel"
+                                    class="form-control"
+                                    id="telefono_registro"
+                                    name="telefono"
+                                    required
+                                />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="email_registro" class="form-label">Email *</label>
+                                <input
+                                    type="email"
+                                    class="form-control"
+                                    id="email_registro"
+                                    name="email"
+                                    required
+                                />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="password_registro" class="form-label">Contraseña *</label>
+                                <input
+                                    type="password"
+                                    class="form-control"
+                                    id="password_registro"
+                                    name="password"
+                                    required
+                                />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="confirm_password_registro" class="form-label"
+                                    >Confirmar Contraseña *</label
+                                >
+                                <input
+                                    type="password"
+                                    class="form-control"
+                                    id="confirm_password_registro"
+                                    name="confirm_password"
+                                    required
+                                />
+                            </div>
+
+                            <!-- Company Information -->
+                            <div class="col-12">
+                                <hr />
+                                <h6 class="text-primary">Información de la Empresa</h6>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="nombre_empresa_registro" class="form-label"
+                                    >Nombre de la Empresa *</label
+                                >
+                                <input
+                                    type="text"
+                                    class="form-control"
+                                    id="nombre_empresa_registro"
+                                    name="nombre_empresa"
+                                    required
+                                />
+                            </div>
+                            <div class="col-md-6">
+                                <label for="rubro_registro" class="form-label">Rubro *</label>
+                                <select
+                                    class="form-select"
+                                    id="rubro_registro"
+                                    name="rubro"
+                                    required
+                                >
+                                    <option value="">Seleccionar rubro</option>
+                                    <option value="gimnasio">Gimnasio</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="btn btn-secondary"
+                        data-bs-dismiss="modal"
+                    >
+                        <i class="fas fa-times me-2"></i>Volver
+                    </button>
+                    <button type="button" class="btn btn-primary-custom" id="btnRegister">
+                        <span class="loading">
+                            <i class="fas fa-spinner fa-spin me-2"></i>Registrando...
+                        </span>
+                        <span class="button-text">
+                            <i class="fas fa-user-plus me-2"></i>Registrarme
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Custom JS -->
+    <script src="static/js/scripts.js"></script>
+</body>
+</html>

@@ -1,0 +1,861 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cocina — {{ sucursal.nombre }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: #0c0f12;
+            color: #f0f4f8;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .kb-header {
+            background: #131720;
+            border-bottom: 1px solid #232c3d;
+            padding: 0.75rem 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        .kb-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .kb-brand-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .kb-brand-text h1 {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.95rem;
+        }
+        .kb-brand-text p {
+            font-size: 0.72rem;
+            color: #8b9ab5;
+        }
+        .kb-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        .kb-clock {
+            font-family: 'Space Mono', monospace;
+            background: #1a1f2e;
+            border: 1px solid #232c3d;
+            padding: 0.4rem 0.85rem;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        .kb-status {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.72rem;
+        }
+        .kb-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+        }
+        .kb-btn-volver {
+            background: #1a1f2e;
+            border: 1px solid #2d3852;
+            color: #8b9ab5;
+            padding: 0.45rem 0.9rem;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .kb-board {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.875rem;
+            padding: 0.875rem;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .kb-col {
+            background: #131720;
+            border: 1px solid #232c3d;
+            border-radius: 14px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-height: 0;
+        }
+        .kb-col-header {
+            padding: 0.85rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #232c3d;
+            background: #1a1f2e;
+            flex-shrink: 0;
+        }
+        .kb-col-title {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .kb-col-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .col-registrado .kb-col-dot { background: #3b82f6; box-shadow: 0 0 8px #3b82f6; }
+        .col-en-proceso .kb-col-dot { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+        .col-despachado .kb-col-dot { background: #10b981; box-shadow: 0 0 8px #10b981; }
+        
+        .kb-col-name {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        .kb-col-badge {
+            background: #1a1f2e;
+            border: 1px solid #232c3d;
+            font-family: 'Space Mono', monospace;
+            font-size: 0.78rem;
+            font-weight: 700;
+            padding: 0.18rem 0.55rem;
+            border-radius: 20px;
+        }
+        .col-registrado .kb-col-badge { color: #3b82f6; }
+        .col-en-proceso .kb-col-badge { color: #f59e0b; }
+        .col-despachado .kb-col-badge { color: #10b981; }
+
+        .kb-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+            min-height: 0;
+        }
+        .kb-list::-webkit-scrollbar { width: 4px; }
+        .kb-list::-webkit-scrollbar-thumb { background: #232c3d; border-radius: 2px; }
+
+        .kb-card {
+            background: #1a1f2e;
+            border: 1px solid #232c3d;
+            border-left: 3px solid;
+            border-radius: 10px;
+            cursor: grab;
+            transition: all 0.2s;
+        }
+        .col-registrado .kb-card { border-left-color: #3b82f6; }
+        .col-en-proceso .kb-card { border-left-color: #f59e0b; }
+        .col-despachado .kb-card { border-left-color: #10b981; }
+        
+        .kb-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+        .kb-card:active { cursor: grabbing; }
+        
+        .card-head {
+            background: #1f2535;
+            padding: 0.55rem 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .card-actions {
+            display: flex;
+            gap: 0.3rem;
+        }
+        .btn-state {
+            background: #1a1f2e;
+            border: 1px solid #232c3d;
+            color: #8b9ab5;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.7rem;
+        }
+        .btn-state:hover { background: #2d3852; color: white; }
+        .card-num {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+        .col-registrado .card-num { color: #3b82f6; }
+        .col-en-proceso .card-num { color: #f59e0b; }
+        .col-despachado .card-num { color: #10b981; }
+        
+        .card-hora {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.72rem;
+            color: #4e5d73;
+            background: #0c0f12;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+        }
+        .card-meta {
+            padding: 0.5rem 0.75rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #232c3d;
+        }
+        .card-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.68rem;
+            font-weight: 600;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            background: #1f2535;
+            border: 1px solid #232c3d;
+        }
+        .card-items {
+            padding: 0.5rem 0.75rem;
+        }
+        .card-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0;
+            border-bottom: 1px dashed #232c3d;
+            font-size: 0.8rem;
+        }
+        .card-item:last-child { border-bottom: none; }
+        .card-item-qty {
+            font-family: 'Space Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: 700;
+            min-width: 22px;
+            text-align: center;
+        }
+        .col-registrado .card-item-qty { color: #3b82f6; }
+        .col-en-proceso .card-item-qty { color: #f59e0b; }
+        .col-despachado .card-item-qty { color: #10b981; }
+        
+        .card-item-nombre {
+            font-weight: 600;
+            flex: 1;
+        }
+        .card-item-pack {
+            font-size: 0.6rem;
+            background: rgba(16,185,129,0.15);
+            color: #10b981;
+            padding: 1px 5px;
+            border-radius: 3px;
+            margin-left: 0.5rem;
+        }
+        .card-obs {
+            margin: 0 0.75rem 0.6rem;
+            background: rgba(245,158,11,0.1);
+            border-left: 2px solid #f59e0b;
+            padding: 0.35rem 0.6rem;
+            font-size: 0.72rem;
+            color: #fbbf24;
+        }
+        .kb-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            min-height: 120px;
+            gap: 0.5rem;
+            color: #4e5d73;
+        }
+        .kb-no-turno {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content {
+            background: #131720;
+            border: 1px solid #232c3d;
+            border-radius: 14px;
+            max-width: 400px;
+            width: 90%;
+        }
+        .modal-header {
+            padding: 1rem;
+            border-bottom: 1px solid #232c3d;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .modal-header i { color: #f59e0b; font-size: 1.5rem; }
+        .modal-body { padding: 1rem; }
+        .modal-footer {
+            padding: 1rem;
+            border-top: 1px solid #232c3d;
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+        .modal-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        .modal-btn.cancel {
+            background: #1a1f2e;
+            color: white;
+            border: 1px solid #232c3d;
+        }
+        .modal-btn.confirm {
+            background: #f43f5e;
+            color: white;
+        }
+        
+        #kb-toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .kb-toast {
+            background: #1a1f2e;
+            border: 1px solid #2d3852;
+            border-radius: 10px;
+            padding: 0.65rem 1rem;
+            font-size: 0.82rem;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            animation: slideIn 0.3s ease;
+        }
+        .kb-toast.ok { border-left: 3px solid #10b981; }
+        .kb-toast.ok i { color: #10b981; }
+        .kb-toast.nuevo { border-left: 3px solid #f59e0b; background: #2d1f00; }
+        .kb-toast.nuevo i { color: #f59e0b; }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<header class="kb-header">
+    <div class="kb-brand">
+        <div class="kb-brand-icon">👨‍🍳</div>
+        <div class="kb-brand-text">
+            <h1>Cocina — {{ sucursal.nombre }}</h1>
+            <p>Tablero de pedidos</p>
+        </div>
+    </div>
+    <div class="kb-meta">
+        <div class="kb-status">
+            <div class="kb-status-dot"></div>
+            <span id="kb-sync-label">En vivo</span>
+        </div>
+        <div class="kb-clock" id="kb-clock">--:--:--</div>
+        <a href="{% url 'crear_venta' %}" class="kb-btn-volver">
+            <i class="fas fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</header>
+
+{% if not caja_turno %}
+<div class="kb-no-turno">
+    <i class="fas fa-cash-register" style="font-size: 3rem;"></i>
+    <h2>No hay turno de caja activo</h2>
+    <p>Abrí una caja para empezar a recibir pedidos.</p>
+</div>
+{% else %}
+
+<div class="kb-board">
+    <!-- REGISTRADO -->
+    <div class="kb-col col-registrado" data-estado="registrado" id="col-registrado">
+        <div class="kb-col-header">
+            <div class="kb-col-title">
+                <div class="kb-col-dot"></div>
+                <span class="kb-col-name">REGISTRADO</span>
+            </div>
+            <span class="kb-col-badge" id="badge-registrado">{{ ventas_registradas|length }}</span>
+        </div>
+        <div class="kb-list" id="list-registrado">
+            {% for v in ventas_registradas %}
+            <div class="kb-card" draggable="true" data-id="{{ v.id }}" data-estado="registrado">
+                <div class="card-head">
+                    <div class="card-actions">
+                        <button class="btn-state btn-ticket" onclick="reimprimirTicket({{ v.id }}, event)"><i class="fas fa-print"></i></button>
+                        <button class="btn-state btn-next" title="Avanzar"><i class="fas fa-arrow-right"></i></button>
+                    </div>
+                    <span class="card-num">#{{ v.id|stringformat:"04d" }}</span>
+                    <span class="card-hora">{{ v.fecha|date:"H:i" }}</span>
+                </div>
+                <div class="card-meta">
+                    <span class="card-tag"><i class="fas fa-store"></i>{{ v.canal.nombre }}</span>
+                    <span class="card-tag"><i class="fas fa-user"></i>{{ v.cliente.nombre|default:"General" }}</span>
+                </div>
+                <div class="card-items">
+                    {% for d in v.detalles.all %}
+                        {% if not d.detalle_padre %}
+                        <div class="card-item">
+                            <span class="card-item-qty">{{ d.cantidad|floatformat:0 }}</span>
+                            <span class="card-item-nombre">{{ d.nombre_producto|default:"Producto" }}{% if d.producto_padre %} <span class="card-item-pack">PACK</span>{% endif %}</span>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% if v.observaciones %}
+                <div class="card-obs"><i class="fas fa-comment"></i> {{ v.observaciones }}</div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="kb-empty"><i class="fas fa-inbox"></i><p>Sin pedidos</p></div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- EN PROCESO -->
+    <div class="kb-col col-en-proceso" data-estado="en_proceso" id="col-en_proceso">
+        <div class="kb-col-header">
+            <div class="kb-col-title">
+                <div class="kb-col-dot"></div>
+                <span class="kb-col-name">EN PROCESO</span>
+            </div>
+            <span class="kb-col-badge" id="badge-en_proceso">{{ ventas_en_proceso|length }}</span>
+        </div>
+        <div class="kb-list" id="list-en_proceso">
+            {% for v in ventas_en_proceso %}
+            <div class="kb-card" draggable="true" data-id="{{ v.id }}" data-estado="en_proceso">
+                <div class="card-head">
+                    <div class="card-actions">
+                        <button class="btn-state btn-ticket" onclick="reimprimirTicket({{ v.id }}, event)"><i class="fas fa-print"></i></button>
+                        <button class="btn-state btn-prev" title="Retroceder"><i class="fas fa-arrow-left"></i></button>
+                        <button class="btn-state btn-next" title="Avanzar"><i class="fas fa-arrow-right"></i></button>
+                    </div>
+                    <span class="card-num">#{{ v.id|stringformat:"04d" }}</span>
+                    <span class="card-hora">{{ v.fecha|date:"H:i" }}</span>
+                </div>
+                <div class="card-meta">
+                    <span class="card-tag"><i class="fas fa-store"></i>{{ v.canal.nombre }}</span>
+                    <span class="card-tag"><i class="fas fa-user"></i>{{ v.cliente.nombre|default:"General" }}</span>
+                </div>
+                <div class="card-items">
+                    {% for d in v.detalles.all %}
+                        {% if not d.detalle_padre %}
+                        <div class="card-item">
+                            <span class="card-item-qty">{{ d.cantidad|floatformat:0 }}</span>
+                            <span class="card-item-nombre">{{ d.nombre_producto|default:"Producto" }}{% if d.producto_padre %} <span class="card-item-pack">PACK</span>{% endif %}</span>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% if v.observaciones %}
+                <div class="card-obs"><i class="fas fa-comment"></i> {{ v.observaciones }}</div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="kb-empty"><i class="fas fa-fire"></i><p>Sin pedidos</p></div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- DESPACHADO -->
+    <div class="kb-col col-despachado" data-estado="despachado" id="col-despachado">
+        <div class="kb-col-header">
+            <div class="kb-col-title">
+                <div class="kb-col-dot"></div>
+                <span class="kb-col-name">DESPACHADO</span>
+            </div>
+            <span class="kb-col-badge" id="badge-despachado">{{ ventas_despachadas|length }}</span>
+        </div>
+        <div class="kb-list" id="list-despachado">
+            {% for v in ventas_despachadas %}
+            <div class="kb-card" draggable="true" data-id="{{ v.id }}" data-estado="despachado">
+                <div class="card-head">
+                    <div class="card-actions">
+                        <button class="btn-state btn-ticket" onclick="reimprimirTicket({{ v.id }}, event)"><i class="fas fa-print"></i></button>
+                        <button class="btn-state btn-prev" title="Retroceder"><i class="fas fa-arrow-left"></i></button>
+                    </div>
+                    <span class="card-num">#{{ v.id|stringformat:"04d" }}</span>
+                    <span class="card-hora">{{ v.fecha|date:"H:i" }}</span>
+                </div>
+                <div class="card-meta">
+                    <span class="card-tag"><i class="fas fa-store"></i>{{ v.canal.nombre }}</span>
+                    <span class="card-tag"><i class="fas fa-user"></i>{{ v.cliente.nombre|default:"General" }}</span>
+                </div>
+                <div class="card-items">
+                    {% for d in v.detalles.all %}
+                        {% if not d.detalle_padre %}
+                        <div class="card-item">
+                            <span class="card-item-qty">{{ d.cantidad|floatformat:0 }}</span>
+                            <span class="card-item-nombre">{{ d.nombre_producto|default:"Producto" }}{% if d.producto_padre %} <span class="card-item-pack">PACK</span>{% endif %}</span>
+                        </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% if v.observaciones %}
+                <div class="card-obs"><i class="fas fa-comment"></i> {{ v.observaciones }}</div>
+                {% endif %}
+            </div>
+            {% empty %}
+            <div class="kb-empty"><i class="fas fa-check"></i><p>Sin pedidos</p></div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div id="kb-toast-container"></div>
+<div id="confirmModal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h3>¿Retroceder pedido?</h3>
+        </div>
+        <div class="modal-body">
+            <p>Pedido <strong id="modal-venta-id"></strong></p>
+            <p>de <strong id="modal-estado-actual"></strong> a <strong id="modal-estado-anterior"></strong></p>
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn cancel">Cancelar</button>
+            <button class="modal-btn confirm">Confirmar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const CSRF = '{{ csrf_token }}';
+const URL_ESTADO = '{% url "actualizar_estado_cocina" %}';
+const URL_PEDIDOS = '{% url "kanban_pedidos_json" %}';
+const HAY_TURNO = {{ caja_turno|yesno:"true,false" }};
+
+// Reloj
+function actualizarReloj() {
+    const now = new Date();
+    const clock = document.getElementById('kb-clock');
+    if (clock) clock.textContent = now.toLocaleTimeString('es-BO');
+}
+actualizarReloj();
+setInterval(actualizarReloj, 1000);
+
+// Toast
+function toast(msg, type = 'ok') {
+    const container = document.getElementById('kb-toast-container');
+    const toastEl = document.createElement('div');
+    toastEl.className = `kb-toast ${type}`;
+    toastEl.innerHTML = `<i class="fas ${type === 'nuevo' ? 'fa-bell' : 'fa-check-circle'}"></i><span>${msg}</span>`;
+    container.appendChild(toastEl);
+    setTimeout(() => toastEl.remove(), 3000);
+}
+
+// ========== SONIDO ==========
+let sonidoActivado = false;
+let audioContext = null;
+
+function initSonido() {
+    if (sonidoActivado) return;
+    try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        sonidoActivado = true;
+        console.log('Sonido activado');
+    } catch(e) { console.log('Error audio:', e); }
+}
+
+function playSound() {
+    if (!sonidoActivado || !audioContext) return;
+    try {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.frequency.value = 880;
+        gain.gain.value = 0.3;
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.5);
+        osc.stop(audioContext.currentTime + 0.5);
+    } catch(e) { console.log('Error beep:', e); }
+}
+
+// Activar sonido con cualquier click
+document.body.addEventListener('click', function() {
+    initSonido();
+}, { once: true });
+
+if (HAY_TURNO) {
+    let pendingAction = null;
+    let draggedCard = null;
+    let ultimosIds = new Set();
+    
+    const nextState = { 'registrado': 'en_proceso', 'en_proceso': 'despachado', 'despachado': null };
+    const prevState = { 'registrado': null, 'en_proceso': 'registrado', 'despachado': 'en_proceso' };
+    
+    function showConfirmModal(ventaId, currentState, targetState, card) {
+        const modal = document.getElementById('confirmModal');
+        document.getElementById('modal-venta-id').textContent = `#${String(ventaId).padStart(4, '0')}`;
+        document.getElementById('modal-estado-actual').textContent = currentState.replace('_', ' ');
+        document.getElementById('modal-estado-anterior').textContent = targetState.replace('_', ' ');
+        modal.style.display = 'flex';
+        pendingAction = { card, targetState };
+    }
+    
+    function closeModal() {
+        document.getElementById('confirmModal').style.display = 'none';
+        pendingAction = null;
+    }
+    
+    async function moverTarjeta(card, nuevoEstado) {
+        const ventaId = parseInt(card.dataset.id);
+        const estadoActual = card.dataset.estado;
+        
+        const targetCol = document.getElementById(`col-${nuevoEstado}`);
+        const targetList = targetCol.querySelector('.kb-list');
+        const empty = targetList.querySelector('.kb-empty');
+        if (empty) empty.remove();
+        
+        targetList.appendChild(card);
+        card.dataset.estado = nuevoEstado;
+        actualizarBadges();
+        
+        const oldList = document.getElementById(`list-${estadoActual}`);
+        if (oldList && !oldList.querySelector('.kb-card')) {
+            const icons = { registrado: 'inbox', en_proceso: 'fire', despachado: 'check' };
+            oldList.innerHTML = `<div class="kb-empty"><i class="fas fa-${icons[estadoActual]}"></i><p>Sin pedidos</p></div>`;
+        }
+        
+        try {
+            const res = await fetch(URL_ESTADO, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+                body: JSON.stringify({ venta_id: ventaId, nuevo_estado: nuevoEstado })
+            });
+            const data = await res.json();
+            if (data.ok) {
+                toast(`#${String(ventaId).padStart(4,'0')} → ${nuevoEstado.replace('_', ' ')}`);
+            } else {
+                toast('Error al actualizar', 'error');
+            }
+        } catch {
+            toast('Error de conexión', 'error');
+        }
+    }
+    
+    function configurarBotones(card) {
+        const estado = card.dataset.estado;
+        const btnPrev = card.querySelector('.btn-prev');
+        const btnNext = card.querySelector('.btn-next');
+        
+        if (btnPrev) {
+            btnPrev.onclick = (e) => {
+                e.stopPropagation();
+                const target = prevState[estado];
+                if (target) showConfirmModal(card.dataset.id, estado, target, card);
+            };
+        }
+        if (btnNext) {
+            btnNext.onclick = (e) => {
+                e.stopPropagation();
+                const target = nextState[estado];
+                if (target) moverTarjeta(card, target);
+            };
+        }
+    }
+    
+    function actualizarBadges() {
+        ['registrado', 'en_proceso', 'despachado'].forEach(e => {
+            const count = document.querySelectorAll(`#list-${e} .kb-card`).length;
+            const badge = document.getElementById(`badge-${e}`);
+            if (badge) badge.textContent = count;
+        });
+    }
+    
+    // POLLING - LA VERSIÓN QUE SÍ FUNCIONA
+    async function polling() {
+        try {
+            const res = await fetch(URL_PEDIDOS);
+            const data = await res.json();
+            if (!data.ok) return;
+            
+            const idsActuales = new Set();
+            document.querySelectorAll('.kb-card').forEach(c => idsActuales.add(parseInt(c.dataset.id)));
+            
+            for (const v of data.ventas) {
+                const cardExistente = document.querySelector(`.kb-card[data-id="${v.id}"]`);
+                
+                if (!cardExistente) {
+                    // NUEVO PEDIDO
+                    console.log('Nuevo pedido detectado:', v.id);
+                    const list = document.getElementById(`list-${v.estado_venta.toLowerCase()}`);
+                    if (list) {
+                        const empty = list.querySelector('.kb-empty');
+                        if (empty) empty.remove();
+                        
+                        // Construir HTML de la tarjeta
+                        const itemsHtml = v.detalles.map(d => `
+                            <div class="card-item">
+                                <span class="card-item-qty">${Math.floor(d.cantidad)}</span>
+                                <span class="card-item-nombre">${d.nombre}${d.es_pack ? '<span class="card-item-pack">PACK</span>' : ''}</span>
+                            </div>
+                        `).join('');
+                        
+                        let botonesHtml = '';
+                        if (v.estado_venta.toLowerCase() === 'registrado') {
+                            botonesHtml = '<div class="card-actions"><button class="btn-state btn-ticket" onclick="reimprimirTicket(' + v.id + ', event)"><i class="fas fa-print"></i></button><button class="btn-state btn-next"><i class="fas fa-arrow-right"></i></button></div>';
+                        } else if (v.estado_venta.toLowerCase() === 'en_proceso') {
+                            botonesHtml = '<div class="card-actions"><button class="btn-state btn-ticket" onclick="reimprimirTicket(' + v.id + ', event)"><i class="fas fa-print"></i></button><button class="btn-state btn-prev"><i class="fas fa-arrow-left"></i></button><button class="btn-state btn-next"><i class="fas fa-arrow-right"></i></button></div>';
+                        } else {
+                            botonesHtml = '<div class="card-actions"><button class="btn-state btn-ticket" onclick="reimprimirTicket(' + v.id + ', event)"><i class="fas fa-print"></i></button><button class="btn-state btn-prev"><i class="fas fa-arrow-left"></i></button></div>';
+                        }
+                        
+                        const cardHtml = `
+                        <div class="kb-card" draggable="true" data-id="${v.id}" data-estado="${v.estado_venta.toLowerCase()}">
+                            <div class="card-head">
+                                ${botonesHtml}
+                                <span class="card-num">#${String(v.id).padStart(4,'0')}</span>
+                                <span class="card-hora">${v.hora}</span>
+                            </div>
+                            <div class="card-meta">
+                                <span class="card-tag"><i class="fas fa-store"></i>${v.canal}</span>
+                                <span class="card-tag"><i class="fas fa-user"></i>${v.cliente}</span>
+                            </div>
+                            <div class="card-items">${itemsHtml}</div>
+                            ${v.observaciones ? `<div class="card-obs"><i class="fas fa-comment"></i> ${v.observaciones}</div>` : ''}
+                        </div>`;
+                        
+                        const tmp = document.createElement('div');
+                        tmp.innerHTML = cardHtml.trim();
+                        const newCard = tmp.firstElementChild;              
+                        list.appendChild(newCard);
+                        configurarBotones(newCard);
+                        
+                        newCard.addEventListener('dragstart', (e) => {
+                            draggedCard = newCard;
+                            newCard.style.opacity = '0.5';
+                            e.dataTransfer.effectAllowed = 'move';
+                        });
+                        newCard.addEventListener('dragend', () => {
+                            draggedCard = null;
+                            newCard.style.opacity = '';
+                        });
+                        
+                        // SONIDO Y NOTIFICACIÓN
+                        playSound();
+                        toast(`🔔 ¡NUEVO PEDIDO #${String(v.id).padStart(4,'0')}!`, 'nuevo');
+                        if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
+                    }
+                }
+            }
+            
+            actualizarBadges();
+            document.getElementById('kb-sync-label').innerHTML = '<span class="kb-status-dot" style="background:#10b981;"></span> En vivo';
+        } catch(e) {
+            console.error('Polling error:', e);
+            document.getElementById('kb-sync-label').innerHTML = '<span class="kb-status-dot" style="background:#ef4444;"></span> Error';
+        }
+    }
+    
+    // Configurar drag & drop en columnas
+    document.querySelectorAll('.kb-col').forEach(col => {
+        col.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            col.style.border = '1px solid #f59e0b';
+        });
+        col.addEventListener('dragleave', () => {
+            col.style.border = '1px solid #232c3d';
+        });
+        col.addEventListener('drop', (e) => {
+            e.preventDefault();
+            col.style.border = '1px solid #232c3d';
+            if (!draggedCard) return;
+            const nuevoEstado = col.dataset.estado;
+            const estadoActual = draggedCard.dataset.estado;
+            if (nuevoEstado === estadoActual) return;
+            if (prevState[estadoActual] === nuevoEstado) {
+                showConfirmModal(draggedCard.dataset.id, estadoActual, nuevoEstado, draggedCard);
+            } else {
+                moverTarjeta(draggedCard, nuevoEstado);
+            }
+        });
+    });
+    
+    // Configurar tarjetas iniciales
+    document.querySelectorAll('.kb-card').forEach(card => {
+        card.setAttribute('draggable', 'true');
+        configurarBotones(card);
+        card.addEventListener('dragstart', (e) => {
+            draggedCard = card;
+            card.style.opacity = '0.5';
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        card.addEventListener('dragend', () => {
+            draggedCard = null;
+            card.style.opacity = '';
+        });
+    });
+    
+    // Modal eventos
+    document.querySelector('.modal-btn.confirm')?.addEventListener('click', () => {
+        if (pendingAction) {
+            moverTarjeta(pendingAction.card, pendingAction.targetState);
+            closeModal();
+        }
+    });
+    document.querySelector('.modal-btn.cancel')?.addEventListener('click', closeModal);
+    
+    // Iniciar polling cada 2 segundos
+    polling();
+    setInterval(polling, 2000);
+}
+
+// Reimprimir ticket
+window.reimprimirTicket = function(ventaId, e) {
+    if (e) e.stopPropagation();
+    window.open('/venta/ticket/' + ventaId + '/', '_blank');
+};
+</script>
+</body>
+</html>

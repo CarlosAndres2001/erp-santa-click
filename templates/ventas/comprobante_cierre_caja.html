@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0"><i class="fas fa-receipt"></i> Comprobante de Cierre de Caja</h3>
+        </div>
+        <div class="card-body">
+            <!-- Info del turno -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h5>Información del Turno</h5>
+                    <p><strong>Caja:</strong> {{ caja_turno.caja.nombre }}</p>
+                    <p><strong>Turno:</strong> {{ caja_turno.turno.nombre }}</p>
+                    <p><strong>Usuario:</strong> {{ caja_turno.usuario.nombre }}</p>
+                    <p><strong>Sucursal:</strong> {{ caja_turno.sucursal.nombre }}</p>
+                    <p><strong>Apertura:</strong> {{ caja_turno.fecha_apertura|date:"d/m/Y H:i" }}</p>
+                    <p><strong>Cierre:</strong> {{ caja_turno.fecha_cierre|date:"d/m/Y H:i" }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h5>Resumen de Ventas</h5>
+                    <p><strong>Total Ventas:</strong> {{ total_ventas }}</p>
+                    <p><strong>Monto Total Vendido:</strong> Bs {{ total_monto|floatformat:2 }}</p>
+                    <p><strong>Efectivo Esperado:</strong> Bs {{ total_efectivo_esperado|floatformat:2 }}</p>
+                </div>
+            </div>
+            
+            <!-- Resumen de cierre -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5>Resumen de Cierre</h5>
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr><th>Concepto</th><th class="text-end">Monto</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Caja Chica Apertura</td><td class="text-end">Bs {{ caja_turno.cajachica_apertura|floatformat:2 }}</td></tr>
+                            <tr><td>Ventas en Efectivo</td><td class="text-end">Bs {{ caja_turno.monto_efectivo|default:0|floatformat:2 }}</td></tr>
+                            <tr><td>Ventas QR/Transferencias</td><td class="text-end">Bs {{ caja_turno.monto_qr|default:0|floatformat:2 }}</td></tr>
+                            <tr class="table-active"><td><strong>Total Esperado</strong></td><td class="text-end"><strong>Bs {{ caja_turno.monto_cierre|default:0|floatformat:2 }}</strong></td></tr>
+                            <tr class="table-info"><td><strong>Efectivo Real</strong></td><td class="text-end"><strong>Bs {{ caja_turno.monto_efectivo_cierre|floatformat:2 }}</strong></td></tr>
+                            <tr class="table-info"><td><strong>QR Real</strong></td><td class="text-end"><strong>Bs {{ caja_turno.monto_qr_cierre|floatformat:2 }}</strong></td></tr>
+                            <tr class="table-warning"><td><strong>Diferencia</strong></td><td class="text-end"><strong>Bs {{ caja_turno.diferencia|floatformat:2 }}</strong></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            {% if caja_turno.observaciones_cierre %}
+            <div class="row">
+                <div class="col-md-12">
+                    <h5>Observaciones</h5>
+                    <p class="alert alert-info">{{ caja_turno.observaciones_cierre }}</p>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> ¡Caja cerrada correctamente!
+            </div>
+        </div>
+        <div class="card-footer">
+            <button onclick="window.print()" class="btn btn-secondary">
+                <i class="fas fa-print"></i> Imprimir
+            </button>
+            <a href="{% url 'abrir_caja' %}" class="btn btn-primary">
+                <i class="fas fa-plus-circle"></i> Abrir Nueva Caja
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Auto-imprimir al cargar
+    setTimeout(function() { window.print(); }, 500);
+</script>
+{% endblock %}

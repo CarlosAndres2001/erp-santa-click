@@ -1,0 +1,283 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <div class="card nexus-card shadow-sm">
+
+        <div class="card-header nexus-header" style="background-color: var(--bg-card);">
+            <h4 class="">
+                <i class="bi bi-lock-fill"></i>
+                Cierre de Caja
+            </h4>
+        </div>
+
+        <div class="card-body">
+
+            <form method="POST">
+
+                {% csrf_token %}
+
+                <!-- DATOS GENERALES -->
+
+                <div class="row">
+
+                    <div class="col-md-4 mb-3">
+                        <label class="nexus-label">
+                            Fecha Apertura
+                        </label>
+                        <input
+                            type="text"
+                            class="form-control nexus-input nexus-readonly"
+                            value="{{ caja_turno.fecha_apertura|date:'d/m/Y H:i' }}"
+                            readonly>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="nexus-label">
+                            Fecha Cierre
+                        </label>
+                        <input
+                            type="text"
+                            id="fecha_cierre"
+                            class="form-control nexus-input nexus-readonly"
+                            readonly>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="nexus-label">
+                            Nro Caja
+                        </label>
+                        <input
+                            type="text"
+                            class="form-control nexus-input nexus-readonly"
+                            value="{{ caja_turno.id }}"
+                            readonly>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="nexus-label">
+                            Sucursal
+                        </label>
+                        <input
+                            type="text"
+                            class="form-control nexus-input nexus-readonly"
+                            value="{{ caja_turno.sucursal.nombre }}"
+                            readonly>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="nexus-label">
+                            Cajero
+                        </label>
+                        <input
+                            type="text"
+                            class="form-control nexus-input nexus-readonly"
+                            value="{{ caja_turno.usuario.username }}"
+                            readonly>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="nexus-label">
+                            Monto Apertura
+                        </label>
+                        <input
+                            type="text"
+                            class="form-control nexus-input nexus-readonly"
+                            value="{{ caja_turno.cajachica_apertura }}"
+                            readonly>
+                    </div>
+
+                </div>
+
+                <hr>
+
+                <h5 class="mb-3">
+                    Totales Declarados al Cierre
+                </h5>
+
+                <div class="row">
+
+                    <div class="col-md-3 mb-3">
+                        <label class="nexus-label">
+                            Efectivo
+                        </label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            name="monto_efectivo"
+                            id="monto_efectivo"
+                            class="form-control nexus-input total-cierre"
+                            value="0">
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <label class="nexus-label">
+                            QR
+                        </label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            name="monto_qr"
+                            id="monto_qr"
+                            class="form-control nexus-input total-cierre"
+                            value="0">
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <label class="nexus-label">
+                            Tarjeta
+                        </label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            name="monto_tarjeta"
+                            id="monto_tarjeta"
+                            class="form-control nexus-input total-cierre"
+                            value="0">
+                    </div>
+
+                    <div class="col-md-3 mb-3">
+                        <label class="nexus-label">
+                            Pago Online
+                        </label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            id="monto_online"
+                            class="form-control nexus-input total-cierre"
+                            value="0">
+                    </div>
+
+                </div>
+
+                <div class="row">
+
+                    <div class="col-md-4 mb-3">
+                        <label class="nexus-label">
+                            Total Declarado
+                        </label>
+
+                        <input
+                            type="number"
+                            step="0.01"
+                            name="monto_cierre"
+                            id="monto_cierre"
+                            class="form-control nexus-input nexus-readonly"
+                            readonly>
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="nexus-label">
+                            Saldo Teórico
+                        </label>
+
+                        <input
+                            type="number"
+                            step="0.01"
+                            name="saldo_teorico"
+                            id="saldo_teorico"
+                            class="form-control nexus-input">
+                    </div>
+
+                    <div class="col-md-4 mb-3">
+                        <label class="nexus-label">
+                            Diferencia
+                        </label>
+
+                        <input
+                            type="number"
+                            step="0.01"
+                            name="diferencia"
+                            id="diferencia"
+                            class="form-control nexus-input nexus-readonly"
+                            readonly>
+                    </div>
+
+                </div>
+
+                <div class="mb-3">
+
+                    <label class="nexus-label">
+                        Observaciones
+                    </label>
+
+                    <textarea
+                        name="observaciones_cierre"
+                        rows="3"
+                        class="form-control nexus-textarea"></textarea>
+
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+
+                    <a href="{% url 'crear_venta' %}"
+                       class="btn btn-secondary">
+                        Cancelar
+                    </a>
+
+                    <button
+                        type="submit"
+                        class="btn btn-danger">
+
+                        <i class="bi bi-lock-fill"></i>
+                        Cerrar Caja
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+function actualizarFechaCierre() {
+
+    const ahora = new Date();
+
+    const fecha =
+        ahora.getFullYear() + '-' +
+        String(ahora.getMonth()+1).padStart(2,'0') + '-' +
+        String(ahora.getDate()).padStart(2,'0') + ' ' +
+        String(ahora.getHours()).padStart(2,'0') + ':' +
+        String(ahora.getMinutes()).padStart(2,'0');
+
+    document.getElementById('fecha_cierre').value = fecha;
+}
+
+actualizarFechaCierre();
+setInterval(actualizarFechaCierre,1000);
+
+function calcularTotales() {
+
+    let efectivo = parseFloat(document.getElementById('monto_efectivo').value) || 0;
+    let qr = parseFloat(document.getElementById('monto_qr').value) || 0;
+    let tarjeta = parseFloat(document.getElementById('monto_tarjeta').value) || 0;
+    let online = parseFloat(document.getElementById('monto_online').value) || 0;
+
+    let total = efectivo + qr + tarjeta + online;
+
+    document.getElementById('monto_cierre').value = total.toFixed(2);
+
+    let saldo = parseFloat(document.getElementById('saldo_teorico').value) || 0;
+
+    document.getElementById('diferencia').value =
+        (total - saldo).toFixed(2);
+}
+
+document.querySelectorAll('.total-cierre').forEach(input=>{
+    input.addEventListener('input', calcularTotales);
+});
+
+document.getElementById('saldo_teorico')
+    .addEventListener('input', calcularTotales);
+
+</script>
+
+{% endblock %}
