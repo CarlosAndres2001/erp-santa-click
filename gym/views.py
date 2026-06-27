@@ -2071,45 +2071,36 @@ def comprobante_compra(request, compra_id):
 
 @login_required
 def ticket_cliente(request, venta_id):
-    """
-    Ticket completo para el cliente:
-    datos empresa, cliente, items, totales, pago.
-    """
     venta = get_object_or_404(Venta, pk=venta_id, is_active=True)
     sucursal = venta.sucursal
-    empresa  = sucursal.fk_empresa
-
-    # Solo detalles activos y de nivel raíz (sin detalle_padre)
-    detalles = venta.detalles.filter(is_active=True).select_related(
-        'producto_variante', 'producto_padre', 'detalle_padre'
-    )
-
-    # Subtotal antes de descuento
-    subtotal = venta.total + venta.descuento
-
-    # Pagos registrados
+    empresa = sucursal.fk_empresa
+    
+    detalles = venta.detalles.filter(
+        is_active=True, 
+        detalle_padre__isnull=True
+    ).select_related('producto_variante', 'producto_padre').prefetch_related('componentes')
+    
+    subtotal = sum(d.subtotal for d in detalles)
+    
+    for detalle in detalles:
+        if detalle.producto_padre:
+            detalle.componentes_list = detalle.componentes.filter(is_active=True)
+    
     pagos = venta.pagos.select_related('metodo_pago').all()
-
-    # Calcular monto recibido y vuelto si hay un solo pago en efectivo
-    monto_recibido = None
-    vuelto = None
-    primer_pago = pagos.first()
-    if primer_pago and primer_pago.monto > venta.total:
-        monto_recibido = primer_pago.monto
-        vuelto = primer_pago.monto - venta.total
-
+    totalfinal = venta.total + venta.costo_envio
+    total_pagado = sum(p.monto for p in pagos)
+    
     context = {
-        'venta':          venta,
-        'sucursal':       sucursal,
-        'empresa':        empresa,
-        'detalles':       detalles,
-        'subtotal':       subtotal,
-        'pagos':          pagos,
-        'monto_recibido': monto_recibido,
-        'vuelto':         vuelto,
+        'venta': venta,
+        'sucursal': sucursal,
+        'empresa': empresa,
+        'detalles': detalles,
+        'subtotal': subtotal,
+        'pagos': pagos,
+        'total_pagado': total_pagado,
+        'totalfinal': totalfinal
     }
     return render(request, 'ventas/ticket_cliente.html', context)
-
 @login_required
 def ticket_cocina(request, venta_id):
     """
@@ -2287,7 +2278,7 @@ def crear_venta(request):
                     return JsonResponse({'ok': False, 'error': 'Debe ingresar al menos un método de pago'}, status=400)
 
                 # Validar que el total de pagos cubra (total - descuento + costo_envio)
-                monto_a_cobrar = total - descuento_total + costo_envio
+                monto_a_cobrar = total 
                 total_pagado   = sum(Decimal(str(p.get('monto', 0))) for p in pagos)
                 if total_pagado < monto_a_cobrar:
                     return JsonResponse({
@@ -2367,6 +2358,7 @@ def crear_venta(request):
                     item_id  = item.get('id')
                     cantidad = Decimal(str(item.get('cantidad', 1)))
                     precio   = Decimal(str(item.get('precio', 0)))
+                    descuento = Decimal(str(item.get('descuento', 0)))
                     subtotal = Decimal(str(item.get('subtotal', 0)))
                     nombre   = item.get('nombre', '')
 
@@ -2383,7 +2375,7 @@ def crear_venta(request):
                             cantidad=cantidad,
                             precio=precio,
                             subtotal=subtotal,
-                            descuento=0
+                            descuento=descuento
                         )
 
                         Kardex.objects.create(
@@ -2424,7 +2416,7 @@ def crear_venta(request):
                             cantidad=cantidad,
                             precio=precio,
                             subtotal=subtotal,
-                            descuento=0
+                            descuento=descuento
                         )
 
                 # ==========================
