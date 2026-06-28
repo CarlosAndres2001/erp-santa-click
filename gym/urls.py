@@ -185,17 +185,8 @@ urlpatterns = [
     # ====================================================
     path('ingreso-monetario/crear/', views.crear_ingreso_monetario, name='crear_ingreso_monetario'),
     path('egreso-monetario/crear/', views.crear_egreso_monetario, name='crear_egreso_monetario'),
-    path(
-        'ingreso-monetario/ticket/<int:id>/',
-        views.ticket_ingreso_monetario,
-        name='ticket_ingreso_monetario'
-    ),
-
-    path(
-        'egreso-monetario/ticket/<int:id>/',
-        views.ticket_egreso_monetario,
-        name='ticket_egreso_monetario'
-    ),
+    path('ingreso-monetario/ticket/<int:id>/', views.ticket_ingreso_monetario, name='ticket_ingreso_monetario'),
+    path('egreso-monetario/ticket/<int:id>/', views.ticket_egreso_monetario, name='ticket_egreso_monetario'),
     # ====================================================
     # PLAN
     # ====================================================
@@ -211,7 +202,8 @@ urlpatterns = [
     path('cliente/create/', views.cliente_create, name='cliente_create'),
     path('cliente/edit/', views.cliente_edit, name='cliente_edit'),
     path('cliente/delete/', views.cliente_delete, name='cliente_delete'),
-
+    path('api/buscar-clientes/', views.buscar_clientes, name='buscar_clientes'),
+    path('api/crear-cliente/', views.crear_cliente, name='crear_cliente'),
     # ====================================================
     # PAGO
     # ====================================================

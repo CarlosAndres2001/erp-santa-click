@@ -478,6 +478,92 @@
         </div>
     </div>
 </div>
+<!-- ── MODAL CLIENTES ─────────────────────────────────────────── -->
+<div class="modal fade" id="modalClientes" tabindex="-1" aria-labelledby="modalClientesLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 600px;">
+        <div class="modal-content" style="border-radius: 16px; border: none; box-shadow: 0 20px 50px rgba(0,0,0,0.3); background: var(--bg-card);">
+            
+            <!-- HEADER -->
+            <div class="mcaja-header mcaja-header--blue" style="border-radius: 16px 16px 0 0;">
+                <div class="mcaja-title">
+                    <div class="mcaja-icon"><i class="fas fa-users"></i></div>
+                    <div>
+                        <h5>Seleccionar Cliente</h5>
+                        <p>Buscar o crear un nuevo cliente</p>
+                    </div>
+                </div>
+                <button type="button" class="mcaja-close" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- BODY -->
+            <div class="mcaja-body" style="padding: 16px 20px;">
+                
+                <!-- Buscador + Botón Nuevo -->
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <div style="flex: 1; position: relative;">
+                        <i class="fas fa-search" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+                        <input type="text" id="buscador-clientes" class="mcaja-input" 
+                               style="padding-left: 35px; height: 42px; font-size: 14px;" 
+                               placeholder="Buscar por nombre, documento o teléfono...">
+                    </div>
+                    <button class="mcaja-btn-ok mcaja-btn-ok--green" id="btn-nuevo-cliente-modal" style="white-space: nowrap; height: 42px; padding: 0 20px;">
+                        <i class="fas fa-plus"></i> Nuevo
+                    </button>
+                </div>
+
+                <!-- Resultados de búsqueda -->
+                <div id="resultados-clientes" style="max-height: 300px; overflow-y: auto;">
+                    <div class="text-center py-4 text-muted" style="color: var(--text-muted);">
+                        <i class="fas fa-search" style="font-size: 28px; display: block; margin-bottom: 10px;"></i>
+                        Escribe para buscar clientes
+                    </div>
+                </div>
+
+                <!-- Formulario nuevo cliente (oculto) -->
+                <div id="form-nuevo-cliente-modal" style="display: none; border-top: 1px solid var(--border); padding-top: 15px; margin-top: 10px;">
+                    <h6 style="font-weight: 700; margin-bottom: 12px; color: var(--text-primary);">
+                        <i class="fas fa-user-plus" style="color: var(--primary);"></i> Nuevo Cliente
+                    </h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size: 11px; font-weight: 600; color: var(--text-muted);">Nombre *</label>
+                            <input type="text" id="nuevo-cliente-nombre" class="mcaja-input" placeholder="Nombre" style="font-size: 13px;">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size: 11px; font-weight: 600; color: var(--text-muted);">Apellido *</label>
+                            <input type="text" id="nuevo-cliente-apellido" class="mcaja-input" placeholder="Apellido" style="font-size: 13px;">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size: 11px; font-weight: 600; color: var(--text-muted);">Documento</label>
+                            <input type="text" id="nuevo-cliente-documento" class="mcaja-input" placeholder="CI / NIT" style="font-size: 13px;">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" style="font-size: 11px; font-weight: 600; color: var(--text-muted);">Teléfono</label>
+                            <input type="text" id="nuevo-cliente-telefono" class="mcaja-input" placeholder="Teléfono" style="font-size: 13px;">
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label" style="font-size: 11px; font-weight: 600; color: var(--text-muted);">Email (opcional)</label>
+                            <input type="email" id="nuevo-cliente-email" class="mcaja-input" placeholder="Email" style="font-size: 13px;">
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button class="mcaja-btn-cancel" id="btn-cancelar-nuevo-cliente-modal">Cancelar</button>
+                        <button class="mcaja-btn-ok mcaja-btn-ok--green" id="btn-guardar-cliente-modal">
+                            <i class="fas fa-save"></i> Guardar Cliente
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FOOTER -->
+            <div class="mcaja-footer" style="border-radius: 0 0 16px 16px;">
+                <button type="button" class="mcaja-btn-cancel" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- ====================== ♻️ MODAL DE CONFIRMACIÓN REUTILIZABLE ====================== -->
 <div class="modal fade" id="modalConfirmacionGenerico" tabindex="-1" aria-hidden="true" style="z-index: 1060;">
@@ -538,7 +624,6 @@
         });
     }
 </script>
-
 <script>
     document.addEventListener('DOMContentLoaded', function() {
 
@@ -1102,7 +1187,7 @@
                         const payload = {
                             canal     : canalId,
                             almacen   : almacenId,
-                            cliente   : clienteId || null,
+                            cliente: document.getElementById('cliente-venta').value || null,
                             total     : totalFinal, 
                             //total     : total,
                             descuento : descuento,
@@ -1277,7 +1362,220 @@
             document.getElementById('btn-cobrar').click();
         });
         document.getElementById('btn-cancelar-fijo')?.addEventListener('click', cancelarVenta);
-    });
+    
+        // ===================== MODAL CLIENTES =====================
+
+        // Variables
+        let clienteSeleccionadoId = null;
+        let timeoutBuscadorClientes = null;
+
+        // Abrir modal al hacer click en el select de cliente
+        document.getElementById('cliente-venta')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            const modal = new bootstrap.Modal(document.getElementById('modalClientes'));
+            modal.show();
+            // Limpiar búsqueda al abrir
+            document.getElementById('buscador-clientes').value = '';
+            document.getElementById('resultados-clientes').innerHTML = `
+                <div class="text-center py-4 text-muted" style="color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 28px; display: block; margin-bottom: 10px;"></i>
+                    Escribe para buscar clientes
+                </div>`;
+            document.getElementById('form-nuevo-cliente-modal').style.display = 'none';
+        });
+
+        // Buscar clientes en tiempo real
+        document.getElementById('buscador-clientes')?.addEventListener('input', function() {
+            clearTimeout(timeoutBuscadorClientes);
+            const termino = this.value.trim();
+            
+            if (termino.length < 2) {
+                document.getElementById('resultados-clientes').innerHTML = `
+                    <div class="text-center py-4 text-muted" style="color: var(--text-muted);">
+                        <i class="fas fa-search" style="font-size: 28px; display: block; margin-bottom: 10px;"></i>
+                        Escribe al menos 2 caracteres para buscar
+                    </div>`;
+                return;
+            }
+            
+            timeoutBuscadorClientes = setTimeout(async () => {
+                try {
+                    const response = await fetch(`/api/buscar-clientes/?q=${encodeURIComponent(termino)}`);
+                    const data = await response.json();
+                    
+                    if (data.ok && data.clientes.length > 0) {
+                        let html = '';
+                        data.clientes.forEach(cliente => {
+                            html += `
+                                <button class="cliente-item" data-id="${cliente.id}">
+                                    <div>
+                                        <div class="cliente-nombre">${cliente.nombre} ${cliente.apellido}</div>
+                                        ${cliente.nro_documento ? `<div class="cliente-documento">📄 ${cliente.nro_documento}</div>` : ''}
+                                    </div>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        ${cliente.telefono ? `<span class="cliente-telefono">📱 ${cliente.telefono}</span>` : ''}
+                                        <i class="fas fa-chevron-right" style="color: var(--text-muted);"></i>
+                                    </div>
+                                </button>
+                            `;
+                        });
+                        document.getElementById('resultados-clientes').innerHTML = html;
+                        
+                        // Evento seleccionar cliente
+                        document.querySelectorAll('.cliente-item').forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const id = this.dataset.id;
+                                const nombre = this.querySelector('.cliente-nombre')?.textContent || '';
+                                const documento = this.querySelector('.cliente-documento')?.textContent || '';
+                                
+                                // Actualizar select
+                                const selectCliente = document.getElementById('cliente-venta');
+                                if (selectCliente) {
+                                    // Ver si ya existe
+                                    let option = selectCliente.querySelector(`option[value="${id}"]`);
+                                    if (!option) {
+                                        option = document.createElement('option');
+                                        option.value = id;
+                                        option.textContent = nombre + (documento ? ` (${documento.replace('📄 ', '')})` : '');
+                                        selectCliente.appendChild(option);
+                                    }
+                                    selectCliente.value = id;
+                                    clienteId = id;
+                                }
+                                
+                                clienteSeleccionadoId = id;
+                                mostrarMensaje(`✅ Cliente seleccionado: ${nombre}`, 'success');
+                                
+                                cerrarModalClientes();
+                            });
+                        });
+                    } else {
+                        document.getElementById('resultados-clientes').innerHTML = `
+                            <div class="text-center py-4">
+                                <p style="color: var(--text-muted);">No se encontraron clientes</p>
+                                <button class="mcaja-btn-ok mcaja-btn-ok--blue" id="btn-crear-desde-busqueda-modal">
+                                    <i class="fas fa-plus"></i> Crear nuevo cliente
+                                </button>
+                            </div>`;
+                        document.getElementById('btn-crear-desde-busqueda-modal')?.addEventListener('click', mostrarFormNuevoClienteModal);
+                    }
+                } catch (error) {
+                    console.error('Error buscando clientes:', error);
+                }
+            }, 300);
+        });
+
+        // Mostrar formulario nuevo cliente
+        function mostrarFormNuevoClienteModal() {
+            document.getElementById('form-nuevo-cliente-modal').style.display = 'block';
+            document.getElementById('resultados-clientes').innerHTML = '';
+            document.getElementById('buscador-clientes').value = '';
+        }
+
+        document.getElementById('btn-nuevo-cliente-modal')?.addEventListener('click', mostrarFormNuevoClienteModal);
+
+        // Cancelar nuevo cliente
+        document.getElementById('btn-cancelar-nuevo-cliente-modal')?.addEventListener('click', function() {
+            document.getElementById('form-nuevo-cliente-modal').style.display = 'none';
+            document.getElementById('resultados-clientes').innerHTML = `
+                <div class="text-center py-4 text-muted" style="color: var(--text-muted);">
+                    <i class="fas fa-search" style="font-size: 28px; display: block; margin-bottom: 10px;"></i>
+                    Escribe para buscar clientes
+                </div>`;
+            document.getElementById('buscador-clientes').value = '';
+        });
+
+        // Guardar nuevo cliente
+        document.getElementById('btn-guardar-cliente-modal')?.addEventListener('click', async function() {
+            const nombre = document.getElementById('nuevo-cliente-nombre').value.trim();
+            const apellido = document.getElementById('nuevo-cliente-apellido').value.trim();
+            const documento = document.getElementById('nuevo-cliente-documento').value.trim();
+            const telefono = document.getElementById('nuevo-cliente-telefono').value.trim();
+            const email = document.getElementById('nuevo-cliente-email').value.trim();
+            
+            if (!nombre || !apellido) {
+                mostrarMensaje('Nombre y apellido son obligatorios', 'warning');
+                return;
+            }
+            
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            
+            try {
+                const response = await fetch("{% url 'crear_cliente' %}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ nombre, apellido, documento, telefono, email })
+                });
+                
+                const data = await response.json();
+                
+                if (data.ok) {
+                    // Agregar al select
+                    const selectCliente = document.getElementById('cliente-venta');
+                    if (selectCliente) {
+                        const option = document.createElement('option');
+                        option.value = data.cliente_id;
+                        option.textContent = `${nombre} ${apellido}` + (documento ? ` (${documento})` : '');
+                        selectCliente.appendChild(option);
+                        selectCliente.value = data.cliente_id;
+                        clienteId = data.cliente_id;
+                    }
+                    
+                    mostrarMensaje('✅ Cliente creado exitosamente', 'success');
+                    
+                    // Cerrar modal y resetear
+                    document.getElementById('form-nuevo-cliente-modal').style.display = 'none';
+                    document.getElementById('nuevo-cliente-nombre').value = '';
+                    document.getElementById('nuevo-cliente-apellido').value = '';
+                    document.getElementById('nuevo-cliente-documento').value = '';
+                    document.getElementById('nuevo-cliente-telefono').value = '';
+                    document.getElementById('nuevo-cliente-email').value = '';
+                    
+                    cerrarModalClientes();
+                } else {
+                    mostrarMensaje(data.error || 'Error al crear cliente', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                mostrarMensaje('Error de conexión', 'error');
+            }
+            
+            this.disabled = false;
+            this.innerHTML = '<i class="fas fa-save"></i> Guardar Cliente';
+        });
+
+        // Cerrar modal con escape
+        document.getElementById('modalClientes')?.addEventListener('hidden.bs.modal', function() {
+            document.getElementById('form-nuevo-cliente-modal').style.display = 'none';
+            document.getElementById('buscador-clientes').value = '';
+        });
+        // ===================== FUNCIÓN PARA CERRAR MODAL CLIENTES =====================
+        function cerrarModalClientes() {
+            const modalElement = document.getElementById('modalClientes');
+            if (!modalElement) return;
+            
+            try {
+                const modal = bootstrap.Modal.getInstance(modalElement);
+                if (modal) {
+                    modal.hide();
+                } else {
+                    const newModal = new bootstrap.Modal(modalElement);
+                    newModal.hide();
+                }
+            } catch (e) {
+                // Si hay error, forzar cierre con jQuery o vanilla JS
+                modalElement.classList.remove('show');
+                modalElement.style.display = 'none';
+                document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+                document.body.classList.remove('modal-open');
+                document.body.style.overflow = '';
+            }
+        }
+     });
 </script>
 <script>
 

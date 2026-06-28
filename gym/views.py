@@ -3021,6 +3021,60 @@ def plan_delete(request):
 #====================================================
 #  CLIENTE
 #====================================================
+from django.http import JsonResponse
+from django.db.models import Q
+import json
+
+@login_required
+def buscar_clientes(request):
+    q = request.GET.get('q', '')
+    if len(q) < 2:
+        return JsonResponse({'ok': True, 'clientes': []})
+    
+    sucursal = request.user.sucursal
+    clientes = Cliente.objects.filter(
+        Q(fk_empresa=sucursal.fk_empresa) &
+        Q(estado=True) &
+        (Q(nombre__icontains=q) | 
+         Q(apellido__icontains=q) | 
+         Q(nro_documento__icontains=q) |
+         Q(telefono__icontains=q) |
+         Q(email__icontains=q))
+    )[:15]
+    
+    data = [{
+        'id': c.id,
+        'nombre': c.nombre,
+        'apellido': c.apellido,
+        'nro_documento': c.nro_documento,
+        'telefono': c.telefono,
+        'email': c.email
+    } for c in clientes]
+    
+    return JsonResponse({'ok': True, 'clientes': data})
+
+@login_required
+def crear_cliente(request):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        sucursal = request.user.sucursal
+        
+        cliente = Cliente.objects.create(
+            fk_empresa=sucursal.fk_empresa,
+            nombre=data.get('nombre'),
+            apellido=data.get('apellido'),
+            nro_documento=data.get('documento', ''),
+            telefono=data.get('telefono', ''),
+            email=data.get('email', ''),
+            estado=True
+        )
+        return JsonResponse({'ok': True, 'cliente_id': cliente.id})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=400)
+
 @login_required
 @permiso_requerido('cliente_list', 'ver')
 def cliente_list(request):
