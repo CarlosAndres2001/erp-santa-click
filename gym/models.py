@@ -92,7 +92,12 @@ class Empresa(models.Model):
     estado = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_modificacion = models.DateTimeField(auto_now=True)
-
+    TEMA_CHOICES = [('claro', 'Claro'), ('oscuro', 'Oscuro')]
+    MONEDA_CHOICES = [('BOB', 'Boliviano'), ('GUY', 'Guaraní'), ('USD', 'Dólar'), ('ARS', 'Peso Argentino'), ('CLP', 'Peso Chileno')]
+    tema = models.CharField(max_length=10, choices=TEMA_CHOICES, default='claro')
+    moneda = models.CharField(max_length=5, choices=MONEDA_CHOICES, default='BOB')
+    simbolo_moneda = models.CharField(max_length=5, default='Bs.')
+    pie_ticket = models.CharField(max_length=200, blank=True, null=True)
     class Meta:
         db_table = 'empresa'
 

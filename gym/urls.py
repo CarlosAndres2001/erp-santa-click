@@ -22,6 +22,7 @@ urlpatterns = [
     path('empresa/create/', views.empresa_create, name='empresa_create'),
     path('empresa/edit/', views.empresa_edit, name='empresa_edit'),
     path('empresa/delete/', views.empresa_delete, name='empresa_delete'),
+    path('empresa/registro/', views.registro_empresa, name='registro_empresa'),
 
     # =======================
     # SUCURSAL

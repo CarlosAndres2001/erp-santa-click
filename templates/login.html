@@ -2,191 +2,426 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Redrex - Login</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-    <style>
-        /* Fondo: deja tu imagen */
-        body {
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus — Acceso</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+:root {
+    --bg-dark: #0f0c20;
+    --card-bg: #1c1830;
+    --accent: #10b981;
+    --accent-grad: linear-gradient(135deg, #054a33 0%, #10b981 100%);
+    --text: #ffffff;
+    --muted: #a09cb0;
+    --border: #3d375e;
+    --input-focus: #10b981;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+
+body {
             height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
             background: url("{% static 'img/fondo.png' %}") no-repeat center center fixed;
             background-size: cover;
-            color: #ffffff48;
+            background-color: #0f0c20; /* Fallback si no carga la imagen */
             overflow: hidden;
+            perspective: 1000px; /* Crucial para el efecto 3D */
         }
 
-        /* Contenedor login */
-        .login-container {
-            width: 100%;
-            max-width: 400px;
-            padding: 2rem;
-        }
+/* ── CONTENEDOR FLIP ── */
+.card-container{
+    width:850px;max-width:95%;height:520px;
+    position:relative;transform-style:preserve-3d;
+    transition:transform 0.8s cubic-bezier(0.4,0,0.2,1);
+}
+.card-container.is-flipped{transform:rotateY(180deg)}
 
-        /* Card futurista */
-        .login-card {
-            background: rgba(246, 246, 246, 0.87);
-            border: 1px solid rgba(5,46,106,0.2);
-            border-radius: 1.5rem;
-            padding: 2rem;
-            text-align: center;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 0 20px rgba(5,46,106,0.15);
-            animation: fadeIn 1.2s ease;
-        }
+.card-face{
+    position:absolute;width:100%;height:100%;
+    backface-visibility:hidden;border-radius:1.5rem;
+    overflow:hidden;box-shadow:0 15px 35px rgba(0,0,0,.5);
+    display:flex;background:var(--card-bg);
+    border:1px solid rgba(255,255,255,.05);
+}
+.card-back{transform:rotateY(180deg)}
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+/* ── BANNER LATERAL ── */
+.banner-side{
+    flex:1;
+    background:linear-gradient(135deg,rgba(5,74,51,.95) 0%,rgba(15,12,32,.95) 80%);
+    display:flex;flex-direction:column;justify-content:center;
+    align-items:center;padding:3rem;color:#fff;text-align:center;position:relative;
+}
+.card-front .banner-side{clip-path:polygon(0 0,100% 0,85% 100%,0 100%)}
+.card-back  .banner-side{clip-path:polygon(15% 0,100% 0,100% 100%,0 100%);order:2}
 
-        /* Logo */
-        .login-card img {
-            width: 250px;
-            margin-bottom: 1rem;
-            transition: transform 0.3s ease;
-        }
+.banner-side .logo-txt{
+    font-size:11px;font-weight:700;letter-spacing:3px;color:var(--accent);
+    text-transform:uppercase;margin-bottom:24px;
+}
+.banner-side h2{font-size:2rem;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px}
+.banner-side p{color:rgba(255,255,255,.75);font-size:.9rem;line-height:1.6;max-width:240px}
 
-        .login-card img:hover {
-            transform: scale(1.1) rotate(-5deg);
-        }
+/* ── LADO FORMULARIO ── */
+.form-side{
+    flex:1.2;display:flex;flex-direction:column;
+    justify-content:center;padding:2.5rem 3.5rem;background:var(--card-bg);
+    overflow-y:auto;
+}
+.card-back .form-side{order:1}
 
-        /* Texto de bienvenida */
-        .login-card p {
-            color: #aaa;
-            margin-bottom: 2rem;
-        }
+.form-side h3{color:#fff;font-size:1.8rem;margin-bottom:4px}
+.form-subtitle{color:var(--muted);font-size:.85rem;margin-bottom:1.6rem}
 
-        /* Input group con label flotante */
-        .input-group {
-            position: relative;
-            margin-bottom: 1.5rem;
-        }
+/* ── INPUTS ── */
+.input-group{
+    position:relative;margin-bottom:1.3rem;
+    border-bottom:2px solid var(--border);
+    display:flex;align-items:center;transition:border-color .3s;
+}
+.input-group i{color:var(--muted);margin-right:10px;font-size:.95rem;min-width:16px}
+.input-group input,.input-group select{
+    width:100%;padding:.7rem 0;border:none;
+    background:transparent;color:#fff;font-size:.95rem;outline:none;
+}
+.input-group select option{background:#1c1830;color:#fff}
+.input-group label{
+    position:absolute;left:26px;top:50%;transform:translateY(-50%);
+    color:var(--muted);pointer-events:none;transition:all .25s;font-size:.9rem;
+}
+.input-group input:focus~label,
+.input-group input:not(:placeholder-shown)~label{
+    top:-6px;font-size:.75rem;color:var(--accent);left:0;
+}
+.input-group:focus-within{border-bottom-color:var(--accent)}
 
-        .input-group input {
-            width: 100%;
-            padding: 0.75rem;
-            border: none;
-            border-bottom: 2px solid #aaa;
-            background: transparent;
-            color: #1e1c1cff;
-            font-size: 1rem;
-            outline: none;
-            transition: all 0.3s ease;
-        }
+/* fila de 2 */
+.fila2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 
-        .input-group label {
-            position: absolute;
-            left: 0;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #aaa;
-            pointer-events: none;
-            transition: 0.3s ease;
-        }
+/* ── BARRA DE PASOS ── */
+.steps-bar{display:flex;gap:6px;margin-bottom:1.4rem}
+.steps-bar span{
+    flex:1;height:3px;border-radius:2px;background:#2a2535;transition:background .4s;
+}
+.steps-bar span.activo{background:var(--accent)}
+.steps-bar span.done{background:#054a33}
 
-        .input-group input:focus,
-        .input-group input:valid {
-            border-bottom-color: #10b981;
-        }
+.paso{display:none}
+.paso.visible{display:block}
 
-        .input-group input:focus + label,
-        .input-group input:valid + label {
-            top: -8px;
-            font-size: 0.8rem;
-            color: #052e6a;
-        }
+.seccion-label{
+    font-size:10px;font-weight:700;letter-spacing:2px;color:var(--accent);
+    text-transform:uppercase;margin-bottom:14px;padding-bottom:6px;
+    border-bottom:1px solid #2a2535;
+}
 
-        /* Botón futurista */
-        .btn-login {
-            width: 100%;
-            padding: 0.9rem;
-            border: none;
-            border-radius: 2rem;
-            background: #10b981;
-            color: #fff;
-            font-weight: bold;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 0 15px rgba(5,46,106,0.6);
-        }
+/* ── BOTONES ── */
+.btn-submit{
+    width:100%;padding:.85rem;border:none;border-radius:2rem;
+    background:var(--accent-grad);color:#fff;font-weight:700;
+    font-size:.95rem;cursor:pointer;transition:all .3s;
+    box-shadow:0 5px 15px rgba(16,185,129,.3);margin-top:.8rem;
+}
+.btn-submit:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(16,185,129,.5)}
 
-        .btn-login:hover {
-            background: #0d9c6c;
-            box-shadow: 0 0 25px rgba(30,144,255,0.9), 0 0 50px rgba(30,144,255,0.5);
-            transform: translateY(-2px);
-        }
+.nav-pasos{display:flex;justify-content:space-between;align-items:center;margin-top:1rem}
+.btn-nav{
+    padding:.6rem 1.4rem;border-radius:2rem;font-size:.85rem;
+    font-weight:600;cursor:pointer;border:none;transition:all .3s;
+}
+.btn-atras{background:#2a2535;color:var(--muted)}
+.btn-atras:hover{background:#332e50;color:#fff}
+.btn-sig{background:var(--accent-grad);color:#fff}
+.btn-sig:hover{transform:translateY(-1px);box-shadow:0 5px 14px rgba(16,185,129,.4)}
 
-        /* Mensajes flotantes */
-        #messages-container {
-            margin-bottom: 1rem;
-        }
+/* ── FOOTER FORM ── */
+.form-footer{margin-top:1.2rem;font-size:.85rem;color:var(--muted);text-align:center}
+.form-footer a,.link-toggle{
+    color:var(--accent);text-decoration:none;font-weight:600;
+    background:none;border:none;cursor:pointer;font-size:.85rem;
+}
+.form-footer a:hover,.link-toggle:hover{text-decoration:underline}
 
-        .error-message {
-            color: #e74c3c;
-            font-size: 0.9rem;
-            margin-bottom: 0.5rem;
-        }
+/* alertas */
+.alerta{
+    padding:8px 12px;border-radius:6px;font-size:.82rem;margin-bottom:8px;
+}
+.alerta-error{background:#1a0a0a;color:#f87171;border-left:3px solid #ef4444}
+.alerta-ok{background:#0a1a12;color:#4ade80;border-left:3px solid #22c55e}
 
-        /* Footer */
-        .login-footer {
-            margin-top: 1rem;
-            font-size: 0.9rem;
-            color: #aaa;
-        }
-
-        .login-footer a {
-            color: #10b981;
-            text-decoration: none;
-        }
-    </style>
+@media(max-width:640px){
+    .card-container{height:auto;min-height:500px}
+    .banner-side{display:none}
+    .form-side{padding:2rem 1.5rem}
+    .fila2{grid-template-columns:1fr}
+}
+</style>
 </head>
 <body>
-    <div class="login-container login-card">
-        <img src="{% static 'img/logoredrexx.png' %}" alt="Logo">
-        <p><b>Bienvenido, inicia sesión en tu cuenta</b></p>
-        <form method="POST" action="# 'login' %}">
-            {% csrf_token %}
+
+<div class="card-container" id="cardContainer">
+
+    <!-- ══════════ CARA FRONTAL: LOGIN ══════════ -->
+    <div class="card-face card-front">
+        <div class="banner-side">
+            <div class="logo-txt">⬡ REDREX</div>
+            <h2>¡Bienvenido<br>de vuelta!</h2>
+            <p>Nos alegra tenerte aquí. Si necesitás ayuda, estamos para vos.</p>
+        </div>
+        <div class="form-side">
+            <h3>Login</h3>
+            <p class="form-subtitle">Ingresá a tu cuenta</p>
+
             {% if messages %}
-            <div id="messages-container">
-                {% for message in messages %}
-                    <div class="error-message">{{ message }}</div>
+            <div style="margin-bottom:12px">
+                {% for m in messages %}
+                <div class="alerta alerta-error"><i class="fas fa-exclamation-circle"></i> {{ m }}</div>
                 {% endfor %}
             </div>
             {% endif %}
 
-            <div class="input-group">
-                <input type="text" name="username" required value="{{ request.POST.username }}">
-                <label>Usuario</label>
+            <form method="POST" action="{% url 'login' %}">
+                {% csrf_token %}
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" name="username" placeholder=" " required value="{{ request.POST.username|default:'' }}">
+                    <label>Usuario</label>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" name="password" placeholder=" " required>
+                    <label>Contraseña</label>
+                </div>
+                <button type="submit" class="btn-submit">Iniciar sesión</button>
+            </form>
+
+            <div class="form-footer" style="margin-top:1.2rem">
+                ¿No tenés cuenta?
+                <button class="link-toggle" id="goToRegister">Registrá tu empresa</button>
             </div>
-
-            <div class="input-group">
-                <input type="password" name="password" required>
-                <label>Contraseña</label>
-            </div>
-
-            <button type="submit" class="btn-login">Iniciar sesión</button>
-        </form>
-
-        <div class="login-footer">
-            ¿Olvidaste tu contraseña? <a href="#">Recuperar</a>
         </div>
     </div>
 
+    <!-- ══════════ CARA TRASERA: REGISTRO ══════════ -->
+    <div class="card-face card-back">
+
+        <div class="form-side">
+            <h3>Crear empresa</h3>
+            <p class="form-subtitle">Completá los pasos para comenzar</p>
+
+            <!-- barra de pasos -->
+            <div class="steps-bar">
+                <span id="sb1" class="activo"></span>
+                <span id="sb2"></span>
+                <span id="sb3"></span>
+            </div>
+
+            <div id="alertas-reg"></div>
+
+            <form method="POST" action="{% url 'registro_empresa' %}" id="formReg">
+                {% csrf_token %}
+
+                <!-- errores del servidor -->
+                {% if request.POST.nombre_empresa %}
+                <div style="margin-bottom:10px">
+                    {% for m in messages %}
+                    <div class="alerta alerta-error">{{ m }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- ── PASO 1: Empresa ── -->
+                <div class="paso visible" id="paso1">
+                    <div class="seccion-label">Datos de la empresa</div>
+                    <div class="input-group">
+                        <i class="fas fa-building"></i>
+                        <input type="text" name="nombre_empresa" id="fld_empresa" placeholder=" "
+                               value="{{ request.POST.nombre_empresa|default:'' }}">
+                        <label>Nombre de la empresa *</label>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-store"></i>
+                        <select name="rubro" id="fld_rubro">
+                            <option value="">Seleccioná el rubro *</option>
+                            <option value="Gimnasio" {% if request.POST.rubro == 'Gimnasio' %}selected{% endif %}>Gimnasio</option>
+                            <option value="Punto de Venta" {% if request.POST.rubro == 'Punto de Venta' %}selected{% endif %}>Punto de Venta</option>
+                            <option value="Gimnasio con Punto de Venta" {% if request.POST.rubro == 'Gimnasio con Punto de Venta' %}selected{% endif %}>Gimnasio con Punto de Venta</option>
+                        </select>
+                    </div>
+                    <div class="nav-pasos">
+                        <span></span>
+                        <button type="button" class="btn-nav btn-sig" onclick="irPaso(2)">Siguiente <i class="fas fa-arrow-right"></i></button>
+                    </div>
+                </div>
+
+                <!-- ── PASO 2: Configuración ── -->
+                <div class="paso" id="paso2">
+                    <div class="seccion-label">Moneda y configuración</div>
+                    <div class="fila2">
+                        <div class="input-group">
+                            <i class="fas fa-coins"></i>
+                            <select name="moneda">
+                                <option value="BOB" {% if request.POST.moneda == 'BOB' or not request.POST.moneda %}selected{% endif %}>BOB — Boliviano</option>
+                                <option value="USD" {% if request.POST.moneda == 'USD' %}selected{% endif %}>USD — Dólar</option>
+                                <option value="ARS" {% if request.POST.moneda == 'ARS' %}selected{% endif %}>ARS — Peso Arg.</option>
+                                <option value="CLP" {% if request.POST.moneda == 'CLP' %}selected{% endif %}>CLP — Peso Chi.</option>
+                                <option value="GUY" {% if request.POST.moneda == 'GUY' %}selected{% endif %}>GUY — Guaraní</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <i class="fas fa-dollar-sign"></i>
+                            <input type="text" name="simbolo_moneda" placeholder=" " maxlength="5"
+                                   value="{{ request.POST.simbolo_moneda|default:'Bs.' }}">
+                            <label>Símbolo</label>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-align-left"></i>
+                        <input type="text" name="pie_ticket" placeholder=" " maxlength="200"
+                               value="{{ request.POST.pie_ticket|default:'' }}">
+                        <label>Pie de ticket (opcional)</label>
+                    </div>
+
+                    <!-- plan gratuito silencioso -->
+                    <input type="hidden" name="plan_id" value="{{ plan_prueba.id }}">
+
+                    <div style="background:#0a1a12;border-radius:8px;padding:10px 14px;margin-top:4px;font-size:.82rem;color:#4ade80">
+                        <i class="fas fa-check-circle"></i>
+                        Plan <strong>Prueba Gratuita (14 días)</strong> aplicado automáticamente. Podés cambiarlo después.
+                    </div>
+
+                    <div class="nav-pasos">
+                        <button type="button" class="btn-nav btn-atras" onclick="irPaso(1)"><i class="fas fa-arrow-left"></i> Atrás</button>
+                        <button type="button" class="btn-nav btn-sig" onclick="irPaso(3)">Siguiente <i class="fas fa-arrow-right"></i></button>
+                    </div>
+                </div>
+
+                <!-- ── PASO 3: Usuario principal ── -->
+                <div class="paso" id="paso3">
+                    <div class="seccion-label">Tu usuario administrador</div>
+                    <div class="fila2">
+                        <div class="input-group">
+                            <i class="fas fa-user"></i>
+                            <input type="text" name="nombre" placeholder=" " value="{{ request.POST.nombre|default:'' }}">
+                            <label>Nombre *</label>
+                        </div>
+                        <div class="input-group">
+                            <i class="fas fa-user"></i>
+                            <input type="text" name="apellido" placeholder=" " value="{{ request.POST.apellido|default:'' }}">
+                            <label>Apellido</label>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <i class="fas fa-at"></i>
+                        <input type="text" name="username" placeholder=" " value="{{ request.POST.username|default:'' }}">
+                        <label>Usuario *</label>
+                    </div>
+                    <div class="fila2">
+                        <div class="input-group">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" name="password1" placeholder=" ">
+                            <label>Contraseña *</label>
+                        </div>
+                        <div class="input-group">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" name="password2" placeholder=" ">
+                            <label>Repetir *</label>
+                        </div>
+                    </div>
+                    <div class="nav-pasos">
+                        <button type="button" class="btn-nav btn-atras" onclick="irPaso(2)"><i class="fas fa-arrow-left"></i> Atrás</button>
+                        <button type="submit" class="btn-nav btn-sig">Crear empresa <i class="fas fa-check"></i></button>
+                    </div>
+                </div>
+
+            </form>
+
+            <div class="form-footer">
+                ¿Ya tenés cuenta? <button class="link-toggle" id="goToLogin">Iniciá sesión</button>
+            </div>
+        </div>
+
+        <div class="banner-side">
+            <div class="logo-txt">⬡ REDREX</div>
+            <h2>¡Empezá hoy!</h2>
+            <p>Registrá tu negocio y gestionalo todo desde un solo lugar. Rápido y sin complicaciones.</p>
+        </div>
+
+    </div><!-- fin card-back -->
+
+</div><!-- fin card-container -->
+
 <script>
-  // Mensajes automáticos
-  setTimeout(() => {
-    const messages = document.getElementById('messages-container');
-    if (messages) {
-      messages.style.transition = "opacity 0.5s ease";
-      messages.style.opacity = 0;
-      setTimeout(() => messages.remove(), 500);
+const card = document.getElementById('cardContainer');
+
+document.getElementById('goToRegister').addEventListener('click', () => {
+    card.classList.add('is-flipped');
+    {% if request.POST.nombre_empresa %}irPaso(3);{% endif %}
+});
+document.getElementById('goToLogin').addEventListener('click', () => {
+    card.classList.remove('is-flipped');
+});
+
+// Si hubo error en el POST de registro, mostrar directo el back en paso 3
+{% if request.POST.nombre_empresa %}
+document.addEventListener('DOMContentLoaded', () => {
+    card.classList.add('is-flipped');
+    irPaso(3);
+});
+{% endif %}
+
+// ── LÓGICA DE PASOS ──
+let pasoActual = 1;
+
+function irPaso(n) {
+    if (n > pasoActual && !validar(pasoActual)) return;
+
+    document.getElementById('paso' + pasoActual).classList.remove('visible');
+    document.getElementById('sb' + pasoActual).classList.remove('activo');
+    document.getElementById('sb' + pasoActual).classList.add('done');
+
+    pasoActual = n;
+    document.getElementById('paso' + pasoActual).classList.add('visible');
+    document.getElementById('sb' + pasoActual).classList.remove('done');
+    document.getElementById('sb' + pasoActual).classList.add('activo');
+
+    // limpiar pasos siguientes
+    for (let i = n + 1; i <= 3; i++) {
+        document.getElementById('sb' + i).classList.remove('activo', 'done');
     }
-  }, 3000);
+}
+
+function validar(n) {
+    const box = document.getElementById('alertas-reg');
+    box.innerHTML = '';
+
+    if (n === 1) {
+        const emp  = document.getElementById('fld_empresa').value.trim();
+        const rub  = document.getElementById('fld_rubro').value;
+        if (!emp) {
+            box.innerHTML = '<div class="alerta alerta-error"><i class="fas fa-exclamation-circle"></i> El nombre de la empresa es obligatorio.</div>';
+            return false;
+        }
+        if (!rub) {
+            box.innerHTML = '<div class="alerta alerta-error"><i class="fas fa-exclamation-circle"></i> Seleccioná el rubro de tu negocio.</div>';
+            return false;
+        }
+    }
+    return true;
+}
+
+// auto-ocultar mensajes de error de login tras 4s
+setTimeout(() => {
+    document.querySelectorAll('.alerta-error').forEach(el => {
+        el.style.transition = 'opacity .5s';
+        el.style.opacity = 0;
+        setTimeout(() => el.remove(), 500);
+    });
+}, 4000);
 </script>
 </body>
 </html>

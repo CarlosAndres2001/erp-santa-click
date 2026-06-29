@@ -171,6 +171,133 @@ def empresa_create(request):
         return redirect('empresa_list')
     return render(request, 'empresa/create.html', {'planes': planes})
 
+
+# ── 1. FUNCIÓN SETUP (va primero, antes de cualquier vista) ──
+def setup_empresa_inicial(empresa, sucursal):
+    """
+    Se llama UNA vez al crear una empresa.
+    Crea todo lo necesario para que pueda operar de inmediato.
+    """
+    Caja.objects.create(
+        nombre='Caja Principal',
+        sucursal=sucursal,
+        saldo_inicial=0,
+        fk_empresa=empresa
+    )
+    Almacen.objects.create(
+        nombre='Almacén Principal',
+        sucursal=sucursal
+    )
+    CanalVenta.objects.bulk_create([
+        CanalVenta(nombre='Mostrador', fk_empresa=empresa),
+        CanalVenta(nombre='Delivery',  fk_empresa=empresa),
+        CanalVenta(nombre='WhatsApp',  fk_empresa=empresa),
+    ])
+    UnidadMedida.objects.create(
+        nombre='Unidad', abreviatura='und', fk_empresa=empresa
+    )
+    Category.objects.create(
+        name='General', fk_empresa=empresa
+    )
+    MetodoPago.objects.bulk_create([
+        MetodoPago(nombre='Efectivo', empresa=empresa),
+        MetodoPago(nombre='QR',       empresa=empresa),
+        MetodoPago(nombre='Tarjeta',  empresa=empresa),
+    ])
+    TipoIngreso.objects.bulk_create([
+        TipoIngreso(nombre='Compra',          fk_empresa=empresa),
+        TipoIngreso(nombre='Ajuste positivo', fk_empresa=empresa),
+    ])
+    TipoEgreso.objects.bulk_create([
+        TipoEgreso(nombre='Gasto operativo', fk_empresa=empresa),
+        TipoEgreso(nombre='Ajuste negativo', fk_empresa=empresa),
+    ])
+    Turno.objects.create(
+        nombre='Turno Mañana',
+        hora_inicio='08:00',
+        hora_fin='20:00',
+        fk_empresa=empresa
+    )
+    Proveedor.objects.create(
+        nombre='Proveedor General',
+        contacto='', telefono='', email='', direccion='',
+        empresa=empresa
+    )
+    
+def registro_empresa(request):
+    # plan gratuito por defecto (14 días)
+    plan_prueba = 1
+    
+    if request.method == 'POST':
+        nombre_empresa = request.POST.get('nombre_empresa', '').strip()
+        rubro          = request.POST.get('rubro', '').strip()
+        moneda         = request.POST.get('moneda', 'BOB')
+        simbolo_moneda = request.POST.get('simbolo_moneda', 'Bs.')
+        pie_ticket     = request.POST.get('pie_ticket', '').strip()
+        nombre         = request.POST.get('nombre', '').strip()
+        apellido       = request.POST.get('apellido', '').strip()
+        username       = request.POST.get('username', '').strip()
+        password1      = request.POST.get('password1', '')
+        password2      = request.POST.get('password2', '')
+
+        errores = []
+        if not nombre_empresa: errores.append('El nombre de la empresa es obligatorio.')
+        if not rubro:          errores.append('El rubro es obligatorio.')
+        if not nombre:         errores.append('Tu nombre es obligatorio.')
+        if not username:       errores.append('El usuario es obligatorio.')
+        if password1 != password2: errores.append('Las contraseñas no coinciden.')
+        if len(password1) < 6:     errores.append('Mínimo 6 caracteres en la contraseña.')
+        if Usuario.objects.filter(username=username).exists():
+            errores.append('Ese nombre de usuario ya existe.')
+
+        if errores:
+            for e in errores:
+                messages.error(request, e)
+            return render(request, 'login.html', {
+                'plan_prueba': plan_prueba,
+            })
+
+        try:
+            with transaction.atomic():
+                empresa = Empresa.objects.create(
+                    nombre=nombre_empresa,
+                    rubro=rubro,
+                    moneda=moneda,
+                    simbolo_moneda=simbolo_moneda,
+                    pie_ticket=pie_ticket,
+                    fk_plan_empresa=PlanEmpresa.objects.get(id=1),
+                    fecha_inicio_plan=timezone.now()
+                )
+                sucursal = Sucursal.objects.create(
+                    nombre='Sucursal Principal',
+                    fk_empresa=empresa
+                )
+                setup_empresa_inicial(empresa, sucursal)
+
+                rol_admin = Rol.objects.create(
+                    nombre='Administrador',
+                    fk_empresa=empresa
+                )
+                usuario = Usuario(
+                    username=username,
+                    nombre=nombre,
+                    apellido=apellido,
+                    rol=rol_admin,
+                    sucursal=sucursal,
+                    is_staff=True
+                )
+                usuario.set_password(password1)
+                usuario.save()
+
+        except Exception as ex:
+            messages.error(request, f'Error: {ex}')
+            return render(request, 'login.html', {'plan_prueba': plan_prueba})
+
+        messages.success(request, f'¡Empresa "{nombre_empresa}" creada! Iniciá sesión.')
+        return redirect('login')
+
+    return render(request, 'login.html', {'plan_prueba': plan_prueba})
+
 @login_required
 @permiso_requerido('empresa_edit', 'editar')
 def empresa_edit(request):
