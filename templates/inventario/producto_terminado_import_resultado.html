@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2><i class="bi bi-check2-circle me-2 text-success"></i> Resultado de la importación</h2>
+
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-success">
+                <div class="card-body text-center">
+                    <h3>{{ creados }}</h3>
+                    <p class="mb-0">Creados</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-primary">
+                <div class="card-body text-center">
+                    <h3>{{ actualizados }}</h3>
+                    <p class="mb-0">Actualizados</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card text-white bg-danger">
+                <div class="card-body text-center">
+                    <h3>{{ errores|length }}</h3>
+                    <p class="mb-0">Con error</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if errores %}
+    <h4><i class="bi bi-exclamation-triangle-fill text-danger me-1"></i> Filas rechazadas</h4>
+    <table class="table table-bordered table-striped">
+        <thead class="table-dark">
+            <tr><th>Fila (Excel)</th><th>SKU</th><th>Motivo</th></tr>
+        </thead>
+        <tbody>
+            {% for err in errores %}
+            <tr>
+                <td>{{ err.fila }}</td>
+                <td>{{ err.sku|default:"—" }}</td>
+                <td class="text-danger">{{ err.motivo }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <a href="{% url 'producto_list' %}" class="btn btn-primary mt-2">
+        <i class="bi bi-list-ul me-1"></i> Ir a Productos Terminados
+    </a>
+</div>
+{% endblock %}

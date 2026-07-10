@@ -1,0 +1,309 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+
+    <h2>
+        <i class="bi bi-box-seam-fill me-2 text-primary"></i> Insumos
+    </h2>
+
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#createInsumoModal">
+        <i class="bi bi-plus-lg"></i> Nuevo Insumo
+    </button>
+
+    <table class="table table-bordered table-striped align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th><i class="bi bi-box-fill"></i> Nombre</th>
+                <th><i class="bi bi-upc-scan"></i> SKU</th>
+                <th><i class="bi bi-rulers"></i> Unidad</th>
+                <th><i class="bi bi-tags"></i> Categoría</th>
+                <th class="text-end"><i class="bi bi-cash-coin"></i> Costo</th>
+                <th class="text-center"><i class="bi bi-boxes"></i> Stock</th>
+                <th class="text-center"><i class="bi bi-gear-fill"></i> Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in productos %}
+            {% with v=p.variantes.first %}
+            <tr>
+                <td><i class="bi bi-box me-1 text-primary"></i> {{ p.nombre }}</td>
+                <td>{{ v.sku|default:"—" }}</td>
+                <td>{{ p.unidad_medida.abreviatura|default:p.unidad_medida.nombre }}</td>
+                <td>{{ p.category.name|default:"—" }}</td>
+                <td class="text-end">{{ v.costo|default:"0.00" }}</td>
+                <td class="text-center">
+                    {% if v.maneja_stock %}
+                        <span class="badge bg-success"><i class="bi bi-check-lg"></i> Sí</span>
+                    {% else %}
+                        <span class="badge bg-secondary">No</span>
+                    {% endif %}
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-warning"
+                        data-bs-toggle="modal"
+                        data-bs-target="#editInsumoModal"
+                        data-id="{{ p.id }}"
+                        data-variante-id="{{ v.id }}"
+                        data-nombre="{{ p.nombre|escapejs }}"
+                        data-descripcion="{{ p.descripcion|escapejs }}"
+                        data-unidad="{{ p.unidad_medida_id }}"
+                        data-categoria="{{ p.category_id|default_if_none:'' }}"
+                        data-sku="{{ v.sku|escapejs }}"
+                        data-codigo-barras="{{ v.codigo_barras|default:''|escapejs }}"
+                        data-costo="{{ v.costo }}"
+                        data-precio="{{ v.precio_referencial }}"
+                        data-maneja-stock="{{ v.maneja_stock }}"
+                        data-unidades-caja="{{ p.unidades_por_caja }}"
+                        data-tara-caja="{{ p.tara_por_caja }}">
+                        <i class="bi bi-pencil-fill"></i>
+                    </button>
+
+                    {% if p.is_active %}
+                    <button class="btn btn-sm btn-danger"
+                        data-bs-toggle="modal"
+                        data-bs-target="#deleteInsumoModal"
+                        data-id="{{ p.id }}"
+                        data-nombre="{{ p.nombre|escapejs }}">
+                        <i class="bi bi-trash-fill"></i>
+                    </button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endwith %}
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center">
+                    <i class="bi bi-exclamation-circle text-warning"></i> No hay insumos registrados.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- ===== MODAL CREAR ===== -->
+<div class="modal fade" id="createInsumoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'crear_insumo' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="bi bi-plus-circle me-2"></i> Nuevo Insumo</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-box-fill me-1"></i> Nombre</label>
+                            <input name="nombre" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-upc-scan me-1"></i> SKU</label>
+                            <input name="sku" class="form-control" required>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label"><i class="bi bi-card-text me-1"></i> Descripción</label>
+                            <textarea name="descripcion" class="form-control" rows="2"></textarea>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-rulers me-1"></i> Unidad de medida</label>
+                            <select name="unidad_medida" class="form-select" required>
+                                <option value="">-- Seleccionar --</option>
+                                {% for u in unidades_medida %}
+                                <option value="{{ u.id }}">{{ u.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="bi bi-tags me-1"></i> Categoría</label>
+                            <select name="categoria" class="form-select">
+                                <option value="">-- Sin categoría --</option>
+                                {% for c in categorias %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label"><i class="bi bi-barcode me-1"></i> Código de barras</label>
+                            <input name="codigo_barras" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label"><i class="bi bi-cash-coin me-1"></i> Costo</label>
+                            <input type="number" step="0.01" name="costo" class="form-control" value="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label"><i class="bi bi-tag me-1"></i> Precio referencial</label>
+                            <input type="number" step="0.01" name="precio_referencial" class="form-control" value="0">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Unidades por caja</label>
+                            <input type="number" name="unidades_por_caja" class="form-control" value="0">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Tara por caja</label>
+                            <input type="number" step="0.01" name="tara_por_caja" class="form-control" value="0">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="form-check">
+                                <input type="checkbox" name="maneja_stock" class="form-check-input" id="create_maneja_stock" checked>
+                                <label class="form-check-label" for="create_maneja_stock">Maneja stock</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-success"><i class="bi bi-check-lg"></i> Crear</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===== MODAL EDITAR ===== -->
+<div class="modal fade" id="editInsumoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'insumo_edit' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="edit_id">
+            <input type="hidden" name="variante_id" id="edit_variante_id">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="bi bi-pencil-square me-2"></i> Editar Insumo</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nombre</label>
+                            <input name="nombre" id="edit_nombre" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">SKU</label>
+                            <input name="sku" id="edit_sku" class="form-control" required>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Descripción</label>
+                            <textarea name="descripcion" id="edit_descripcion" class="form-control" rows="2"></textarea>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Unidad de medida</label>
+                            <select name="unidad_medida" id="edit_unidad" class="form-select" required>
+                                <option value="">-- Seleccionar --</option>
+                                {% for u in unidades_medida %}
+                                <option value="{{ u.id }}">{{ u.nombre }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Categoría</label>
+                            <select name="categoria" id="edit_categoria" class="form-select">
+                                <option value="">-- Sin categoría --</option>
+                                {% for c in categorias %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Código de barras</label>
+                            <input name="codigo_barras" id="edit_codigo_barras" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Costo</label>
+                            <input type="number" step="0.01" name="costo" id="edit_costo" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Precio referencial</label>
+                            <input type="number" step="0.01" name="precio_referencial" id="edit_precio" class="form-control">
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">Unidades por caja</label>
+                            <input type="number" name="unidades_por_caja" id="edit_unidades_caja" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Tara por caja</label>
+                            <input type="number" step="0.01" name="tara_por_caja" id="edit_tara_caja" class="form-control">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="form-check">
+                                <input type="checkbox" name="maneja_stock" class="form-check-input" id="edit_maneja_stock">
+                                <label class="form-check-label" for="edit_maneja_stock">Maneja stock</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary"><i class="bi bi-pencil-fill"></i> Actualizar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===== MODAL ELIMINAR ===== -->
+<div class="modal fade" id="deleteInsumoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'insumo_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="delete_id">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger"><i class="bi bi-trash-fill me-2"></i> Eliminar Insumo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Deseas eliminar el insumo <strong id="delete_nombre"></strong>?</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger"><i class="bi bi-trash-fill"></i> Eliminar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===== SCRIPTS ===== -->
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var editModal = document.getElementById('editInsumoModal');
+    editModal.addEventListener('show.bs.modal', function (event) {
+        var b = event.relatedTarget;
+        document.getElementById('edit_id').value = b.getAttribute('data-id');
+        document.getElementById('edit_variante_id').value = b.getAttribute('data-variante-id');
+        document.getElementById('edit_nombre').value = b.getAttribute('data-nombre') || '';
+        document.getElementById('edit_descripcion').value = b.getAttribute('data-descripcion') || '';
+        document.getElementById('edit_unidad').value = b.getAttribute('data-unidad') || '';
+        document.getElementById('edit_categoria').value = b.getAttribute('data-categoria') || '';
+        document.getElementById('edit_sku').value = b.getAttribute('data-sku') || '';
+        document.getElementById('edit_codigo_barras').value = b.getAttribute('data-codigo-barras') || '';
+        document.getElementById('edit_costo').value = b.getAttribute('data-costo') || 0;
+        document.getElementById('edit_precio').value = b.getAttribute('data-precio') || 0;
+        document.getElementById('edit_unidades_caja').value = b.getAttribute('data-unidades-caja') || 0;
+        document.getElementById('edit_tara_caja').value = b.getAttribute('data-tara-caja') || 0;
+
+        var maneja = b.getAttribute('data-maneja-stock');
+        document.getElementById('edit_maneja_stock').checked = (maneja === 'True' || maneja === 'true' || maneja === '1');
+    });
+
+    var deleteModal = document.getElementById('deleteInsumoModal');
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        var b = event.relatedTarget;
+        document.getElementById('delete_id').value = b.getAttribute('data-id');
+        document.getElementById('delete_nombre').textContent = b.getAttribute('data-nombre') || '';
+    });
+});
+</script>
+
+{% endblock %}

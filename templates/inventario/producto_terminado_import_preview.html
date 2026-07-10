@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2><i class="bi bi-eye-fill me-2 text-primary"></i> Revisa antes de guardar</h2>
+    <p class="text-muted">
+        Corrige lo que necesites directo en la tabla. Nada se guarda hasta que le des
+        <strong>"Guardar todo"</strong>. Filas con el mismo SKU de un producto ya existente
+        actualizarán ese producto.
+    </p>
+
+    <form method="post" action="{% url 'importar_productos_terminados_confirmar' %}">
+        {% csrf_token %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-sm align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Fila</th>
+                        <th style="min-width:160px">Nombre</th>
+                        <th style="min-width:110px">SKU</th>
+                        <th style="min-width:120px">Unidad</th>
+                        <th style="min-width:120px">Categoría</th>
+                        <th style="min-width:90px">Costo</th>
+                        <th style="min-width:90px">Precio</th>
+                        <th style="min-width:120px">Cód. barras</th>
+                        <th style="min-width:200px">URL Foto</th>
+                        <th style="min-width:80px">Uds/caja</th>
+                        <th style="min-width:80px">Tara</th>
+                        <th class="text-center">Stock</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for f in filas %}
+                    <tr>
+                        <td class="text-center">{{ f.fila_excel }}</td>
+                        <td><input type="text" name="fila_nombre_{{ forloop.counter0 }}" class="form-control form-control-sm" value="{{ f.nombre }}" required></td>
+                        <td><input type="text" name="fila_sku_{{ forloop.counter0 }}" class="form-control form-control-sm" value="{{ f.sku }}" required></td>
+                        <td><input type="text" name="fila_unidad_medida_{{ forloop.counter0 }}" class="form-control form-control-sm" value="{{ f.unidad_medida }}" required></td>
+                        <td><input type="text" name="fila_categoria_{{ forloop.counter0 }}" class="form-control form-control-sm" value="{{ f.categoria }}"></td>
+                        <td><input type="number" step="0.01" name="fila_costo_{{ forloop.counter0 }}" class="form-control form-control-sm" value="{{ f.costo }}"></td>
+                        <td><input type="number" step="0.01" name="fila_precio_referencial_{{ forloop.counter0 }}" class="form-control form-control-sm" value="{{ f.precio_referencial }}"></td>
+                        <td><input type="text" name="fila_codigo_barras_{{ forloop.counter0 }}" class="form-control form-control-sm" value="{{ f.codigo_barras }}"></td>
+                        <td><input type="url" name="fila_foto_url_{{ forloop.counter0 }}" class="form-control form-control-sm" value="{{ f.foto_url }}" placeholder="https://..."></td>
+                        <td><input type="number" name="fila_unidades_por_caja_{{ forloop.counter0 }}" class="form-control form-control-sm" value="{{ f.unidades_por_caja }}"></td>
+                        <td><input type="number" step="0.01" name="fila_tara_por_caja_{{ forloop.counter0 }}" class="form-control form-control-sm" value="{{ f.tara_por_caja }}"></td>
+                        <td class="text-center"><input type="checkbox" name="fila_maneja_stock_{{ forloop.counter0 }}" {% if f.maneja_stock %}checked{% endif %}></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <button type="submit" class="btn btn-success"><i class="bi bi-check-circle-fill me-1"></i> Guardar todo ({{ filas|length }} productos)</button>
+        <a href="{% url 'importar_productos_terminados' %}" class="btn btn-secondary ms-2"><i class="bi bi-arrow-left"></i> Cancelar y subir otro Excel</a>
+    </form>
+</div>
+{% endblock %}

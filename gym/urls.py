@@ -76,11 +76,20 @@ urlpatterns = [
     # =======================
     # PRODUCTO
     # =======================
-    path('productos/', views.producto_list, name='producto_list'),
-    path('productos/create/', views.producto_create, name='producto_create'),
-    path('productos/edit/', views.producto_edit, name='producto_edit'),
-    path('productos/delete/', views.producto_delete, name='producto_delete'),
+    path('productos-terminados/', views.producto_list, name='producto_list'),
+    path('productos-terminados/crear/', views.crear_producto_terminado, name='crear_producto_terminado'),
+    path('productos-terminados/editar/', views.producto_terminado_edit, name='producto_terminado_edit'),
+    path('productos-terminados/eliminar/', views.producto_terminado_delete, name='producto_terminado_delete'),
+    path('productos-terminados/importar/', views.importar_productos_terminados, name='importar_productos_terminados'),
+    path('productos-terminados/importar/confirmar/', views.importar_productos_terminados_confirmar, name='importar_productos_terminados_confirmar'),
     
+    #=======================
+    # INSUMO
+    #=======================
+    path('insumos/', views.lista_insumos, name='lista_insumos'),
+    path('insumos/crear/', views.crear_insumo, name='crear_insumo'),
+    path('insumos/editar/', views.insumo_edit, name='insumo_edit'),
+    path('insumos/eliminar/', views.insumo_delete, name='insumo_delete'),
     
     # =======================
     # PRECIO PRODUCTO
