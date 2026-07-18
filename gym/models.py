@@ -124,7 +124,7 @@ class Sucursal(models.Model):
 # ========================================
 # Usuario (reemplaza User de Django)
 # ========================================
-
+"""
 class UsuarioManager(BaseUserManager):
     def create_user(self, username, password=None, **extra_fields):
         if not username:
@@ -139,8 +139,9 @@ class UsuarioManager(BaseUserManager):
         extra_fields.setdefault('is_superuser', True)
         return self.create_user(username, password, **extra_fields)
 
-# Modelo Usuario
-class Usuario(AbstractBaseUser, PermissionsMixin):
+ """
+#Modelo Usuario
+"""class Usuario(AbstractBaseUser, PermissionsMixin):
     username = models.CharField(max_length=50, unique=True)
     email = models.EmailField(unique=True, blank=True, null=True)
     nombre = models.CharField(max_length=100)
@@ -162,7 +163,7 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
         return f"{self.nombre} {self.apellido or ''}".strip()
     
     def tiene_permiso(self, codigo_modulo, accion='ver'):
-        """Verifica si el usuario tiene un permiso específico"""
+        #Verifica si el usuario tiene un permiso específico
         if self.rol.nombre.lower() == 'administrador':
             return True
         
@@ -199,7 +200,92 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     
     class Meta:
         db_table = 'usuario'
+"""
         
+class UsuarioManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError('El email es obligatorio')
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+ 
+    def create_superuser(self, email, password, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        return self.create_user(email, password, **extra_fields)
+ 
+ 
+class Usuario(AbstractBaseUser, PermissionsMixin):
+    email = models.EmailField(unique=True)  # ← login real, único a nivel global
+    username = models.CharField(max_length=50, blank=True, null=True)  # solo display, ya NO es único
+    nombre = models.CharField(max_length=100)
+    apellido = models.CharField(max_length=100, blank=True, null=True)
+    rol = models.ForeignKey('Rol', on_delete=models.PROTECT)
+    sucursal = models.ForeignKey('Sucursal', on_delete=models.PROTECT)  # obligatorio, ya no null=True
+ 
+    is_active = models.BooleanField(default=True)
+    is_staff = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+ 
+    # Reemplaza a is_logged_in: session_key real, validado contra la
+    # tabla de sesiones de Django (no un booleano que nunca se apaga solo).
+    session_key = models.CharField(max_length=40, blank=True, null=True)
+ 
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['nombre', 'rol', 'sucursal']
+ 
+    objects = UsuarioManager()
+ 
+    def __str__(self):
+        return f"{self.nombre} {self.apellido or ''}".strip()
+ 
+    @property
+    def fk_empresa(self):
+        """Atajo de solo lectura: la empresa siempre se saca de la sucursal."""
+        return self.sucursal.fk_empresa if self.sucursal_id else None
+ 
+    def tiene_permiso(self, codigo_modulo, accion='ver'):
+        if self.rol.nombre.lower() == 'administrador':
+            return True
+        try:
+            permiso = PermisoRol.objects.get(
+                rol=self.rol,
+                modulo__codigo=codigo_modulo,
+                modulo__is_active=True
+            )
+            if accion == 'ver':
+                return permiso.puede_ver
+            elif accion == 'crear':
+                return permiso.puede_crear
+            elif accion == 'editar':
+                return permiso.puede_editar
+            elif accion == 'eliminar':
+                return permiso.puede_eliminar
+            return False
+        except PermisoRol.DoesNotExist:
+            return False
+ 
+    def tiene_modulo(self, codigo_modulo):
+        return self.tiene_permiso(codigo_modulo, 'ver')
+ 
+    def tiene_permiso_menu(self, codigo):
+        if self.rol.nombre.lower() == 'administrador':
+            return True
+        return PermisoRol.objects.filter(
+            rol=self.rol,
+            modulo__codigo=codigo,
+            puede_ver=True
+        ).exists()
+ 
+    class Meta:
+        db_table = 'usuario'
+ 
+
+
 #=========================================
 # Canal de Venta
 #=========================================
