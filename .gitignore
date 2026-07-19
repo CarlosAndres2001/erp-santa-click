@@ -1,0 +1,46 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Django specific
+*.log
+*.pot
+*.pyc
+local_settings.py
+db.sqlite3
+media/
+static/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# Django migrations (opcional - depende de tu flujo)
+# */migrations/*.py
+# !*/migrations/__init__.py

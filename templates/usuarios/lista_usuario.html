@@ -9,16 +9,13 @@
         <i class="bi bi-people-fill me-2 text-primary"></i> Lista de Usuarios
     </h2>
 
-    <!-- Botón Crear Usuario -->
     <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#createUsuarioModal">
         <i class="bi bi-plus-lg"></i> Nuevo Usuario
     </button>
 
-    <!-- Tabla de Usuarios -->
     <table class="table table-bordered table-striped align-middle">
         <thead class="table-dark">
             <tr>
-                <th><i class="bi bi-person-badge-fill"></i> Username</th>
                 <th><i class="bi bi-person-fill"></i> Nombre</th>
                 <th><i class="bi bi-person-fill"></i> Apellido</th>
                 <th><i class="bi bi-envelope-fill"></i> Email</th>
@@ -31,41 +28,37 @@
         <tbody>
             {% for u in usuarios %}
             <tr>
-                <td><i class="bi bi-person-circle text-primary"></i> {{ u.username }}</td>
-                <td>{{ u.nombre }}</td>
+                <td><i class="bi bi-person-circle text-primary"></i> {{ u.nombre }}</td>
                 <td>{{ u.apellido }}</td>
                 <td><i class="bi bi-envelope text-secondary"></i> {{ u.email }}</td>
                 <td>{{ u.rol.nombre }}</td>
                 <td>{{ u.sucursal.nombre }}</td>
 
                 <td class="text-center">
-                    <!-- Editar -->
                     <button class="btn btn-sm btn-warning"
                         data-bs-toggle="modal"
                         data-bs-target="#editUsuarioModal"
                         data-id="{{ u.id }}"
-                        data-username="{{ u.username }}"
                         data-nombre="{{ u.nombre }}"
                         data-apellido="{{ u.apellido }}"
                         data-email="{{ u.email }}"
                         data-rol="{{ u.rol.id }}"
                         data-sucursal="{{ u.sucursal.id }}">
-                        <i class="bi bi-pencil-fill"></i>   
+                        <i class="bi bi-pencil-fill"></i>
                     </button>
 
-                    <!-- Eliminar -->
                     <button class="btn btn-sm btn-danger"
                         data-bs-toggle="modal"
                         data-bs-target="#deleteUsuarioModal"
                         data-id="{{ u.id }}"
-                        data-nombre="{{ u.username }}">
-                        <i class="bi bi-trash-fill"></i>    
+                        data-nombre="{{ u.nombre }} {{ u.apellido }}">
+                        <i class="bi bi-trash-fill"></i>
                     </button>
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="7" class="text-center">
+                <td colspan="6" class="text-center">
                     <i class="bi bi-exclamation-circle text-warning"></i> No hay usuarios registrados.
                 </td>
             </tr>
@@ -82,25 +75,12 @@
             {% csrf_token %}
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3 class="modal-title">
-                        <i class="bi bi-plus-circle me-2"></i> Crear Usuario
-                    </h3>
+                    <h3 class="modal-title"><i class="bi bi-plus-circle me-2"></i> Crear Usuario</h3>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
                 <div class="modal-body">
-
                     <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Nombre Usuario</label>
-                            <input type="text" class="form-control" name="username" required>
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Correo</label>
-                            <input type="email" class="form-control" name="email">
-                        </div>
-
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Nombre</label>
                             <input type="text" class="form-control" name="nombre" required>
@@ -108,12 +88,17 @@
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Apellido</label>
-                            <input type="text" class="form-control" name="apellido" required>
+                            <input type="text" class="form-control" name="apellido">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" name="email" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Contraseña</label>
-                            <input type="password" class="form-control" name="password">
+                            <input type="password" class="form-control" name="password" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
@@ -135,17 +120,12 @@
                                 {% endfor %}
                             </select>
                         </div>
-
                     </div>
                 </div>
 
                 <div class="modal-footer">
-                    <button class="btn btn-success">
-                        <i class="bi bi-check-lg"></i> Crear
-                    </button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle"></i> Cancelar
-                    </button>
+                    <button class="btn btn-success"><i class="bi bi-check-lg"></i> Crear</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
                 </div>
             </div>
         </form>
@@ -161,26 +141,12 @@
 
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3 class="modal-title">
-                        <i class="bi bi-pencil-square me-2"></i> Editar Usuario
-                    </h3>
+                    <h3 class="modal-title"><i class="bi bi-pencil-square me-2"></i> Editar Usuario</h3>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
                 <div class="modal-body">
-
                     <div class="row">
-
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Nombre Usuario</label>
-                            <input type="text" class="form-control" id="edit_username" name="username" required>
-                        </div>
-
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Email</label>
-                            <input type="email" class="form-control" id="edit_email" name="email">
-                        </div>
-
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Nombre</label>
                             <input type="text" class="form-control" id="edit_nombre" name="nombre" required>
@@ -188,7 +154,12 @@
 
                         <div class="col-md-6 mb-3">
                             <label class="form-label">Apellido</label>
-                            <input type="text" class="form-control" id="edit_apellido" name="apellido" required>
+                            <input type="text" class="form-control" id="edit_apellido" name="apellido">
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="edit_email" name="email" required>
                         </div>
 
                         <div class="col-md-6 mb-3">
@@ -213,20 +184,13 @@
                                 {% endfor %}
                             </select>
                         </div>
-
                     </div>
-
                 </div>
 
                 <div class="modal-footer">
-                    <button class="btn btn-primary">
-                        <i class="bi bi-pencil-fill"></i> Actualizar
-                    </button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle"></i> Cancelar
-                    </button>
+                    <button class="btn btn-primary"><i class="bi bi-pencil-fill"></i> Actualizar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
                 </div>
-
             </div>
         </form>
     </div>
@@ -241,9 +205,7 @@
 
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3 class="modal-title">
-                        <i class="bi bi-trash-fill me-2 text-danger"></i> Eliminar Usuario
-                    </h3>
+                    <h3 class="modal-title"><i class="bi bi-trash-fill me-2 text-danger"></i> Eliminar Usuario</h3>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
@@ -252,14 +214,9 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button class="btn btn-danger">
-                        <i class="bi bi-trash-fill"></i> Eliminar
-                    </button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle"></i> Cancelar
-                    </button>
+                    <button class="btn btn-danger"><i class="bi bi-trash-fill"></i> Eliminar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
                 </div>
-
             </div>
         </form>
     </div>
@@ -269,26 +226,20 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    // EDITAR
     var editModal = document.getElementById('editUsuarioModal');
     editModal.addEventListener('show.bs.modal', function (event) {
         var b = event.relatedTarget;
-
         document.getElementById('edit_id').value = b.getAttribute('data-id');
-        document.getElementById('edit_username').value = b.getAttribute('data-username');
         document.getElementById('edit_nombre').value = b.getAttribute('data-nombre');
         document.getElementById('edit_apellido').value = b.getAttribute('data-apellido');
         document.getElementById('edit_email').value = b.getAttribute('data-email');
-
         document.getElementById('edit_rol').value = b.getAttribute('data-rol');
         document.getElementById('edit_sucursal').value = b.getAttribute('data-sucursal');
     });
 
-    // ELIMINAR
     var deleteModal = document.getElementById('deleteUsuarioModal');
     deleteModal.addEventListener('show.bs.modal', function (event) {
         var b = event.relatedTarget;
-
         document.getElementById('delete_id').value = b.getAttribute('data-id');
         document.getElementById('delete_nombre').textContent = b.getAttribute('data-nombre');
     });

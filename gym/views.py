@@ -193,8 +193,6 @@ def setup_empresa_inicial(empresa, sucursal):
     )
     CanalVenta.objects.bulk_create([
         CanalVenta(nombre='Mostrador', fk_empresa=empresa),
-        CanalVenta(nombre='Delivery',  fk_empresa=empresa),
-        CanalVenta(nombre='WhatsApp',  fk_empresa=empresa),
     ])
     UnidadMedida.objects.create(
         nombre='Unidad', abreviatura='und', fk_empresa=empresa
@@ -239,7 +237,8 @@ def registro_empresa(request):
         pie_ticket     = request.POST.get('pie_ticket', '').strip()
         nombre         = request.POST.get('nombre', '').strip()
         apellido       = request.POST.get('apellido', '').strip()
-        username       = request.POST.get('username', '').strip()
+        email = request.POST.get('email', '').strip().lower()
+        #username       = request.POST.get('username', '').strip()
         password1      = request.POST.get('password1', '')
         password2      = request.POST.get('password2', '')
 
@@ -247,11 +246,12 @@ def registro_empresa(request):
         if not nombre_empresa: errores.append('El nombre de la empresa es obligatorio.')
         if not rubro:          errores.append('El rubro es obligatorio.')
         if not nombre:         errores.append('Tu nombre es obligatorio.')
-        if not username:       errores.append('El usuario es obligatorio.')
+        #if not username:       errores.append('El usuario es obligatorio.')
+        if not email:          errores.append('El email es obligatorio.')
         if password1 != password2: errores.append('Las contraseñas no coinciden.')
         if len(password1) < 6:     errores.append('Mínimo 6 caracteres en la contraseña.')
-        if Usuario.objects.filter(username=username).exists():
-            errores.append('Ese nombre de usuario ya existe.')
+        if Usuario.objects.filter(email=email).exists():
+            errores.append('Ese email ya está registrado.')
 
         if errores:
             for e in errores:
@@ -282,7 +282,7 @@ def registro_empresa(request):
                     fk_empresa=empresa
                 )
                 usuario = Usuario(
-                    username=username,
+                    email=email,
                     nombre=nombre,
                     apellido=apellido,
                     rol=rol_admin,
@@ -518,62 +518,57 @@ def almacen_delete(request):
 @permiso_requerido('usuario_list', 'ver')
 def usuario_list(request):
     empresa = request.user.sucursal.fk_empresa
-    # select_related es genial aquí para no saturar la base de datos
-    usuarios = Usuario.objects.select_related('rol', 'sucursal')\
-        .filter(sucursal__fk_empresa=empresa, is_active=True)\
-        .order_by('-created_at')
-
+    usuarios = Usuario.objects.select_related('rol', 'sucursal').filter(sucursal__fk_empresa=empresa, is_active=True) .order_by('-created_at')
+ 
     roles = Rol.objects.filter(estado=True)
     sucursales = Sucursal.objects.filter(fk_empresa=empresa, estado=True)
-
-    return render(request, 'usuarios/lista_usuario.html', {'usuarios': usuarios,'roles': roles,'sucursales': sucursales,})
-
+ 
+    return render(request, 'usuarios/lista_usuario.html', {
+        'usuarios': usuarios, 'roles': roles, 'sucursales': sucursales,
+    })
+ 
+ 
 @login_required
 @permiso_requerido('usuario_list', 'crear')
 @transaction.atomic
 def usuario_create(request):
     if request.method == 'POST':
         empresa = request.user.sucursal.fk_empresa
-        username = request.POST.get('username', '').strip()
-        email = request.POST.get('email', '').strip()
+        email = request.POST.get('email', '').strip().lower()
         password = request.POST.get('password')
         sucursal_id = request.POST.get('sucursal')
         rol_id = request.POST.get('rol')
-        
-        # 1. Validación: Campos obligatorios básicos
-        if not all([username, password, sucursal_id, rol_id]):
-            messages.error(request, 'Usuario, contraseña, sucursal y rol son obligatorios.')
+        nombre = request.POST.get('nombre', '').strip()
+ 
+        # 1. Campos obligatorios
+        if not all([email, password, sucursal_id, rol_id, nombre]):
+            messages.error(request, 'Nombre, email, contraseña, sucursal y rol son obligatorios.')
             return redirect('usuario_list')
-
-        # 2. Validación: Username único (Global en Django por defecto)
-        if Usuario.objects.filter(username__iexact=username, is_active=True,  sucursal__fk_empresa=empresa).exists():
-            messages.error(request, f'El nombre de usuario "{username}" ya está en uso.')
+ 
+        # 2. Email único a nivel GLOBAL (así es como quedó el modelo,
+        #    no busques scoped a empresa: el campo ya tiene unique=True)
+        if Usuario.objects.filter(email__iexact=email).exists():
+            messages.error(request, f'Ya existe una cuenta con el email "{email}".')
             return redirect('usuario_list')
-
-        # 3. Validación: Email único (Opcional pero recomendado)
-        if email and Usuario.objects.filter(email__iexact=email, is_active=True, sucursal__fk_empresa=empresa).exists():
-            messages.error(request, 'Este correo electrónico ya está registrado.')
-            return redirect('usuario_list')
-
-        # 4. Seguridad: Verificar que la sucursal sea de la empresa
+ 
+        # 3. Seguridad: la sucursal debe ser de la empresa del que está creando
         if not Sucursal.objects.filter(id=sucursal_id, fk_empresa=empresa).exists():
             messages.error(request, 'Sucursal no válida.')
             return redirect('usuario_list')
-
-        Usuario.objects.create(
-            username=username,
-            nombre=request.POST.get('nombre', '').strip(),
-            apellido=request.POST.get('apellido', '').strip(),
+ 
+        Usuario.objects.create_user(
             email=email,
-            password=make_password(password),
+            password=password,
+            nombre=nombre,
+            apellido=request.POST.get('apellido', '').strip(),
             rol_id=rol_id,
             sucursal_id=sucursal_id,
-            is_active=True
         )
         messages.success(request, 'Usuario creado correctamente.')
-
+ 
     return redirect('usuario_list')
-
+ 
+ 
 @login_required
 @permiso_requerido('usuario_list', 'editar')
 def usuario_edit(request):
@@ -581,54 +576,55 @@ def usuario_edit(request):
         empresa = request.user.sucursal.fk_empresa
         id = request.POST.get('id')
         usuario = get_object_or_404(Usuario, pk=id, sucursal__fk_empresa=empresa)
-        username = request.POST.get('username', '').strip()
-        email = request.POST.get('email', '').strip()
+ 
+        email = request.POST.get('email', '').strip().lower()
         sucursal_id = request.POST.get('sucursal')
         new_password = request.POST.get('password')
-
-        if not username:
-            messages.error(request, 'El nombre de usuario no puede estar vacío.')
+ 
+        if not email:
+            messages.error(request, 'El email no puede estar vacío.')
             return redirect('usuario_list')
-        # 1. Validar que el username no lo tenga OTRO
-        if Usuario.objects.filter(username__iexact=username).exclude(id=usuario.id).exists():
-            messages.error(request, 'El nombre de usuario ya está en uso por otra persona los nombres de usuarios son únicos.')
+ 
+        # Email único, excluyendo al propio usuario que se está editando
+        if Usuario.objects.filter(email__iexact=email).exclude(id=usuario.id).exists():
+            messages.error(request, 'Ese email ya está en uso por otra cuenta.')
             return redirect('usuario_list')
-
-        # 2. Seguridad Sucursal
+ 
         if not Sucursal.objects.filter(id=sucursal_id, fk_empresa=empresa).exists():
             messages.error(request, 'Sucursal no válida.')
             return redirect('usuario_list')
-
-        usuario.username = username
+ 
+        usuario.email = email
         usuario.nombre = request.POST.get('nombre', '').strip()
         usuario.apellido = request.POST.get('apellido', '').strip()
-        usuario.email = email
         usuario.rol_id = request.POST.get('rol')
         usuario.sucursal_id = sucursal_id
-        # Solo actualizamos password si se escribió algo en el campo
+ 
         if new_password:
-            usuario.password = make_password(new_password)
-
+            usuario.set_password(new_password)
+ 
         usuario.save()
         messages.success(request, 'Usuario actualizado correctamente.')
-
+ 
     return redirect('usuario_list')
-
+ 
+ 
 @login_required
 @permiso_requerido('usuario_list', 'eliminar')
 def usuario_delete(request):
     if request.method == 'POST':
         empresa = request.user.sucursal.fk_empresa
         id = request.POST.get('id')
-        # Importante: No dejar que un usuario se borre a sí mismo por error
+ 
         if int(id) == request.user.id:
             messages.error(request, 'No puedes eliminar tu propio usuario.')
             return redirect('usuario_list')
+ 
         usuario = get_object_or_404(Usuario, pk=id, sucursal__fk_empresa=empresa)
         usuario.is_active = False
         usuario.save()
         messages.success(request, 'Usuario eliminado correctamente.')
-
+ 
     return redirect('usuario_list')
 
 # ====================================================

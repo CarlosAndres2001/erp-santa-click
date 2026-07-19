@@ -188,8 +188,8 @@ body {
                 {% csrf_token %}
                 <div class="input-group">
                     <i class="fas fa-user"></i>
-                    <input type="text" name="username" placeholder=" " required value="{{ request.POST.username|default:'' }}">
-                    <label>Usuario</label>
+                    <input type="text" name="email" placeholder=" " required value="{{ request.POST.email|default:'' }}">
+                    <label>Email</label>
                 </div>
                 <div class="input-group">
                     <i class="fas fa-lock"></i>
@@ -316,9 +316,9 @@ body {
                         </div>
                     </div>
                     <div class="input-group">
-                        <i class="fas fa-at"></i>
-                        <input type="text" name="username" placeholder=" " value="{{ request.POST.username|default:'' }}">
-                        <label>Usuario *</label>
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" name="email" placeholder=" " value="{{ request.POST.email|default:'' }}">
+                        <label>Email *</label>
                     </div>
                     <div class="fila2">
                         <div class="input-group">

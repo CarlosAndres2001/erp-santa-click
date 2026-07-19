@@ -1,0 +1,55 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nexus — Sesión activa</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+body{
+    height:100vh;display:flex;justify-content:center;align-items:center;
+    background-color:#0f0c20;color:#fff;
+}
+.card{
+    background:#1c1830;border-radius:1.5rem;padding:2.5rem;
+    max-width:400px;width:90%;text-align:center;
+    box-shadow:0 15px 35px rgba(0,0,0,.5);
+    border:1px solid rgba(255,255,255,.05);
+}
+.card i.icono{color:#f59e0b;font-size:2.5rem;margin-bottom:1rem}
+.card h3{margin-bottom:.5rem;font-size:1.4rem}
+.card p{color:#a09cb0;font-size:.9rem;margin-bottom:1.5rem;line-height:1.5}
+.btn-danger{
+    width:100%;padding:.85rem;border:none;border-radius:2rem;
+    background:linear-gradient(135deg,#7f1d1d 0%,#ef4444 100%);
+    color:#fff;font-weight:700;font-size:.95rem;cursor:pointer;
+    margin-bottom:.7rem;transition:all .3s;
+}
+.btn-danger:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(239,68,68,.4)}
+.btn-cancelar{
+    display:block;color:#a09cb0;text-decoration:none;font-size:.85rem;
+}
+.btn-cancelar:hover{color:#fff}
+</style>
+</head>
+<body>
+    <div class="card">
+        <i class="fas fa-exclamation-triangle icono"></i>
+        <h3>Ya tienes una sesión activa</h3>
+        <p>Tu cuenta está abierta en otro dispositivo o navegador ahora mismo. Puedes cerrar esa sesión e iniciar aquí.</p>
+
+        <form method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            <input type="hidden" name="email" value="{{ email }}">
+            <input type="hidden" name="password" value="{{ password }}">
+            <input type="hidden" name="forzar" value="1">
+            <button type="submit" class="btn-danger">
+                <i class="fas fa-right-from-bracket"></i> Cerrar esa sesión e iniciar aquí
+            </button>
+        </form>
+        <a href="{% url 'login' %}" class="btn-cancelar">Cancelar</a>
+    </div>
+</body>
+</html>
