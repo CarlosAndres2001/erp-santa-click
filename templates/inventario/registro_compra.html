@@ -2,374 +2,354 @@
 {% load static %}
 
 {% block content %}
-
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
-
 <style>
-.card-custom {
-    background: #ffffff;
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+/* Solo lo específico de esta pantalla — todo lo demás (card, table,
+   form-control, btn-primary, etc.) ya viene tematizado por nexus-core.css */
+
+.compra-linea{position:relative}
+.buscador-producto-wrap{position:relative}
+.buscador-producto-wrap input{width:100%}
+.resultados-producto{
+    position:fixed;z-index:2000;
+    background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+    max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4);
+    display:none;
 }
-.product-block {
-    border: 1px solid #dee2e6;
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 12px;
-    background-color: #f8f9fa;
+.resultados-producto.show{display:block}
+.resultado-producto-item{
+    padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);
+    display:flex;justify-content:space-between;align-items:center;gap:8px;
 }
-.autocomplete-list {
-    position: absolute;
-    background: #fff;
-    border: 1px solid #ced4da;
-    z-index: 1000;
-    max-height: 150px;
-    overflow-y: auto;
-    width: 100%;
+.resultado-producto-item:last-child{border-bottom:none}
+.resultado-producto-item:hover{background:var(--bg-elevated)}
+.resultado-producto-item .nombre{font-size:.78rem;font-weight:600;color:var(--text-main)}
+.resultado-producto-item .sku{font-size:.65rem;color:var(--text-muted)}
+.resultado-producto-item .costo{font-size:.72rem;color:var(--primary);font-weight:700}
+.resultados-producto .sin-resultados{padding:10px 12px;font-size:.75rem;color:var(--text-muted)}
+
+.tabla-lineas th,.tabla-lineas td{vertical-align:middle}
+.tabla-lineas .col-num{width:36px;text-align:center;color:var(--text-muted);font-weight:700;font-size:.75rem}
+.tabla-lineas .col-producto{min-width:260px}
+.tabla-lineas .col-num-input{width:110px}
+.tabla-lineas .col-del{width:40px;text-align:center}
+.tabla-lineas input.form-control-sm{text-align:right}
+.tabla-lineas .col-producto input.form-control-sm{text-align:left}
+
+.btn-eliminar-linea{
+    background:rgba(239,68,68,.08);border:none;color:#ef4444;
+    width:26px;height:26px;border-radius:6px;display:inline-flex;
+    align-items:center;justify-content:center;cursor:pointer;transition:var(--transition);
 }
-.autocomplete-item {
-    padding: 5px 10px;
-    cursor: pointer;
+.btn-eliminar-linea:hover{background:#ef4444;color:#fff}
+
+.btn-agregar-linea{
+    display:flex;align-items:center;gap:6px;border:1.5px dashed var(--border);
+    background:none;border-radius:var(--radius);padding:.5rem 1rem;
+    color:var(--text-muted);font-size:.8rem;cursor:pointer;transition:var(--transition);
 }
-.autocomplete-item:hover {
-    background-color: #e9ecef;
+.btn-agregar-linea:hover{border-color:var(--primary);color:var(--primary);background:rgba(16,185,129,.06)}
+
+.barra-total-compra{
+    position:sticky;bottom:0;margin-top:1rem;
+    display:flex;justify-content:space-between;align-items:center;
+    background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-lg);
+    padding:.8rem 1.2rem;
 }
-.remove-btn i {
-    font-size: 1.6em;
-    color: red;
-    cursor: pointer;
-}
+.barra-total-compra .info{display:flex;gap:1.6rem;align-items:baseline}
+.barra-total-compra .info .lbl{font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-right:.4rem}
+.barra-total-compra .info .val{font-size:.9rem;font-weight:700;color:var(--text-main)}
+.barra-total-compra .info .val.total{font-size:1.3rem;color:var(--primary)}
 </style>
 
+<h2><i class="bi bi-cart-plus-fill"></i> Nueva Compra</h2>
 
-<div class="container mt-4">
+<form method="post" action="{% url 'compra_create' %}" id="formCompra">
+    {% csrf_token %}
+    <input type="hidden" name="total" id="input_total" value="0">
 
-    <div class="card card-custom">
-
-        <h3 class="mb-4">Registrar Compra</h3>
-
-        <form method="POST" id="compraForm">
-            {% csrf_token %}
-
-            <!-- CABECERA -->
-            <div class="row mb-3">
-
+    <!-- CABECERA -->
+    <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-info-circle"></i> Datos generales</div>
+        <div class="card-body">
+            <div class="row g-3">
                 <div class="col-md-3">
                     <label class="form-label">Sucursal</label>
-                    <select id="sucursal_select" name="sucursal" class="form-select" required>
-                        <option value="">Seleccione...</option>
-                        {% for suc in sucursales %}
-                        <option value="{{ suc.id }}">{{ suc.nombre }}</option>
+                    <select name="sucursal" id="sel_sucursal" class="form-select" required>
+                        <option value="">Seleccionar</option>
+                        {% for s in sucursales %}
+                        <option value="{{ s.id }}">{{ s.nombre }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Almacén</label>
-                    <select id="almacen_select" name="almacen" class="form-select" required>
-                        <option value="">-- Seleccione almacén --</option>
+                    <label class="form-label">Almacén destino</label>
+                    <select name="almacen" id="sel_almacen" class="form-select" required disabled>
+                        <option value="">Seleccione sucursal primero</option>
                     </select>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Proveedor</label>
                     <select name="proveedor" class="form-select">
-                        <option value="">Seleccione...</option>
-                        {% for prov in proveedores %}
-                        <option value="{{ prov.id }}">{{ prov.nombre }}</option>
+                        <option value="">-- Sin proveedor --</option>
+                        {% for p in proveedores %}
+                        <option value="{{ p.id }}">{{ p.nombre }}</option>
                         {% endfor %}
                     </select>
                 </div>
-
                 <div class="col-md-3">
                     <label class="form-label">Fecha</label>
                     <input type="date" name="fecha" class="form-control" value="{{ fecha_actual }}" required>
                 </div>
-
-                <div class="col-md-3">
+                <div class="col-12">
                     <label class="form-label">Observaciones</label>
-                    <input type="text" name="observaciones" class="form-control">
-                </div>
-
-            </div>
-
-            <hr>
-
-            <!-- DETALLES -->
-            <h5 class="mb-3">Detalles de Compra</h5>
-
-            <div id="productos-container"></div>
-
-            <!-- FOOTER DE ACCIONES Y TOTAL -->
-            <div class="row align-items-center mt-4">
-                <input type="hidden" id="total" name="total" value="0">
-                <!-- BOTÓN AGREGAR PRODUCTO -->
-                <div class="col-md-4">
-                    <button type="button" id="agregarProductoBtn" class="btn btn-outline-primary">
-                        <i class="bi bi-plus-circle"></i> Agregar Producto
-                    </button>
-                </div>
-
-                <!-- ESPACIO CENTRAL -->
-                <div class="col-md-4"></div>
-
-                <!-- TOTAL + BOTON GUARDAR -->
-                <div class="col-md-4 text-end">
-
-                    <label class="fw-bold" style="font-size: 1.4rem;">TOTAL: 
-                        <span id="totalLabel" class="text-success">0.00</span> Bs
-                    </label>
-
-                    <!-- BOTÓN GUARDAR (abre modal) -->
-                    <button type="button" class="btn btn-success ms-3" data-bs-toggle="modal" data-bs-target="#confirmModal">
-                        <i class="bi bi-check-circle-fill"></i> Guardar
-                    </button>
-
+                    <input type="text" name="observaciones" class="form-control" placeholder="Notas internas (opcional)">
                 </div>
             </div>
-
-
-            <!-- MODAL DE CONFIRMACIÓN -->
-            <div class="modal fade" id="confirmModal" tabindex="-1">
-            <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-
-                <div class="modal-header">
-                    <h5 class="modal-title">Confirmar Registro</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-
-                <div class="modal-body">
-                    <p class="mb-0">¿Estás seguro de que deseas registrar esta compra?</p>
-                    <p class="text-muted">Revisa bien los productos y cantidades antes de continuar.</p>
-                </div>
-
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                        Cancelar
-                    </button>
-
-                    <button type="button" class="btn btn-success" id="confirmarGuardarBtn">
-                        Sí, registrar
-                    </button>
-                </div>
-
-                </div>
-            </div>
-            </div>
-
-        </form>
-
-    </div>
-</div>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const sucursalSelect = document.getElementById('sucursal_select');
-    const almacenSelect = document.getElementById('almacen_select');
-
-    sucursalSelect.addEventListener('change', function () {
-        const sucursalId = this.value;
-
-        // Limpiar almacenes
-        almacenSelect.innerHTML = '<option value="">-- Seleccione almacén --</option>';
-
-        if (!sucursalId) return;
-
-        fetch(`/ajax/almacenes-por-sucursal/?sucursal=${sucursalId}`)
-            .then(response => response.json())
-            .then(data => {
-                data.almacenes.forEach(almacen => {
-                    const option = document.createElement('option');
-                    option.value = almacen.id;
-                    option.textContent = almacen.nombre;
-                    almacenSelect.appendChild(option);
-                });
-            })
-            .catch(error => {
-                console.error('Error cargando almacenes:', error);
-            });
-    });
-});
-</script>
-
-
-<script>
-const productosData = [
-    {% for p in productos %}
-    {id: {{ p.id }}, nombre: "{{ p.nombre }}", codigo: "{{ p.codigo|default:'' }}"},
-    {% endfor %}
-];
-
-let cont = document.getElementById('productos-container');
-let btnAdd = document.getElementById('agregarProductoBtn');
-let totalInput = document.getElementById('total');
-
-
-function crearProductoBlock() {
-    let block = document.createElement('div');
-    block.classList.add('product-block');
-
-    block.innerHTML = `
-        <div class="row position-relative">
-
-            <!-- CÓDIGO -->
-            <div class="col-md-2">
-                <label class="form-label">Código</label>
-                <input type="text" class="form-control input-codigo" placeholder="Código..." autocomplete="off">
-                <div class="autocomplete-list"></div>
-            </div>
-
-            <!-- NOMBRE -->
-            <div class="col-md-3">
-                <label class="form-label">Nombre</label>
-                <input type="text" class="form-control input-nombre" placeholder="Nombre..." autocomplete="off">
-                <div class="autocomplete-list"></div>
-                <input type="hidden" name="producto[]">
-            </div>
-
-            <!-- CANT -->
-            <div class="col-md-2">
-                <label class="form-label">Cantidad</label>
-                <input type="number" name="cantidad[]" class="form-control input-cant"
-                       min="0.01" step="0.01" value="1" required>
-            </div>
-
-            <!-- PRECIO -->
-            <div class="col-md-2">
-                <label class="form-label">Precio Compra</label>
-                <input type="number" name="precio[]" class="form-control input-precio"
-                       min="0.01" step="0.01" value="0" required>
-            </div>
-
-            <!-- SUBTOTAL -->
-            <div class="col-md-2">
-                <label class="form-label">Subt.</label>
-                <input type="text" name="subtotal[]" class="form-control input-sub" value="0" readonly>
-            </div>
-
-            <!-- ELIMINAR -->
-            <div class="col-md-1 d-flex align-items-end justify-content-center remove-btn">
-                <i class="bi bi-trash3-fill"></i>
-            </div>
-
         </div>
-    `;
+    </div>
 
-    // Eliminar fila (validando mínimo 1)
-    block.querySelector('.remove-btn').onclick = () => {
-        if (document.querySelectorAll('.product-block').length === 1) {
-            alert("Debe existir al menos un producto.");
-            return;
-        }
-        block.remove();
-        calcularTotal();
-    };
+    <!-- LÍNEAS -->
+    <div class="card mb-3">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-box-seam"></i> Productos</span>
+            <span class="badge-count" id="badge_lineas">0 líneas</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm tabla-lineas">
+                    <thead>
+                        <tr>
+                            <th class="col-num">#</th>
+                            <th class="col-producto"><i class="bi bi-search"></i> Producto</th>
+                            <th class="col-num-input">Cantidad</th>
+                            <th class="col-num-input">Precio</th>
+                            <th class="col-num-input">Subtotal</th>
+                            <th class="col-del"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody_lineas"></tbody>
+                </table>
+            </div>
+            <button type="button" class="btn-agregar-linea" id="btnAgregarLinea">
+                <i class="bi bi-plus-lg"></i> Agregar producto
+            </button>
+        </div>
+    </div>
 
-    // Autocomplete nombre y código
-    configurarAutocomplete(block);
+    <div class="barra-total-compra">
+        <div class="info">
+            <span><span class="lbl">Líneas</span><span class="val" id="txt_lineas">0</span></span>
+            <span><span class="lbl">Total</span><span class="val total" id="txt_total">Bs. 0.00</span></span>
+        </div>
+        <div>
+            <a href="{% url 'compra_list' %}" class="btn btn-secondary me-2"><i class="bi bi-x-circle"></i> Cancelar</a>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Registrar Compra</button>
+        </div>
+    </div>
+</form>
 
-    // Cálculos
-    block.querySelector('.input-cant').oninput = () => actualizarSubtotal(block);
-    block.querySelector('.input-precio').oninput = () => actualizarSubtotal(block);
+<!-- DROPDOWN COMPARTIDO: uno solo, anclado a <body>, así escapa del
+     overflow:auto de .table-responsive que se estaba comiendo el que
+     iba dentro de cada fila. -->
+<div class="resultados-producto" id="dropdownProductos"></div>
 
-    cont.appendChild(block);
+<!-- PLANTILLA DE FILA -->
+<template id="tpl-linea-compra">
+    <tr class="compra-linea">
+        <td class="col-num linea-num"></td>
+        <td class="col-producto">
+            <div class="buscador-producto-wrap">
+                <input type="hidden" name="producto[]" class="in-producto-id" required>
+                <input type="text" class="form-control form-control-sm buscar-producto-input"
+                       placeholder="Escribe nombre, SKU o código de barras..." autocomplete="off">
+            </div>
+        </td>
+        <td><input type="number" step="0.01" min="0.01" name="cantidad[]" class="form-control form-control-sm in-cantidad" value="1"></td>
+        <td><input type="number" step="0.01" min="0" name="precio[]" class="form-control form-control-sm in-precio" value="0"></td>
+        <td><input type="text" name="subtotal[]" class="form-control form-control-sm in-subtotal" value="0.00" readonly></td>
+        <td class="col-del"><button type="button" class="btn-eliminar-linea" onclick="eliminarLineaCompra(this)"><i class="bi bi-trash3"></i></button></td>
+    </tr>
+</template>
+
+<script>
+const URL_BUSCAR_VARIANTES = "{% url 'buscar_variantes' %}";
+let contadorLineasCompra = 0;
+let debounceTimer = null;
+
+function agregarLineaCompra() {
+    contadorLineasCompra++;
+    const tpl = document.getElementById('tpl-linea-compra').content.cloneNode(true);
+    tpl.querySelector('.linea-num').textContent = contadorLineasCompra;
+    document.getElementById('tbody_lineas').appendChild(tpl);
+    actualizarContadores();
 }
 
-function configurarAutocomplete(block) {
-
-    let inputCodigo = block.querySelector('.input-codigo');
-    let inputNombre = block.querySelector('.input-nombre');
-    let hidden = block.querySelector('input[type="hidden"]');
-    let listCodigo = inputCodigo.nextElementSibling;
-    let listNombre = inputNombre.nextElementSibling;
-
-    function renderList(list, filtro, tipo) {
-        list.innerHTML = '';
-        productosData
-            .filter(p => p[tipo].toLowerCase().includes(filtro))
-            .forEach(p => {
-                let item = document.createElement('div');
-                item.classList.add('autocomplete-item');
-                item.innerText = `${p.codigo} — ${p.nombre}`;
-                item.onclick = () => seleccionarProducto(p, inputCodigo, inputNombre, hidden, listCodigo, listNombre);
-                list.appendChild(item);
-            });
-    }
-
-    inputCodigo.addEventListener('input', () =>
-        renderList(listCodigo, inputCodigo.value.toLowerCase(), 'codigo')
-    );
-
-    inputNombre.addEventListener('input', () =>
-        renderList(listNombre, inputNombre.value.toLowerCase(), 'nombre')
-    );
+function eliminarLineaCompra(btn) {
+    btn.closest('tr').remove();
+    renumerarLineasCompra();
+    recalcularTotalCompra();
 }
 
-function seleccionarProducto(p, inputCodigo, inputNombre, hidden, listCodigo, listNombre) {
-    inputCodigo.value = p.codigo;
-    inputNombre.value = p.nombre;
-    hidden.value = p.id;
-    listCodigo.innerHTML = '';
-    listNombre.innerHTML = '';
-}
-
-function actualizarSubtotal(block) {
-    let cant = parseFloat(block.querySelector('.input-cant').value) || 0;
-    let pre = parseFloat(block.querySelector('.input-precio').value) || 0;
-    block.querySelector('.input-sub').value = (cant * pre).toFixed(2);
-    calcularTotal();
-}
-
-function calcularTotal() {
-    let total = 0;
-    document.querySelectorAll('.input-sub').forEach(x => {
-        total += parseFloat(x.value) || 0;
+function renumerarLineasCompra() {
+    document.querySelectorAll('#tbody_lineas tr').forEach((tr, i) => {
+        tr.querySelector('.linea-num').textContent = i + 1;
     });
-
-    // Guardar en input oculto
-    totalInput.value = total.toFixed(2);
-
-    // Actualizar label grande
-    document.getElementById('totalLabel').innerText = total.toFixed(2);
+    actualizarContadores();
 }
 
-// VALIDAR ANTES DE ENVIAR
-document.getElementById('confirmarGuardarBtn').onclick = () => {
-    let filas = document.querySelectorAll('.product-block');
+function actualizarContadores() {
+    const n = document.querySelectorAll('#tbody_lineas tr').length;
+    document.getElementById('txt_lineas').textContent = n;
+    document.getElementById('badge_lineas').textContent = n + (n === 1 ? ' línea' : ' líneas');
+}
 
-    if (filas.length === 0) {
-        alert("Debe agregar al menos un producto.");
+function recalcularSubtotalFila(fila) {
+    const cantidad = parseFloat(fila.querySelector('.in-cantidad').value) || 0;
+    const precio = parseFloat(fila.querySelector('.in-precio').value) || 0;
+    const subtotal = cantidad * precio;
+    fila.querySelector('.in-subtotal').value = subtotal.toFixed(2);
+    return subtotal;
+}
+
+function recalcularTotalCompra() {
+    let total = 0;
+    document.querySelectorAll('#tbody_lineas tr').forEach(fila => { total += recalcularSubtotalFila(fila); });
+    document.getElementById('txt_total').textContent = 'Bs. ' + total.toFixed(2);
+    document.getElementById('input_total').value = total.toFixed(2);
+}
+
+document.getElementById('btnAgregarLinea').addEventListener('click', agregarLineaCompra);
+
+document.getElementById('tbody_lineas').addEventListener('input', function (e) {
+    if (e.target.classList.contains('in-cantidad') || e.target.classList.contains('in-precio')) {
+        recalcularTotalCompra();
+    }
+    if (e.target.classList.contains('buscar-producto-input')) {
+        manejarBusquedaProducto(e.target);
+    }
+});
+
+const dropdownProductos = document.getElementById('dropdownProductos');
+let filaActivaBusqueda = null;
+
+function posicionarDropdown(input) {
+    const rect = input.getBoundingClientRect();
+    dropdownProductos.style.left = rect.left + 'px';
+    dropdownProductos.style.top = (rect.bottom + 2) + 'px';
+    dropdownProductos.style.width = rect.width + 'px';
+}
+
+function manejarBusquedaProducto(input) {
+    clearTimeout(debounceTimer);
+    const fila = input.closest('tr');
+    filaActivaBusqueda = fila;
+    const termino = input.value.trim();
+
+    // Si el usuario vuelve a escribir, invalida el producto ya elegido
+    fila.querySelector('.in-producto-id').value = '';
+
+    if (termino.length < 2) {
+        dropdownProductos.classList.remove('show');
         return;
     }
 
-    for (let f of filas) {
-        let prod = f.querySelector('input[type="hidden"]').value;
-        let cant = parseFloat(f.querySelector('.input-cant').value);
-        let prec = parseFloat(f.querySelector('.input-precio').value);
+    debounceTimer = setTimeout(() => {
+        fetch(`${URL_BUSCAR_VARIANTES}?q=${encodeURIComponent(termino)}`)
+            .then(r => r.json())
+            .then(data => {
+                dropdownProductos.innerHTML = '';
+                if (data.resultados.length === 0) {
+                    dropdownProductos.innerHTML = '<div class="sin-resultados">Sin resultados</div>';
+                } else {
+                    data.resultados.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'resultado-producto-item';
+                        div.innerHTML = `
+                            <div>
+                                <div class="nombre">${item.texto}</div>
+                                <div class="sku">SKU: ${item.sku}</div>
+                            </div>
+                            <div class="costo">Bs. ${item.costo}</div>
+                        `;
+                        div.addEventListener('click', () => seleccionarProducto(filaActivaBusqueda, item));
+                        dropdownProductos.appendChild(div);
+                    });
+                }
+                posicionarDropdown(input);
+                dropdownProductos.classList.add('show');
+            });
+    }, 300);
+}
 
-        if (!prod) {
-            alert("Hay productos sin seleccionar.");
-            return;
-        }
-        if (cant <= 0) {
-            alert("La cantidad debe ser mayor a 0.");
-            return;
-        }
-        if (prec <= 0) {
-            alert("El precio debe ser mayor a 0.");
+function seleccionarProducto(fila, item) {
+    fila.querySelector('.in-producto-id').value = item.id;
+    fila.querySelector('.buscar-producto-input').value = item.texto;
+    dropdownProductos.classList.remove('show');
+
+    const precioInput = fila.querySelector('.in-precio');
+    if (parseFloat(precioInput.value) === 0) {
+        precioInput.value = item.costo;
+    }
+    recalcularTotalCompra();
+}
+
+// Cerrar dropdown al hacer clic afuera (ya no busca .buscador-producto-wrap
+// como contenedor del dropdown, porque el dropdown ya no vive adentro)
+document.addEventListener('click', function (e) {
+    if (!e.target.closest('.buscar-producto-input') && !e.target.closest('#dropdownProductos')) {
+        dropdownProductos.classList.remove('show');
+    }
+});
+
+// Reposicionar (o cerrar) si hacen scroll, porque al ser position:fixed
+// no se mueve solo con el contenido
+window.addEventListener('scroll', function () {
+    dropdownProductos.classList.remove('show');
+}, true);
+
+// Cascada Sucursal -> Almacén
+document.getElementById('sel_sucursal').addEventListener('change', function () {
+    const almacenSel = document.getElementById('sel_almacen');
+    const sucursalId = this.value;
+    almacenSel.innerHTML = '<option value="">Cargando...</option>';
+    almacenSel.disabled = true;
+
+    if (!sucursalId) {
+        almacenSel.innerHTML = '<option value="">Seleccione sucursal primero</option>';
+        return;
+    }
+
+    fetch(`{% url 'almacenes_por_sucursal' %}?sucursal=${sucursalId}`)
+        .then(r => r.json())
+        .then(data => {
+            almacenSel.innerHTML = '<option value="">Seleccionar</option>';
+            data.almacenes.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a.id;
+                opt.textContent = a.nombre;
+                almacenSel.appendChild(opt);
+            });
+            almacenSel.disabled = false;
+        });
+});
+
+document.getElementById('formCompra').addEventListener('submit', function (e) {
+    const filas = document.querySelectorAll('#tbody_lineas tr');
+    if (filas.length === 0) {
+        e.preventDefault();
+        alert('Agrega al menos un producto antes de registrar la compra.');
+        return;
+    }
+    for (const fila of filas) {
+        if (!fila.querySelector('.in-producto-id').value) {
+            e.preventDefault();
+            alert('Hay una fila sin producto seleccionado. Búscalo y haz clic en un resultado.');
+            fila.querySelector('.buscar-producto-input').focus();
             return;
         }
     }
+});
 
-    // Todo OK → enviar formulario
-    document.getElementById('compraForm').submit();
-};
-
-
-// Inicial
-crearProductoBlock();
-
-btnAdd.onclick = crearProductoBlock;
+agregarLineaCompra();
 </script>
-
 {% endblock %}

@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Inicio{% endblock %}
+
+{% block content %}
+<style>
+.dash-saludo{
+    display:flex;justify-content:space-between;align-items:flex-end;
+    margin-bottom:1.2rem;flex-wrap:wrap;gap:.6rem;
+}
+.dash-saludo h1{margin:0}
+.dash-saludo .sub{color:var(--text-muted);font-size:.8rem;margin-top:2px}
+.dash-fecha{
+    background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:.5rem .9rem;text-align:right;font-size:.75rem;color:var(--text-muted);
+}
+.dash-fecha .hora{font-size:1.05rem;font-weight:700;color:var(--text-main)}
+
+.dash-kpis{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+    gap:.8rem;margin-bottom:1.2rem;
+}
+.kpi-card{
+    background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);
+    padding:1rem 1.1rem;display:flex;align-items:center;gap:.8rem;transition:var(--transition);
+}
+.kpi-card:hover{border-color:var(--border-light);transform:translateY(-2px)}
+.kpi-icono{
+    width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+    background:rgba(16,185,129,.12);flex-shrink:0;
+}
+.kpi-icono i{font-size:1.2rem;color:var(--primary)!important}
+.kpi-valor{font-size:1.4rem;font-weight:800;color:var(--text-main);line-height:1}
+.kpi-label{font-size:.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+
+.dash-alerta{
+    display:flex;align-items:center;gap:.7rem;
+    background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);
+    border-radius:var(--radius-lg);padding:.8rem 1.1rem;margin-bottom:1.2rem;
+}
+.dash-alerta.critica{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25)}
+.dash-alerta i{font-size:1.3rem;color:#f59e0b!important}
+.dash-alerta.critica i{color:#ef4444!important}
+.dash-alerta .txt{font-size:.82rem}
+.dash-alerta .txt strong{color:var(--text-main)}
+.dash-alerta a{margin-left:auto;font-size:.75rem;flex-shrink:0}
+
+.dash-section-title{
+    font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+    color:var(--text-muted);margin:1.4rem 0 .6rem 0;
+}
+
+.dash-accesos{
+    display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.7rem;
+}
+.acceso-card{
+    background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);
+    padding:1rem .8rem;text-align:center;text-decoration:none;color:var(--text-muted);
+    transition:var(--transition);display:flex;flex-direction:column;align-items:center;gap:.5rem;
+}
+.acceso-card:hover{border-color:var(--primary);color:var(--primary);transform:translateY(-2px);background:var(--bg-elevated)}
+.acceso-card i{font-size:1.5rem;color:var(--primary)!important}
+.acceso-card span{font-size:.75rem;font-weight:600}
+
+@media(max-width:640px){
+    .dash-saludo{flex-direction:column;align-items:flex-start}
+    .dash-fecha{text-align:left;width:100%}
+}
+</style>
+
+<div class="dash-saludo">
+    <div>
+        <h1><i class="bi bi-house-door-fill"></i> Hola, {{ request.user.nombre }}</h1>
+        <div class="sub">{{ request.user.sucursal.nombre }} — {{ request.user.rol.nombre }}</div>
+    </div>
+    <div class="dash-fecha">
+        <div class="hora">{{ fecha_actual|date:"H:i" }}</div>
+        <div>{{ fecha_actual|date:"l, d \d\e F \d\e Y"|capfirst }}</div>
+    </div>
+</div>
+
+{% if stock_agotado_count > 0 %}
+<div class="dash-alerta critica">
+    <i class="bi bi-exclamation-octagon-fill"></i>
+    <div class="txt"><strong>{{ stock_agotado_count }}</strong> producto{{ stock_agotado_count|pluralize }} sin stock disponible en este momento.</div>
+    <a href="{% url 'lista_insumos' %}" class="btn btn-sm btn-secondary">Ver inventario</a>
+</div>
+{% elif stock_bajo_count > 0 %}
+<div class="dash-alerta">
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <div class="txt"><strong>{{ stock_bajo_count }}</strong> producto{{ stock_bajo_count|pluralize }} con stock bajo (menos de {{ 5 }} unidades).</div>
+    <a href="{% url 'lista_insumos' %}" class="btn btn-sm btn-secondary">Revisar</a>
+</div>
+{% endif %}
+
+<div class="dash-kpis">
+    <div class="kpi-card">
+        <div class="kpi-icono"><i class="bi bi-bag-check-fill"></i></div>
+        <div>
+            <div class="kpi-valor">{{ total_productos_terminados }}</div>
+            <div class="kpi-label">Productos terminados</div>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icono"><i class="bi bi-box-seam-fill"></i></div>
+        <div>
+            <div class="kpi-valor">{{ total_insumos }}</div>
+            <div class="kpi-label">Insumos</div>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icono"><i class="bi bi-gear-wide-connected"></i></div>
+        <div>
+            <div class="kpi-valor">{{ total_procesados }}</div>
+            <div class="kpi-label">Productos procesados</div>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icono"><i class="bi bi-boxes"></i></div>
+        <div>
+            <div class="kpi-valor">{{ total_combos }}</div>
+            <div class="kpi-label">Combos / Packs</div>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icono"><i class="bi bi-people-fill"></i></div>
+        <div>
+            <div class="kpi-valor">{{ total_usuarios }}</div>
+            <div class="kpi-label">Usuarios activos</div>
+        </div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-icono"><i class="bi bi-building"></i></div>
+        <div>
+            <div class="kpi-valor">{{ total_sucursales }}</div>
+            <div class="kpi-label">Sucursales</div>
+        </div>
+    </div>
+</div>
+
+<div class="dash-section-title">Accesos rápidos</div>
+<div class="dash-accesos">
+    <a href="{% url 'lista_insumos' %}" class="acceso-card"><i class="bi bi-box-seam-fill"></i><span>Insumos</span></a>
+    <a href="{% url 'producto_list' %}" class="acceso-card"><i class="bi bi-bag-check-fill"></i><span>Productos</span></a>
+    <a href="{% url 'compra_list' %}" class="acceso-card"><i class="bi bi-cart-plus-fill"></i><span>Compras</span></a>
+    <a href="{% url 'abrir_caja' %}" class="acceso-card"><i class="bi bi-cart"></i><span>Ventas</span></a>
+    <a href="{% url 'usuario_list' %}" class="acceso-card"><i class="bi bi-people-fill"></i><span>Usuarios</span></a>
+    <a href="{% url 'sucursal_list' %}" class="acceso-card"><i class="bi bi-building"></i><span>Sucursales</span></a>
+    <a href="{% url 'proveedor_list' %}" class="acceso-card"><i class="bi bi-truck"></i><span>Proveedores</span></a>
+    <a href="{% url 'caja_list' %}" class="acceso-card"><i class="bi bi-cash"></i><span>Cajas</span></a>
+</div>
+{% endblock %}

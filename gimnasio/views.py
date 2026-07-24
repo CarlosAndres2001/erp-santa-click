@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.contrib.sessions.models import Session
 from django.utils import timezone
-
+from gym.models import Producto, Usuario, Sucursal, Stock, Almacen
 
 def landing_view(request):
     return render(request, "landing_page.html")
@@ -70,6 +70,50 @@ def logout_view(request):
     return redirect('login')
 
 
+#@login_required(login_url='login')
+#def panel_view(request):
+#    return render(request, 'base.html')
+
+
+UMBRAL_STOCK_BAJO = 5  # provisional: no hay campo de "stock mínimo" en el modelo todavía
+
+
 @login_required(login_url='login')
 def panel_view(request):
-    return render(request, 'base.html')
+    empresa = request.user.fk_empresa
+
+    context = {
+        'fecha_actual': timezone.now(),
+
+        # Conteos operativos, NADA de montos de dinero (esta pantalla la ve
+        # cualquier usuario, sin importar su rol/permisos).
+        'total_productos_terminados': Producto.objects.filter(
+            fk_empresa=empresa, is_active=True, fk_tipo_producto__codigo='PROD-TERM'
+        ).count(),
+        'total_insumos': Producto.objects.filter(
+            fk_empresa=empresa, is_active=True, fk_tipo_producto__codigo='INS-RAW'
+        ).count(),
+        'total_procesados': Producto.objects.filter(
+            fk_empresa=empresa, is_active=True, fk_tipo_producto__codigo='PROD-PROC'
+        ).count(),
+        'total_combos': Producto.objects.filter(
+            fk_empresa=empresa, is_active=True, fk_tipo_producto__codigo='COMBO-PACK'
+        ).count(),
+        'total_usuarios': Usuario.objects.filter(
+            sucursal__fk_empresa=empresa, is_active=True
+        ).count(),
+        'total_sucursales': Sucursal.objects.filter(fk_empresa=empresa, estado=True).count(),
+        'total_almacenes': Almacen.objects.filter(sucursal__fk_empresa=empresa, is_active=True).count(),
+
+        'stock_bajo_count': Stock.objects.filter(
+            producto_variante__producto__fk_empresa=empresa,
+            cantidad_actual__lte=UMBRAL_STOCK_BAJO,
+            cantidad_actual__gt=0,
+        ).count(),
+        'stock_agotado_count': Stock.objects.filter(
+            producto_variante__producto__fk_empresa=empresa,
+            cantidad_actual__lte=0,
+        ).count(),
+    }
+
+    return render(request, 'panel.html', context)

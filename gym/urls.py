@@ -163,11 +163,13 @@ urlpatterns = [
     # ====================================================
     # COMPRA (MAESTRO-DETALLE)
     # ====================================================
+    path('api/buscar-variantes/', views.buscar_variantes, name='buscar_variantes'),
     path('compra/', views.lista_compras, name='compra_list'),
     path('compra/create/', views.crear_compra, name='compra_create'),
     path('compra/delete/', views.eliminar_compra, name='compra_delete'),
     path('comprobante_compra/<int:compra_id>/', views.comprobante_compra, name='comprobante_compra'),
-# ====================================================
+    
+    # ====================================================
     # VENTA (MAESTRO-DETALLE)
     # ====================================================
     path('api/precios-canal/', views.api_precios_canal, name='api_precios_canal'),

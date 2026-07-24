@@ -527,7 +527,6 @@ def usuario_list(request):
         'usuarios': usuarios, 'roles': roles, 'sucursales': sucursales,
     })
  
- 
 @login_required
 @permiso_requerido('usuario_list', 'crear')
 @transaction.atomic
@@ -568,7 +567,6 @@ def usuario_create(request):
  
     return redirect('usuario_list')
  
- 
 @login_required
 @permiso_requerido('usuario_list', 'editar')
 def usuario_edit(request):
@@ -607,7 +605,6 @@ def usuario_edit(request):
         messages.success(request, 'Usuario actualizado correctamente.')
  
     return redirect('usuario_list')
- 
  
 @login_required
 @permiso_requerido('usuario_list', 'eliminar')
@@ -2499,9 +2496,44 @@ def almacenes_por_sucursal(request):
     return JsonResponse({'almacenes': list(almacenes)})
 
 @login_required
+def buscar_variantes(request):
+    """
+    Búsqueda de variantes para autocompletado (compras, traspasos, etc.).
+    No devuelve nada hasta 2+ caracteres, y limita a 15 resultados -
+    esto es lo que hace viable buscar entre miles de productos sin
+    tirar un <select> gigante al navegador.
+    """
+    termino = request.GET.get('q', '').strip()
+    empresa = request.user.fk_empresa
+ 
+    if len(termino) < 2:
+        return JsonResponse({'resultados': []})
+ 
+    variantes = (
+        ProductoVariante.objects
+        .filter(is_active=True, producto__fk_empresa=empresa)
+        .filter(
+            Q(producto__nombre__icontains=termino) |
+            Q(nombre_variante__icontains=termino) |
+            Q(sku__icontains=termino) |
+            Q(codigo_barras__icontains=termino)
+        )
+        .select_related('producto')[:15]
+    )
+ 
+    resultados = [{
+        'id': v.id,
+        'texto': f"{v.producto.nombre} - {v.nombre_variante}",
+        'sku': v.sku,
+        'costo': str(v.costo),
+    } for v in variantes]
+ 
+    return JsonResponse({'resultados': resultados})
+
+@login_required
 @permiso_requerido('compra_list', 'crear')
 def crear_compra(request):
-    
+
     if request.method == 'POST':
         try:
             with transaction.atomic():
@@ -2540,25 +2572,63 @@ def crear_compra(request):
                 for p_id, cant, precio, sub in zip(productos, cantidades, precios, subtotales):
                     if not p_id:
                         continue
+
+                    cantidad = safe_decimal(cant)
+                    precio_unitario = safe_decimal(precio)
+
+                    # producto_variante_id, NO producto_id -> DetalleCompra.producto ya no existe
                     detalle = DetalleCompra.objects.create(
                         compra=compra,
-                        producto_id=p_id,
-                        cantidad=safe_decimal(cant),
-                        precio=safe_decimal(precio),
+                        producto_variante_id=p_id,
+                        cantidad=cantidad,
+                        precio=precio_unitario,
                         subtotal=safe_decimal(sub)
                     )
-                    detalle._usuario_actual = request.user 
-                    # 🔹 Crear Kardex automáticamente
+
+                    # 🔹 Kardex (mismo criterio que crear_venta: cantidad positiva,
+                    #    tipo_movimiento como string, producto_variante_id no producto_id)
                     Kardex.objects.create(
-                        producto_id=p_id,
+                        producto_variante_id=p_id,
                         sucursal_id=sucursal_id,
                         almacen_id=almacen_id,
                         tipo_movimiento='entrada',
-                        cantidad=safe_decimal(cant),
-                        precio_unitario=safe_decimal(precio),
+                        cantidad=cantidad,
+                        precio_unitario=precio_unitario,
                         total=safe_decimal(sub),
                         referencia=f'Compra #{compra.id}'
                     )
+
+                    # 🔹 ESTO FALTABA: crear_venta sí actualiza Stock, crear_compra
+                    #    nunca lo hacía. Sin esto el inventario nunca sube con compras.
+                    producto_variante = ProductoVariante.objects.get(id=p_id)
+                    if producto_variante.maneja_stock:
+                        stock, _ = Stock.objects.get_or_create(
+                            almacen=almacen,
+                            producto_variante=producto_variante,
+                            defaults={
+                                'cantidad_actual': 0,
+                                'costo_unitario_promedio': 0,
+                                'valor_total': 0,
+                                'cajas_actual': 0,
+                                'peso_neto_total': 0
+                            }
+                        )
+
+                        # Recalcular Costo Promedio Ponderado (CPP).
+                        # En la venta NO se toca el costo (correcto: la salida usa
+                        # el costo que ya había). En la entrada SÍ hay que recalcularlo,
+                        # si no, costo_unitario_promedio se queda en 0 para siempre.
+                        valor_actual = stock.cantidad_actual * stock.costo_unitario_promedio
+                        valor_entrante = cantidad * precio_unitario
+                        nueva_cantidad = stock.cantidad_actual + cantidad
+
+                        if nueva_cantidad > 0:
+                            stock.costo_unitario_promedio = (valor_actual + valor_entrante) / nueva_cantidad
+
+                        stock.cantidad_actual = nueva_cantidad
+                        stock.valor_total = stock.cantidad_actual * stock.costo_unitario_promedio
+                        stock.save()
+
                 messages.success(request, f'✅ Compra #{compra.id} registrada correctamente.')
                 return redirect(reverse('comprobante_compra', args=[compra.id]))
 
@@ -2566,7 +2636,7 @@ def crear_compra(request):
             messages.error(request, f'❌ Error al registrar la compra: {e}')
 
     # GET → mostrar formulario
-    producto = ProductoVariante.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa).select_related('producto')
+    producto = ProductoVariante.objects.filter(is_active=True).select_related('producto')
     productos = Producto.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa)
     sucursales = Sucursal.objects.filter(estado=True, fk_empresa=request.user.sucursal.fk_empresa)
     almacenes = []
@@ -2576,11 +2646,11 @@ def crear_compra(request):
         'producto': producto,
         'productos': productos,
         'sucursales': sucursales,
-        'almacenes': almacenes, 
+        'almacenes': almacenes,
         'proveedores': proveedores,
         'fecha_actual': timezone.now().strftime('%Y-%m-%d')
     })
-
+    
 @login_required
 @permiso_requerido('compra_list', 'eliminar')
 def eliminar_compra(request):
@@ -2600,7 +2670,7 @@ def eliminar_compra(request):
 @login_required
 @permiso_requerido('compra_list', 'ver')
 def comprobante_compra(request, compra_id):
-    compra = get_object_or_404(Compra.objects.prefetch_related('detallecompra_set__producto', 'sucursal', 'usuario', 'proveedor'), id=compra_id, is_active=True)
+    compra = get_object_or_404(Compra.objects.prefetch_related('detallecompra_set__producto_variante', 'sucursal', 'usuario', 'proveedor'), id=compra_id, is_active=True)
     empresa_nombre = request.user.sucursal.fk_empresa.nombre
     return render(request, 'inventario/comprobante_compra.html', {'compra': compra, 'empresa_nombre': empresa_nombre})
 
