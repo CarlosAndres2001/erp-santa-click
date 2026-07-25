@@ -2,6 +2,10 @@ from datetime import timezone
 import json
 from plistlib import InvalidFileException
 import re
+from django.db.models import Count
+from django.db.models import Q, Sum, Count
+from django.db.models import Q, Count
+from django.db.models import Sum as DjangoSum
 from django.http import JsonResponse
 from django.urls import reverse
 from django.utils import timezone
@@ -12,6 +16,7 @@ from django.contrib.auth.decorators import login_required
 from django.db import transaction,  IntegrityError
 from django.contrib.auth.hashers import make_password
 import openpyxl
+from sympy import Sum
 from .models import (
     Almacen, DetallePack, IngresoMonetario, Kardex, MetodoPago, Modulo, MovimientoCaja, PagoVenta, PermisoRol, ProductoVariante, Rol, PlanEmpresa, Empresa, Sucursal, TipoProducto, Usuario, CanalVenta, UnidadMedida, Category,
     Producto, PrecioProducto, Stock, TipoIngreso, Ingreso, DetalleIngreso, Turno,
@@ -2115,6 +2120,181 @@ def total_efectivo_esperado(request):
     return JsonResponse({'ok': True, 'total': total_efectivo})
 
 # ====================================================
+# REPORTE DE CAJAS
+# ====================================================
+@login_required
+@permiso_requerido('reporte_cajas', 'ver')
+def reporte_cajas(request):
+    """Vista para el reporte de movimientos de caja"""
+    
+    usuario = request.user
+    empresa = usuario.fk_empresa
+    sucursal = usuario.sucursal
+    
+    # Obtener filtros
+    fecha_desde = request.GET.get('fecha_desde')
+    fecha_hasta = request.GET.get('fecha_hasta')
+    caja_id = request.GET.get('caja_id')
+    turno_id = request.GET.get('turno_id')
+    usuario_id = request.GET.get('usuario_id')
+    tipo_movimiento = request.GET.get('tipo_movimiento')
+    busqueda = request.GET.get('buscar', '')
+    
+    # Fechas por defecto (hoy)
+    hoy = timezone.now().date()
+    if not fecha_desde:
+        fecha_desde = hoy
+    if not fecha_hasta:
+        fecha_hasta = hoy
+    
+    # Convertir fechas a datetime
+    try:
+        if isinstance(fecha_desde, str):
+            fecha_desde_dt = datetime.strptime(str(fecha_desde), '%Y-%m-%d').date()
+        else:
+            fecha_desde_dt = fecha_desde
+    except:
+        fecha_desde_dt = hoy
+    
+    try:
+        if isinstance(fecha_hasta, str):
+            fecha_hasta_dt = datetime.strptime(str(fecha_hasta), '%Y-%m-%d').date()
+        else:
+            fecha_hasta_dt = fecha_hasta
+    except:
+        fecha_hasta_dt = hoy
+    
+    # Base de movimientos (solo de la empresa del usuario)
+    movimientos = MovimientoCaja.objects.filter(
+        caja_turno__is_active=True,
+        caja_turno__caja__is_active=True,
+        caja_turno__caja__fk_empresa=empresa,
+        caja_turno__sucursal=sucursal
+    ).select_related(
+        'caja_turno', 
+        'caja_turno__caja', 
+        'caja_turno__turno', 
+        'caja_turno__usuario', 
+        'usuario'
+    )
+    
+    # Aplicar filtros de fecha
+    if fecha_desde_dt and fecha_hasta_dt:
+        fecha_inicio = datetime.combine(fecha_desde_dt, datetime.min.time())
+        fecha_fin = datetime.combine(fecha_hasta_dt, datetime.max.time())
+        movimientos = movimientos.filter(
+            created_at__gte=fecha_inicio,
+            created_at__lte=fecha_fin
+        )
+    
+    # Filtros adicionales
+    if caja_id:
+        movimientos = movimientos.filter(caja_turno__caja_id=caja_id)
+    
+    if turno_id:
+        movimientos = movimientos.filter(caja_turno__turno_id=turno_id)
+    
+    if usuario_id:
+        movimientos = movimientos.filter(usuario_id=usuario_id)
+    
+    if tipo_movimiento:
+        movimientos = movimientos.filter(tipo=tipo_movimiento)
+    
+    if busqueda:
+        movimientos = movimientos.filter(
+            Q(referencia__icontains=busqueda) |
+            Q(descripcion__icontains=busqueda)
+        )
+    
+    # Ordenar por fecha descendente
+    movimientos = movimientos.order_by('-created_at')
+    
+    # Calcular total de movimientos - USANDO DjangoSum
+    total_movimientos = movimientos.aggregate(
+        total=DjangoSum('monto')  # ← FIX: usar DjangoSum
+    )['total'] or 0
+    
+    # KPIs
+    # Cajas abiertas en la sucursal
+    cajas_abiertas = CajaTurno.objects.filter(
+        estado='ABIERTA',
+        is_active=True,
+        sucursal=sucursal,
+        caja__fk_empresa=empresa
+    ).select_related('caja', 'usuario', 'turno')
+    
+    # Saldo total en cajas abiertas
+    total_saldo = cajas_abiertas.aggregate(
+        total=DjangoSum('saldo_teorico')  # ← FIX: usar DjangoSum
+    )['total'] or 0
+    
+    # Ventas del día
+    ventas_hoy = Venta.objects.filter(
+        fecha__date=hoy,
+        is_active=True,
+        caja_turno__is_active=True,
+        sucursal=sucursal
+    )
+    total_ventas_dia = ventas_hoy.aggregate(
+        total=DjangoSum('total')  # ← FIX: usar DjangoSum
+    )['total'] or 0
+    total_ventas_count = ventas_hoy.count()
+    
+    # Egresos monetarios del día
+    egresos_hoy = EgresoMonetario.objects.filter(
+        fecha__date=hoy,
+        is_active=True,
+        caja_turno__is_active=True,
+        caja_turno__sucursal=sucursal
+    )
+    total_egresos_dia = egresos_hoy.aggregate(
+        total=DjangoSum('monto')  # ← FIX: usar DjangoSum
+    )['total'] or 0
+    total_egresos_count = egresos_hoy.count()
+    
+    # Diferencia
+    diferencia = total_ventas_dia - total_egresos_dia
+    
+    # Obtener símbolo de moneda
+    simbolo_moneda = empresa.simbolo_moneda if empresa.simbolo_moneda else 'Bs.'
+    
+    # Contexto para filtros
+    context = {
+        'movimientos': movimientos,
+        'total_movimientos': total_movimientos,
+        'total_saldo': total_saldo,
+        'total_ventas_dia': total_ventas_dia,
+        'total_ventas_count': total_ventas_count,
+        'total_egresos_dia': total_egresos_dia,
+        'total_egresos_count': total_egresos_count,
+        'diferencia': diferencia,
+        'cajas_abiertas': cajas_abiertas,
+        'cajas': Caja.objects.filter(
+            is_active=True,
+            sucursal=sucursal,
+            fk_empresa=empresa
+        ),
+        'turnos': Turno.objects.filter(
+            is_active=True,
+            fk_empresa=empresa
+        ),
+        'usuarios': Usuario.objects.filter(
+            is_active=True,
+            sucursal=sucursal
+        ),
+        'fecha_desde': fecha_desde_dt,
+        'fecha_hasta': fecha_hasta_dt,
+        'caja_id': caja_id,
+        'turno_id': turno_id,
+        'usuario_id': usuario_id,
+        'tipo_movimiento': tipo_movimiento,
+        'busqueda': busqueda,
+        'fecha_actual': timezone.now(),
+        'mostrando_hoy': not request.GET.get('fecha_desde') and not request.GET.get('fecha_hasta'),
+        'simbolo_moneda': simbolo_moneda,
+    }
+    
+    return render(request, 'inventario/reporte_cajas.html', context)# ====================================================
 #  TIPO EGRESO
 # ====================================================
 @login_required
@@ -2738,8 +2918,76 @@ def ticket_cocina(request, venta_id):
 @login_required
 @permiso_requerido('abrir_caja', 'ver')
 def venta_list(request):
-    ventas = Venta.objects.select_related('usuario', 'sucursal', 'canal').all().order_by('-created_at')
-    return render(request, 'venta/list.html', {'ventas': ventas})
+    empresa = request.user.fk_empresa
+ 
+    fecha_desde = request.GET.get('fecha_desde')
+    fecha_hasta = request.GET.get('fecha_hasta')
+    canal_id = request.GET.get('canal_id')
+    sucursal_id = request.GET.get('sucursal_id')
+    usuario_id = request.GET.get('usuario_id')
+    estado_venta = request.GET.get('estado_venta')  # 'activa' | 'anulada' | '' (todas)
+    cliente_q = request.GET.get('cliente', '').strip()
+ 
+    ventas = (
+        Venta.objects
+        .filter(sucursal__fk_empresa=empresa)
+        .select_related('usuario', 'sucursal', 'canal', 'cliente', 'caja_turno')
+        .prefetch_related('pagos__metodo_pago')
+        .order_by('-fecha')
+    )
+ 
+    # Filtro de fechas: si no mandan ninguna, por defecto SOLO HOY.
+    if fecha_desde:
+        try:
+            ventas = ventas.filter(fecha__date__gte=datetime.strptime(fecha_desde, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+    if fecha_hasta:
+        try:
+            ventas = ventas.filter(fecha__date__lte=datetime.strptime(fecha_hasta, '%Y-%m-%d').date())
+        except ValueError:
+            pass
+    if not fecha_desde and not fecha_hasta:
+        ventas = ventas.filter(fecha__date=timezone.now().date())
+ 
+    if canal_id and canal_id.isdigit():
+        ventas = ventas.filter(canal_id=canal_id)
+    if sucursal_id and sucursal_id.isdigit():
+        ventas = ventas.filter(sucursal_id=sucursal_id)
+    if usuario_id and usuario_id.isdigit():
+        ventas = ventas.filter(usuario_id=usuario_id)
+    if estado_venta == 'activa':
+        ventas = ventas.filter(is_active=True)
+    elif estado_venta == 'anulada':
+        ventas = ventas.filter(is_active=False)
+    if cliente_q:
+        ventas = ventas.filter(
+            Q(cliente__nombre__icontains=cliente_q) | Q(cliente__apellido__icontains=cliente_q)
+        )
+ 
+    resumen = ventas.filter(is_active=True).aggregate(
+        total_monto=DjangoSum('total'),
+        cantidad=Count('id'),
+    )
+ 
+    context = {
+        'ventas': ventas,
+        'canales': CanalVenta.objects.filter(fk_empresa=empresa, is_active=True),
+        'sucursales': Sucursal.objects.filter(fk_empresa=empresa, estado=True),
+        'usuarios': Usuario.objects.filter(sucursal__fk_empresa=empresa, is_active=True),
+        'resumen': resumen,
+        'fecha_desde': fecha_desde or '',
+        'fecha_hasta': fecha_hasta or '',
+        'canal_id': canal_id or '',
+        'sucursal_id': sucursal_id or '',
+        'usuario_id': usuario_id or '',
+        'estado_venta': estado_venta or '',
+        'cliente_q': cliente_q,
+        'mostrando_hoy': not fecha_desde and not fecha_hasta,
+        'titulo': 'Reporte de Ventas',
+    }
+    return render(request, 'ventas/venta_list.html', context)
+ 
 
 def safe_decimal(value, default=Decimal('0.00')):
     try:
@@ -3278,13 +3526,65 @@ def sse_nuevos_pedidos(request, sucursal_id):
 @login_required
 @permiso_requerido('abrir_caja', 'eliminar')
 def venta_delete(request):
+    """
+    Anular venta = baja lógica + REVERSIÓN DE STOCK (esto faltaba) +
+    registro en Kardex, igual que ya hicimos con compra_delete.
+    Requiere motivo, ya no se anula sin explicar por qué.
+    """
     if request.method == 'POST':
-        id = request.POST.get('id')
-        venta = get_object_or_404(Venta, pk=id)
-        venta.is_active = False
-        venta.save()
-        DetalleVenta.objects.filter(venta=venta).update(is_active=False)
-        messages.success(request, 'Venta desactivada correctamente.')
+        try:
+            with transaction.atomic():
+                empresa = request.user.fk_empresa
+                venta_id = request.POST.get('id')
+                motivo = request.POST.get('motivo_anulacion', '').strip()
+ 
+                venta = get_object_or_404(
+                    Venta, pk=venta_id, sucursal__fk_empresa=empresa, is_active=True
+                )
+ 
+                if not motivo:
+                    raise ValueError("Debes indicar el motivo de la anulación.")
+ 
+                detalles = venta.detalles.filter(is_active=True, producto_variante__isnull=False)
+ 
+                for detalle in detalles:
+                    variante = detalle.producto_variante
+                    if not variante.maneja_stock:
+                        continue
+ 
+                    stock, _ = Stock.objects.get_or_create(
+                        almacen=venta.almacen,
+                        producto_variante=variante,
+                        defaults={'cantidad_actual': 0, 'costo_unitario_promedio': 0, 'valor_total': 0},
+                    )
+                    stock.cantidad_actual += detalle.cantidad
+                    stock.valor_total = stock.cantidad_actual * stock.costo_unitario_promedio
+                    stock.save()
+ 
+                    Kardex.objects.create(
+                        producto_variante=variante,
+                        sucursal=venta.sucursal,
+                        almacen=venta.almacen,
+                        tipo_movimiento='anulacion_venta',
+                        cantidad=detalle.cantidad,
+                        precio_unitario=detalle.precio,
+                        total=detalle.subtotal,
+                        referencia=f'Anulación venta #{venta.id}',
+                    )
+ 
+                venta.is_active = False
+                venta.motivo_anulacion = motivo
+                venta.estado_venta = 'Anulada'
+                venta.save()
+                venta.detalles.update(is_active=False)
+ 
+                messages.success(request, f'✅ Venta #{venta.id} anulada. Stock revertido correctamente.')
+ 
+        except ValueError as e:
+            messages.error(request, f'❌ {e}')
+        except Exception as e:
+            messages.error(request, f'❌ Error al anular la venta: {e}')
+ 
     return redirect('venta_list')
 
 

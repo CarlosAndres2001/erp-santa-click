@@ -1,0 +1,357 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- ENCABEZADO CON ESTADÍSTICAS RÁPIDAS -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="bi bi-receipt-cutoff text-primary me-2"></i>Reporte de Ventas
+        </h2>
+        <div>
+            <span class="badge bg-primary bg-opacity-10 text-primary p-2">
+                <i class="bi bi-calendar3 me-1"></i> {{ fecha_actual|date:"d/m/Y" }}
+            </span>
+        </div>
+    </div>
+
+    <!-- ALERTA DE FILTRO POR DEFECTO -->
+    {% if mostrando_hoy %}
+    <div class="alert alert-info alert-dismissible fade show shadow-sm" role="alert">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-calendar-check-fill fs-4 me-2"></i>
+            <div>
+                <strong>Ventas de hoy:</strong> Mostrando solo las ventas del día de hoy. 
+                Usa los filtros para ver otros rangos de fechas.
+            </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <!-- KPI CARDS MEJORADOS -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 rounded-3 p-3 me-3">
+                        <i class="bi bi-receipt text-primary fs-3"></i>
+                    </div>
+                    <div>
+                        <h6 class="text mb-0 small text-uppercase">Ventas Activas</h6>
+                        <h3 class="mb-0 fw-bold">{{ resumen.cantidad|default:0 }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-success bg-opacity-10 rounded-3 p-3 me-3">
+                        <i class="bi bi-cash-stack text-success fs-3"></i>
+                    </div>
+                    <div>
+                        <h6 class="text mb-0 small text-uppercase">Total Vendido</h6>
+                        <h3 class="mb-0 fw-bold">${{ resumen.total_monto|floatformat:2|default:"0.00" }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-info bg-opacity-10 rounded-3 p-3 me-3">
+                        <i class="bi bi-people text-info fs-3"></i>
+                    </div>
+                    <div>
+                        <h6 class="text mb-0 small text-uppercase">Clientes Atendidos</h6>
+                        <h3 class="mb-0 fw-bold">{{ resumen.clientes|default:0 }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-warning bg-opacity-10 rounded-3 p-3 me-3">
+                        <i class="bi bi-shop text-warning fs-3"></i>
+                    </div>
+                    <div>
+                        <h6 class="text mb-0 small text-uppercase">Ticket Promedio</h6>
+                        <h3 class="mb-0 fw-bold">${{ resumen.promedio|floatformat:2|default:"0.00" }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTROS MODERNOS -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3 border-0">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-funnel-fill text-primary me-2"></i>
+                <h5 class="mb-0 fw-bold text">Filtros de Búsqueda</h6>
+                <span class="badge bg-secondary ms-2">{{ ventas|length }} resultados</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-calendar-range me-1"></i> Desde
+                    </label>
+                    <input type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ fecha_desde }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-calendar-range me-1"></i> Hasta
+                    </label>
+                    <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ fecha_hasta }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-arrows-expand me-1"></i> Canal
+                    </label>
+                    <select name="canal_id" class="form-select form-select-sm">
+                        <option value="">Todos los canales</option>
+                        {% for c in canales %}
+                        <option value="{{ c.id }}" {% if canal_id == c.id|stringformat:"s" %}selected{% endif %}>
+                            {{ c.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-building me-1"></i> Sucursal
+                    </label>
+                    <select name="sucursal_id" class="form-select form-select-sm">
+                        <option value="">Todas</option>
+                        {% for s in sucursales %}
+                        <option value="{{ s.id }}" {% if sucursal_id == s.id|stringformat:"s" %}selected{% endif %}>
+                            {{ s.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-person-badge me-1"></i> Vendedor
+                    </label>
+                    <select name="usuario_id" class="form-select form-select-sm">
+                        <option value="">Todos</option>
+                        {% for u in usuarios %}
+                        <option value="{{ u.id }}" {% if usuario_id == u.id|stringformat:"s" %}selected{% endif %}>
+                            {{ u.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-circle-fill me-1"></i> Estado
+                    </label>
+                    <select name="estado_venta" class="form-select form-select-sm">
+                        <option value="" {% if not estado_venta %}selected{% endif %}>Todas</option>
+                        <option value="activa" {% if estado_venta == 'activa' %}selected{% endif %}>
+                            <span class="text-success">●</span> Activas
+                        </option>
+                        <option value="anulada" {% if estado_venta == 'anulada' %}selected{% endif %}>
+                            <span class="text-danger">●</span> Anuladas
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-person me-1"></i> Cliente
+                    </label>
+                    <input type="text" name="cliente" class="form-control form-control-sm" 
+                           value="{{ cliente_q }}" placeholder="Buscar por nombre...">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-search me-1"></i> Filtrar
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">&nbsp;</label>
+                    <a href="{% url 'venta_list' %}" class="btn btn-outline-secondary btn-sm w-100">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Limpiar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABLA DE VENTAS -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="py-3 px-3">#</th>
+                            <th class="py-3">Fecha</th>
+                            <th class="py-3">Cliente</th>
+                            <th class="py-3">Canal</th>
+                            <th class="py-3">Vendedor</th>
+                            <th class="py-3">Pagos</th>
+                            <th class="py-3 text-end">Total</th>
+                            <th class="py-3 text-center">Estado</th>
+                            <th class="py-3 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for v in ventas %}
+                        <tr>
+                            <td class="fw-bold px-3">{{ v.id }}</td>
+                            <td>
+                                <div class="d-flex flex-column">
+                                    <span class="fw-semibold">{{ v.fecha|date:"d/m/Y" }}</span>
+                                    <small class="text-muted">{{ v.fecha|date:"H:i" }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-person-circle me-2 text-secondary"></i>
+                                    <span>{{ v.cliente.nombre|default:"Consumidor final" }} {{ v.cliente.apellido }}</span>
+                                </div>
+                            </td>
+                            <td><span class="badge bg-light text-dark">{{ v.canal.nombre }}</span></td>
+                            <td>{{ v.usuario.nombre }}</td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for p in v.pagos.all %}
+                                    <span class="badge bg-secondary bg-opacity-10 text-secondary">
+                                        <i class="bi bi-credit-card me-1"></i>
+                                        {{ p.metodo_pago.nombre }}: ${{ p.monto }}
+                                    </span>
+                                    {% empty %}
+                                    <span class="text-muted">-</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td class="text-end fw-bold">${{ v.total|floatformat:2 }}</td>
+                            <td class="text-center">
+                                {% if v.is_active %}
+                                <span class="badge bg-success bg-opacity-10 text-success">
+                                    <i class="bi bi-check-circle-fill me-1"></i> Activa
+                                </span>
+                                {% else %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger">
+                                    <i class="bi bi-x-circle-fill me-1"></i> Anulada
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'ticket_cliente' v.id %}" target="_blank" 
+                                       class="btn btn-sm btn-outline-info" title="Reimprimir ticket">
+                                        <i class="bi bi-printer-fill"></i>
+                                    </a>
+                                    {% if v.is_active %}
+                                    <button class="btn btn-sm btn-outline-danger" title="Anular venta"
+                                            data-bs-toggle="modal" data-bs-target="#anularVentaModal"
+                                            data-id="{{ v.id }}">
+                                        <i class="bi bi-x-circle-fill"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5">
+                                <i class="bi bi-inbox text-muted display-6 d-block mb-3"></i>
+                                <h5 class="text-muted">No hay ventas para estos filtros</h5>
+                                <p class="text-muted small">Prueba ajustando los filtros de búsqueda</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- PAGINACIÓN (si tienes) -->
+        {% if is_paginated %}
+        <div class="card-footer bg-white border-0 py-3">
+            <nav aria-label="Paginación">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1">&laquo;</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                    </li>
+                    {% endif %}
+                    
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">&raquo;</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- MODAL PARA ANULAR VENTA (MEJORADO) -->
+<div class="modal fade" id="anularVentaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="post" action="{% url 'venta_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="anular_venta_id">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-danger bg-opacity-10 border-0">
+                    <h5 class="modal-title text-danger">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i> Anular Venta
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body py-4">
+                    <div class="text-center mb-3">
+                        <i class="bi bi-x-circle-fill text-danger display-4"></i>
+                    </div>
+                    <p class="text-center">¿Estás seguro de anular esta venta?</p>
+                    <p class="text-center text-muted small">Esta acción <strong>revertirá el stock</strong> y no se puede deshacer.</p>
+                    <div class="mt-3">
+                        <label class="form-label fw-bold">Motivo de anulación:</label>
+                        <textarea name="motivo_anulacion" class="form-control" rows="3" 
+                                  placeholder="Ej: Error en el registro, devolución solicitada..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-x-circle-fill me-1"></i> Confirmar Anulación
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- SCRIPT PARA MODAL -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('anularVentaModal');
+    modal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const ventaId = button.getAttribute('data-id');
+        document.getElementById('anular_venta_id').value = ventaId;
+    });
+});
+</script>
+{% endblock %}

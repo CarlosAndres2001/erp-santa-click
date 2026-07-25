@@ -136,6 +136,7 @@ urlpatterns = [
     path('caja/cerrar/', views.cerrar_caja, name='cerrar_caja'),
     path('caja/comprobante/<int:caja_turno_id>/', views.comprobante_cierre_caja, name='comprobante_cierre_caja'),
     path('api/total-efectivo-esperado/', views.total_efectivo_esperado, name='total_efectivo_esperado'),
+    path('reporte-cajas/', views.reporte_cajas, name='reporte_cajas'),
     # ====================================================
     # TIPO EGRESO
     # ====================================================

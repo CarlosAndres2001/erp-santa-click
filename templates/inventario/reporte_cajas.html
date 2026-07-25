@@ -1,0 +1,469 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- ENCABEZADO -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="bi bi-cash-stack text-success me-2"></i>Reporte de Cajas
+        </h2>
+        <div>
+            <span class="badge bg-success bg-opacity-10 text-success p-2">
+                <i class="bi bi-calendar3 me-1"></i> {{ fecha_actual|date:"d/m/Y H:i" }}
+            </span>
+        </div>
+    </div>
+
+    <!-- ALERTA DE FILTRO -->
+    {% if mostrando_hoy %}
+    <div class="alert alert-info alert-dismissible fade show shadow-sm" role="alert">
+        <div class="d-flex align-items-center">
+            <i class="bi bi-calendar-check-fill fs-4 me-2"></i>
+            <div>
+                <strong>Movimientos de hoy:</strong> Mostrando solo los movimientos del día de hoy.
+                Usa los filtros para ver otros rangos de fechas.
+            </div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <!-- KPI CARDS -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-success bg-opacity-10 rounded-3 p-3 me-3">
+                        <i class="bi bi-cash-stack text-success fs-3"></i>
+                    </div>
+                    <div>
+                        <h6 class="text mb-0 small text-uppercase">Saldo en Cajas</h6>
+                        <h3 class="mb-0 fw-bold">{{ simbolo_moneda }}{{ total_saldo|floatformat:2|default:"0.00" }}</h3>
+                        <small class="text">{{ cajas_abiertas|length }} caja(s) abierta(s)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 rounded-3 p-3 me-3">
+                        <i class="bi bi-receipt text-primary fs-3"></i>
+                    </div>
+                    <div>
+                        <h6 class="text mb-0 small text-uppercase">Ventas del Día</h6>
+                        <h3 class="mb-0 fw-bold">{{ simbolo_moneda }}{{ total_ventas_dia|floatformat:2|default:"0.00" }}</h3>
+                        <small class="text">{{ total_ventas_count }} ventas</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-danger bg-opacity-10 rounded-3 p-3 me-3">
+                        <i class="bi bi-arrow-up-right text-danger fs-3"></i>
+                    </div>
+                    <div>
+                        <h6 class="text mb-0 small text-uppercase">Egresos del Día</h6>
+                        <h3 class="mb-0 fw-bold">{{ simbolo_moneda }}{{ total_egresos_dia|floatformat:2|default:"0.00" }}</h3>
+                        <small class="text">{{ total_egresos_count }} egresos</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-info bg-opacity-10 rounded-3 p-3 me-3">
+                        <i class="bi bi-arrow-left-right text-info fs-3"></i>
+                    </div>
+                    <div>
+                        <h6 class="text mb-0 small text-uppercase">Diferencia del Día</h6>
+                        <h3 class="mb-0 fw-bold {% if diferencia < 0 %}text-danger{% else %}text-success{% endif %}">
+                            {{ simbolo_moneda }}{{ diferencia|floatformat:2|default:"0.00" }}
+                        </h3>
+                        <small class="text">Ventas - Egresos</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RESUMEN DE CAJAS ABIERTAS -->
+    <div class="row g-3 mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark py-3 border-0">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-clock-history text-warning me-2"></i>
+                        <h6 class="mb-0 fw-bold">Cajas Abiertas</h6>
+                        <span class="badge bg-success ms-2">{{ cajas_abiertas|length }} abiertas</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if cajas_abiertas %}
+                    <div class="row">
+                        {% for ct in cajas_abiertas %}
+                        <div class="col-md-3 col-sm-6 mb-2">
+                            <div class="d-flex align-items-center p-2 bg-dark rounded-3">
+                                <div class="bg-success bg-opacity-10 rounded-circle p-2 me-2">
+                                    <i class="bi bi-cash text-success"></i>
+                                </div>
+                                <div>
+                                    <strong>{{ ct.caja.nombre }}</strong>
+                                    <small class="d-block text">
+                                        {{ ct.usuario.nombre }} | {{ simbolo_moneda }}{{ ct.saldo_teorico|floatformat:2 }}
+                                    </small>
+                                    <small class="d-block text">
+                                        <i class="bi bi-clock me-1"></i>{{ ct.fecha_apertura|date:"H:i" }}
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text py-3">
+                        <i class="bi bi-info-circle me-1"></i> No hay cajas abiertas en este momento
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-dark py-3 border-0">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-funnel-fill text-success me-2"></i>
+                <h6 class="mb-0 fw-bold">Filtros de Búsqueda</h6>
+                <span class="badge bg-secondary ms-2">{{ movimientos|length }} movimientos</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-calendar-range me-1"></i> Desde
+                    </label>
+                    <input type="date" name="fecha_desde" class="form-control form-control-sm" 
+                           value="{{ fecha_desde|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-calendar-range me-1"></i> Hasta
+                    </label>
+                    <input type="date" name="fecha_hasta" class="form-control form-control-sm" 
+                           value="{{ fecha_hasta|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-cash me-1"></i> Caja
+                    </label>
+                    <select name="caja_id" class="form-select form-select-sm">
+                        <option value="">Todas</option>
+                        {% for c in cajas %}
+                        <option value="{{ c.id }}" {% if caja_id == c.id|stringformat:"s" %}selected{% endif %}>
+                            {{ c.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-clock me-1"></i> Turno
+                    </label>
+                    <select name="turno_id" class="form-select form-select-sm">
+                        <option value="">Todos</option>
+                        {% for t in turnos %}
+                        <option value="{{ t.id }}" {% if turno_id == t.id|stringformat:"s" %}selected{% endif %}>
+                            {{ t.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-person me-1"></i> Usuario
+                    </label>
+                    <select name="usuario_id" class="form-select form-select-sm">
+                        <option value="">Todos</option>
+                        {% for u in usuarios %}
+                        <option value="{{ u.id }}" {% if usuario_id == u.id|stringformat:"s" %}selected{% endif %}>
+                            {{ u.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-tag me-1"></i> Tipo
+                    </label>
+                    <select name="tipo_movimiento" class="form-select form-select-sm">
+                        <option value="">Todos</option>
+                        <option value="APERTURA" {% if tipo_movimiento == 'APERTURA' %}selected{% endif %}>Apertura</option>
+                        <option value="VENTA" {% if tipo_movimiento == 'VENTA' %}selected{% endif %}>Venta</option>
+                        <option value="INGRESO" {% if tipo_movimiento == 'INGRESO' %}selected{% endif %}>Ingreso</option>
+                        <option value="EGRESO" {% if tipo_movimiento == 'EGRESO' %}selected{% endif %}>Egreso</option>
+                        <option value="CIERRE" {% if tipo_movimiento == 'CIERRE' %}selected{% endif %}>Cierre</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-search me-1"></i> Buscar
+                    </label>
+                    <input type="text" name="buscar" class="form-control form-control-sm" 
+                           value="{{ busqueda }}" placeholder="Referencia o descripción...">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">&nbsp;</label>
+                    <button type="submit" class="btn btn-success btn-sm w-100">
+                        <i class="bi bi-search me-1"></i> Filtrar
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">&nbsp;</label>
+                    <a href="{% url 'reporte_cajas' %}" class="btn btn-outline-secondary btn-sm w-100">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Limpiar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABLA DE MOVIMIENTOS -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="py-3 px-3">#</th>
+                            <th class="py-3">Fecha/Hora</th>
+                            <th class="py-3">Caja</th>
+                            <th class="py-3">Turno</th>
+                            <th class="py-3">Usuario</th>
+                            <th class="py-3">Tipo</th>
+                            <th class="py-3">Referencia</th>
+                            <th class="py-3 text-end">Monto</th>
+                            <th class="py-3 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for mov in movimientos %}
+                        <tr>
+                            <td class="fw-bold px-3">{{ mov.id }}</td>
+                            <td>
+                                <div class="d-flex flex-column">
+                                    <span class="fw-semibold">{{ mov.created_at|date:"d/m/Y" }}</span>
+                                    <small class="text-muted">{{ mov.created_at|date:"H:i" }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-primary bg-opacity-10 text-primary">
+                                    {{ mov.caja_turno.caja.nombre }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary bg-opacity-10 text-secondary">
+                                    {{ mov.caja_turno.turno.nombre }}
+                                </span>
+                            </td>
+                            <td>{{ mov.usuario.nombre }}</td>
+                            <td>
+                                {% if mov.tipo == 'APERTURA' %}
+                                <span class="badge bg-info bg-opacity-10 text-info">
+                                    <i class="bi bi-play-circle me-1"></i> Apertura
+                                </span>
+                                {% elif mov.tipo == 'VENTA' %}
+                                <span class="badge bg-primary bg-opacity-10 text-primary">
+                                    <i class="bi bi-receipt me-1"></i> Venta
+                                </span>
+                                {% elif mov.tipo == 'INGRESO' %}
+                                <span class="badge bg-success bg-opacity-10 text-success">
+                                    <i class="bi bi-arrow-down-circle me-1"></i> Ingreso
+                                </span>
+                                {% elif mov.tipo == 'EGRESO' %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger">
+                                    <i class="bi bi-arrow-up-circle me-1"></i> Egreso
+                                </span>
+                                {% elif mov.tipo == 'CIERRE' %}
+                                <span class="badge bg-warning bg-opacity-10 text-warning">
+                                    <i class="bi bi-stop-circle me-1"></i> Cierre
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if mov.referencia %}
+                                <span class="badge bg-light text-dark">{{ mov.referencia }}</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-bold {% if mov.tipo == 'EGRESO' %}text-danger{% else %}text-success{% endif %}">
+                                {% if mov.tipo == 'EGRESO' %}-{% endif %}{{ simbolo_moneda }}{{ mov.monto|floatformat:2 }}
+                            </td>
+                            <td class="text-center">
+                                <button class="btn btn-sm btn-outline-info" title="Ver detalle"
+                                        data-bs-toggle="modal" data-bs-target="#detalleMovimientoModal"
+                                        data-id="{{ mov.id }}" data-tipo="{{ mov.get_tipo_display }}"
+                                        data-monto="{{ mov.monto }}" data-desc="{{ mov.descripcion|default:'Sin descripción' }}"
+                                        data-usuario="{{ mov.usuario.nombre }}" data-fecha="{{ mov.created_at|date:'d/m/Y H:i' }}"
+                                        data-caja="{{ mov.caja_turno.caja.nombre }}" data-turno="{{ mov.caja_turno.turno.nombre }}"
+                                        data-referencia="{{ mov.referencia|default:'-' }}">
+                                    <i class="bi bi-eye-fill"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="9" class="text-center py-5">
+                                <i class="bi bi-inbox text-muted display-6 d-block mb-3"></i>
+                                <h5 class="text-muted">No hay movimientos para estos filtros</h5>
+                                <p class="text-muted small">Prueba ajustando los filtros de búsqueda</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <td colspan="7" class="text-end fw-bold">TOTAL MOVIMIENTOS:</td>
+                            <td class="text-end fw-bold text-success">{{ simbolo_moneda }}{{ total_movimientos|floatformat:2|default:"0.00" }}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        
+        <!-- PAGINACIÓN -->
+        {% if is_paginated %}
+        <div class="card-footer bg-white border-0 py-3">
+            <nav aria-label="Paginación">
+                <ul class="pagination justify-content-center mb-0">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}">&laquo;</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}">Anterior</a>
+                    </li>
+                    {% endif %}
+                    
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+                    
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}">Siguiente</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.urlencode %}&{{ request.GET.urlencode }}{% endif %}">&raquo;</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- MODAL DETALLE MOVIMIENTO -->
+<div class="modal fade" id="detalleMovimientoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-info bg-opacity-10 border-0">
+                <h5 class="modal-title text-info">
+                    <i class="bi bi-info-circle-fill me-2"></i> Detalle del Movimiento
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body py-4">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between border-bottom pb-2">
+                            <span class="text-muted">ID:</span>
+                            <span class="fw-bold" id="detalle-id">-</span>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between border-bottom pb-2">
+                            <span class="text-muted">Tipo:</span>
+                            <span class="fw-bold" id="detalle-tipo">-</span>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between border-bottom pb-2">
+                            <span class="text-muted">Monto:</span>
+                            <span class="fw-bold" id="detalle-monto">-</span>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between border-bottom pb-2">
+                            <span class="text-muted">Caja:</span>
+                            <span class="fw-bold" id="detalle-caja">-</span>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between border-bottom pb-2">
+                            <span class="text-muted">Turno:</span>
+                            <span class="fw-bold" id="detalle-turno">-</span>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between border-bottom pb-2">
+                            <span class="text-muted">Referencia:</span>
+                            <span class="fw-bold" id="detalle-referencia">-</span>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between border-bottom pb-2">
+                            <span class="text-muted">Usuario:</span>
+                            <span class="fw-bold" id="detalle-usuario">-</span>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="d-flex justify-content-between border-bottom pb-2">
+                            <span class="text-muted">Fecha:</span>
+                            <span class="fw-bold" id="detalle-fecha">-</span>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <div class="border-bottom pb-2">
+                            <span class="text-muted">Descripción:</span>
+                            <p class="fw-bold mt-1" id="detalle-desc">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SCRIPTS -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Modal de detalle
+    const detalleModal = document.getElementById('detalleMovimientoModal');
+    detalleModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        document.getElementById('detalle-id').textContent = button.getAttribute('data-id');
+        document.getElementById('detalle-tipo').textContent = button.getAttribute('data-tipo');
+        document.getElementById('detalle-monto').textContent = '{{ simbolo_moneda }}' + button.getAttribute('data-monto');
+        document.getElementById('detalle-caja').textContent = button.getAttribute('data-caja');
+        document.getElementById('detalle-turno').textContent = button.getAttribute('data-turno');
+        document.getElementById('detalle-referencia').textContent = button.getAttribute('data-referencia');
+        document.getElementById('detalle-usuario').textContent = button.getAttribute('data-usuario');
+        document.getElementById('detalle-fecha').textContent = button.getAttribute('data-fecha');
+        document.getElementById('detalle-desc').textContent = button.getAttribute('data-desc');
+    });
+});
+</script>
+{% endblock %}

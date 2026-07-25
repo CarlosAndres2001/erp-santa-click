@@ -173,7 +173,7 @@ i.bi{color:#10b981!important;font-size:1.1rem}
    RESPONSIVE - COMPACTO
    ============================== */
 @media(max-width:992px){.sidebar{left:-100%!important;width:240px!important;z-index:1100!important}.sidebar.show{left:0!important}.main-content{margin-left:0!important;width:100%!important;padding:.6rem!important}.topbar-info{gap:.3rem}.user-info{display:none}.modal-content{width:95%!important;margin:15% auto;padding:1rem!important}.modal-buttons{flex-direction:column}}
-@media(max-width:480px){.menu-text{display:none}.logout-btn{padding:.2rem .6rem;font-size:11px}.sidebar{width:200px!important}.h3{font-size:1rem}}
+@media(max-width:480px){.menu-text{display:inline}.logout-btn{padding:.2rem .6rem;font-size:11px}.sidebar{width:200px!important}.h3{font-size:1rem}}
 
 /* ==============================
    MODO CLARO (LIGHT MODE) - COMPACTO
