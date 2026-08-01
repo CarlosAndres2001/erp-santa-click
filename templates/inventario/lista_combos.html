@@ -1,0 +1,553 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .resultados-producto {
+        position: absolute;
+        z-index: 2000;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        max-height: 240px;
+        overflow-y: auto;
+        box-shadow: 0 8px 24px rgba(0,0,0,.4);
+        display: none;
+        width: 100%;
+    }
+    .resultados-producto.show { display: block }
+    .resultado-producto-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+    }
+    .resultado-producto-item:last-child { border-bottom: none }
+    .resultado-producto-item:hover { background: var(--bg-elevated) }
+    .resultado-producto-item .nombre { font-size: .78rem; font-weight: 600; color: var(--text-main) }
+    .resultado-producto-item .sku { font-size: .65rem; color: var(--text-muted) }
+    .resultado-producto-item .costo { font-size: .72rem; color: var(--primary); font-weight: 700 }
+    .resultados-producto .sin-resultados { padding: 10px 12px; font-size: .75rem; color: var(--text-muted) }
+    
+    .producto-seleccionado {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        background: var(--bg-elevated);
+        border-radius: var(--radius);
+        margin-bottom: 4px;
+        border-left: 3px solid var(--primary);
+    }
+    .producto-seleccionado .info {
+        display: flex;
+        gap: 15px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    .producto-seleccionado .cantidad-input {
+        width: 80px;
+        display: inline-block;
+    }
+    .producto-seleccionado .nombre-prod {
+        font-weight: 600;
+        font-size: 0.85rem;
+    }
+    .producto-seleccionado .sku-prod {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+    }
+    .producto-seleccionado .costo-prod {
+        color: var(--primary);
+        font-weight: 700;
+        font-size: 0.8rem;
+    }
+</style>
+
+<h2><i class="bi bi-boxes"></i> Combos / Packs</h2>
+
+<button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#createComboModal">
+    <i class="bi bi-plus-lg"></i> Nuevo Combo
+</button>
+
+<div class="table-responsive">
+    <table class="table table-bordered table-striped align-middle">
+        <thead class="table-dark">
+            <tr>
+                <th>Nombre</th>
+                <th>SKU</th>
+                <th class="text-end">Precio venta</th>
+                <th class="text-end">Costo (suma componentes)</th>
+                <th class="text-center">Componentes</th>
+                <th class="text-center">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in combos %}
+            {% with v=c.variantes.first %}
+            <tr>
+                <td>{{ c.nombre }}</td>
+                <td>{{ v.sku }}</td>
+                <td class="text-end">{{ v.precio_referencial }}</td>
+                <td class="text-end">{{ v.costo }}</td>
+                <td class="text-center"><span class="badge-count">{{ v.padre_packs.count }}</span></td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editComboModal-{{ c.id }}">
+                        <i class="bi bi-pencil-fill"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#deleteComboModal"
+                        data-id="{{ c.id }}" data-nombre="{{ c.nombre|escapejs }}">
+                        <i class="bi bi-trash-fill"></i>
+                    </button>
+                </td>
+            </tr>
+            {% endwith %}
+            {% empty %}
+            <tr><td colspan="6" class="text-center"><i class="bi bi-exclamation-circle text-warning"></i> No hay combos registrados.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- ============================== -->
+<!-- MODAL CREAR COMBO MEJORADO      -->
+<!-- ============================== -->
+<div class="modal fade" id="createComboModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <form method="post" action="{% url 'crear_combo' %}" id="formCrearCombo">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="bi bi-plus-circle me-2"></i> Nuevo Combo</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- DATOS DEL COMBO -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nombre *</label>
+                            <input name="nombre" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Categoría</label>
+                            <select name="categoria" class="form-select">
+                                <option value="">-- Sin categoría --</option>
+                                {% for c in categorias %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Descripción</label>
+                            <textarea name="descripcion" class="form-control" rows="2"></textarea>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Unidad de medida *</label>
+                            <select name="unidad_medida" class="form-select" required>
+                                <option value="">-- Seleccionar --</option>
+                                {% for u in unidades_medida %}<option value="{{ u.id }}">{{ u.nombre }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">SKU *</label>
+                            <input name="sku" class="form-control" required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Código de barras</label>
+                            <input name="codigo_barras" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Precio de venta</label>
+                            <input type="number" step="0.01" name="precio_venta" class="form-control" value="0">
+                        </div>
+                    </div>
+
+                    <!-- BUSCADOR Y LISTA DE COMPONENTES -->
+                    <h5><i class="bi bi-list-check me-1"></i> Componentes del combo</h5>
+                    
+                    <!-- Buscador -->
+                    <div class="mb-3" style="position: relative; max-width: 500px;">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" id="buscadorComponentes" class="form-control" placeholder="Buscar producto por nombre o SKU..." autocomplete="off">
+                        </div>
+                        <!-- Dropdown resultados -->
+                        <div class="resultados-producto" id="dropdownComponentes"></div>
+                    </div>
+
+                    <!-- Lista de productos añadidos -->
+                    <div id="listaComponentes" class="mb-2">
+                        <p class="text-muted small" id="mensajeSinComponentes"><i class="bi bi-info-circle"></i> No hay componentes añadidos</p>
+                    </div>
+
+                    <!-- Campos ocultos para enviar los componentes -->
+                    <div id="hiddenComponentes"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-success" type="submit"><i class="bi bi-check-lg"></i> Crear Combo</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ============================== -->
+<!-- MODAL EDITAR (uno por combo)   -->
+<!-- ============================== -->
+{% for c in combos %}
+{% with v=c.variantes.first %}
+<div class="modal fade" id="editComboModal-{{ c.id }}" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <form method="post" action="{% url 'combo_edit' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" value="{{ c.id }}">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title"><i class="bi bi-pencil-square me-2"></i> Editar: {{ c.nombre }}</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6"><label class="form-label">Nombre</label><input name="nombre" class="form-control" value="{{ c.nombre }}" required></div>
+                        <div class="col-md-6">
+                            <label class="form-label">Categoría</label>
+                            <select name="categoria" class="form-select">
+                                <option value="">-- Sin categoría --</option>
+                                {% for cat in categorias %}<option value="{{ cat.id }}" {% if c.category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12"><label class="form-label">Descripción</label><textarea name="descripcion" class="form-control" rows="2">{{ c.descripcion }}</textarea></div>
+                        <div class="col-md-3">
+                            <label class="form-label">Unidad de medida</label>
+                            <select name="unidad_medida" class="form-select" required>
+                                {% for u in unidades_medida %}<option value="{{ u.id }}" {% if c.unidad_medida_id == u.id %}selected{% endif %}>{{ u.nombre }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3"><label class="form-label">SKU</label><input name="sku" class="form-control" value="{{ v.sku }}" required></div>
+                        <div class="col-md-3"><label class="form-label">Código de barras</label><input name="codigo_barras" class="form-control" value="{{ v.codigo_barras|default:'' }}"></div>
+                        <div class="col-md-3"><label class="form-label">Precio de venta</label><input type="number" step="0.01" name="precio_venta" class="form-control" value="{{ v.precio_referencial }}"></div>
+                    </div>
+
+                    <h5><i class="bi bi-list-check me-1"></i> Componentes</h5>
+                    <table class="table table-sm table-bordered">
+                        <thead class="table-light"><tr><th>Producto</th><th>Cantidad</th><th>Costo unit.</th><th>Eliminar</th></tr></thead>
+                        <tbody>
+                            {% for d in v.padre_packs.all %}
+                            <tr>
+                                <input type="hidden" name="componente_existente_id[]" value="{{ d.id }}">
+                                <td>{{ d.producto_variante }}</td>
+                                <td><input type="number" step="0.01" name="cantidad_existente_{{ d.id }}" class="form-control form-control-sm" value="{{ d.cantidad }}"></td>
+                                <td><input type="number" step="0.01" name="costo_existente_{{ d.id }}" class="form-control form-control-sm" value="{{ d.costo_unitario }}"></td>
+                                <td class="text-center"><input type="checkbox" name="eliminar_componente_{{ d.id }}"></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tbody id="tbody_componentes_nuevos_{{ c.id }}" data-next-index="0"></tbody>
+                    </table>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="agregarComponente('tbody_componentes_nuevos_{{ c.id }}', 'nuevo_componente_{{ c.id }}')">
+                        <i class="bi bi-plus-lg"></i> Agregar componente nuevo
+                    </button>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary"><i class="bi bi-pencil-fill"></i> Actualizar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endwith %}
+{% endfor %}
+
+<!-- MODAL ELIMINAR -->
+<div class="modal fade" id="deleteComboModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'combo_delete' %}">
+            {% csrf_token %}
+            <input type="hidden" name="id" id="delete_combo_id">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title text-danger"><i class="bi bi-trash-fill me-2"></i> Eliminar Combo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body"><p>¿Deseas eliminar el combo <strong id="delete_combo_nombre"></strong>?</p></div>
+                <div class="modal-footer">
+                    <button class="btn btn-danger"><i class="bi bi-trash-fill"></i> Eliminar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+const URL_BUSCAR_VARIANTES = "{% url 'buscar_variantes' %}";
+const dropdownComponentes = document.getElementById('dropdownComponentes');
+const buscador = document.getElementById('buscadorComponentes');
+const listaComponentes = document.getElementById('listaComponentes');
+const hiddenComponentes = document.getElementById('hiddenComponentes');
+let debounceComp = null;
+let productosSeleccionados = [];
+
+// =============================================
+// BUSCADOR
+// =============================================
+buscador.addEventListener('input', function(e) {
+    clearTimeout(debounceComp);
+    const termino = e.target.value.trim();
+    if (termino.length < 2) { 
+        dropdownComponentes.classList.remove('show'); 
+        return; 
+    }
+
+    debounceComp = setTimeout(() => {
+        fetch(`${URL_BUSCAR_VARIANTES}?q=${encodeURIComponent(termino)}`)
+            .then(r => r.json())
+            .then(data => {
+                dropdownComponentes.innerHTML = '';
+                if (data.resultados.length === 0) {
+                    dropdownComponentes.innerHTML = '<div class="sin-resultados">Sin resultados</div>';
+                } else {
+                    data.resultados.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'resultado-producto-item';
+                        div.innerHTML = `
+                            <div>
+                                <div class="nombre">${item.texto}</div>
+                                <div class="sku">SKU: ${item.sku}</div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <div class="costo">${item.costo}</div>
+                                <button class="btn btn-sm btn-primary btn-anadir" data-id="${item.id}" data-texto="${item.texto}" data-sku="${item.sku}" data-costo="${item.costo}">
+                                    <i class="bi bi-plus-lg"></i> Añadir
+                                </button>
+                            </div>
+                        `;
+                        dropdownComponentes.appendChild(div);
+                    });
+                    
+                    // Evento para los botones "Añadir"
+                    dropdownComponentes.querySelectorAll('.btn-anadir').forEach(btn => {
+                        btn.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            const id = this.dataset.id;
+                            const texto = this.dataset.texto;
+                            const sku = this.dataset.sku;
+                            const costo = this.dataset.costo;
+                            agregarProducto(id, texto, sku, costo);
+                            dropdownComponentes.classList.remove('show');
+                            buscador.value = '';
+                            buscador.focus();
+                        });
+                    });
+                }
+                posicionarDropdown();
+                dropdownComponentes.classList.add('show');
+            });
+    }, 300);
+});
+
+function posicionarDropdown() {
+    const rect = buscador.getBoundingClientRect();
+    dropdownComponentes.style.position = 'fixed';
+    dropdownComponentes.style.left = rect.left + 'px';
+    dropdownComponentes.style.top = (rect.bottom + 2) + 'px';
+    dropdownComponentes.style.width = rect.width + 'px';
+}
+
+// Cerrar dropdown al hacer click fuera
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('#buscadorComponentes') && !e.target.closest('#dropdownComponentes')) {
+        dropdownComponentes.classList.remove('show');
+    }
+});
+
+// =============================================
+// AGREGAR PRODUCTO A LA LISTA
+// =============================================
+function agregarProducto(id, texto, sku, costo) {
+    // Verificar si ya está agregado
+    if (productosSeleccionados.find(p => p.id === id)) {
+        mostrarNotificacion('Este producto ya está en la lista', 'warning');
+        return;
+    }
+
+    const producto = {
+        id: id,
+        texto: texto,
+        sku: sku,
+        costo: parseFloat(costo) || 0,
+        cantidad: 1
+    };
+    productosSeleccionados.push(producto);
+    renderizarLista();
+    actualizarHidden();
+}
+
+// =============================================
+// RENDERIZAR LISTA DE PRODUCTOS
+// =============================================
+function renderizarLista() {
+    if (productosSeleccionados.length === 0) {
+        listaComponentes.innerHTML = '<p class="text-muted small"><i class="bi bi-info-circle"></i> No hay componentes añadidos</p>';
+        return;
+    }
+
+    let html = '';
+    productosSeleccionados.forEach((p, index) => {
+        html += `
+            <div class="producto-seleccionado">
+                <div class="info">
+                    <span class="nombre-prod">${p.texto}</span>
+                    <span class="sku-prod">SKU: ${p.sku}</span>
+                    <span class="costo-prod">${p.costo.toFixed(2)}</span>
+                    <div class="cantidad-input">
+                        <label class="small text-muted">Cant.</label>
+                        <input type="number" step="0.01" min="0.01" value="${p.cantidad}" 
+                               class="form-control form-control-sm" 
+                               onchange="actualizarCantidad(${index}, this.value)">
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarProducto(${index})">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        `;
+    });
+    listaComponentes.innerHTML = html;
+}
+
+function actualizarCantidad(index, valor) {
+    if (index >= 0 && index < productosSeleccionados.length) {
+        productosSeleccionados[index].cantidad = parseFloat(valor) || 1;
+        actualizarHidden();
+    }
+}
+
+function eliminarProducto(index) {
+    productosSeleccionados.splice(index, 1);
+    renderizarLista();
+    actualizarHidden();
+}
+
+// =============================================
+// ACTUALIZAR CAMPOS OCULTOS PARA ENVÍO
+// =============================================
+function actualizarHidden() {
+    let html = '';
+    productosSeleccionados.forEach((p, index) => {
+        html += `
+            <input type="hidden" name="componente_variante_${index}" value="${p.id}">
+            <input type="hidden" name="componente_cantidad_${index}" value="${p.cantidad}">
+            <input type="hidden" name="componente_costo_${index}" value="${p.costo}">
+        `;
+    });
+    hiddenComponentes.innerHTML = html;
+}
+
+// =============================================
+// NOTIFICACIONES
+// =============================================
+function mostrarNotificacion(mensaje, tipo = 'info') {
+    // Puedes usar toast o alert
+    alert(mensaje); // Simple, pero puedes mejorarlo
+}
+
+// =============================================
+// LIMPIAR AL CERRAR MODAL
+// =============================================
+document.getElementById('createComboModal').addEventListener('hidden.bs.modal', function() {
+    productosSeleccionados = [];
+    renderizarLista();
+    actualizarHidden();
+    buscador.value = '';
+    dropdownComponentes.classList.remove('show');
+});
+
+// =============================================
+// VALIDAR ANTES DE ENVIAR
+// =============================================
+document.getElementById('formCrearCombo').addEventListener('submit', function(e) {
+    if (productosSeleccionados.length === 0) {
+        e.preventDefault();
+        alert('Debes agregar al menos un componente al combo');
+        return false;
+    }
+});
+
+// =============================================
+// FUNCIONES PARA EDITAR (mantener compatibilidad)
+// =============================================
+function agregarComponente(tbodyId, prefix) {
+    const tbody = document.getElementById(tbodyId);
+    const idx = parseInt(tbody.dataset.nextIndex || '0', 10);
+    const tpl = document.getElementById('tpl-componente').innerHTML;
+    if (!tpl) {
+        // Si no existe el template, creamos uno simple
+        const html = `
+            <tr class="fila-componente">
+                <td>
+                    <div style="position:relative">
+                        <input type="hidden" name="${prefix}_variante_${idx}" class="in-comp-id" required>
+                        <input type="text" class="form-control form-control-sm buscar-comp-input" placeholder="Buscar producto..." autocomplete="off">
+                        <div class="resultados-producto dropdown-editar"></div>
+                    </div>
+                </td>
+                <td><input type="number" step="0.01" min="0.01" name="${prefix}_cantidad_${idx}" class="form-control form-control-sm" value="1"></td>
+                <td><input type="number" step="0.01" min="0" name="${prefix}_costo_${idx}" class="form-control form-control-sm in-comp-costo" value="0"></td>
+                <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()"><i class="bi bi-x-lg"></i></button></td>
+            </tr>
+        `;
+        tbody.insertAdjacentHTML('beforeend', html);
+    } else {
+        tbody.insertAdjacentHTML('beforeend', tpl.replaceAll('__PREFIX__', prefix).replaceAll('__IDX__', idx));
+    }
+    tbody.dataset.nextIndex = idx + 1;
+}
+
+// Mantener funcionalidad del dropdown para editar
+document.addEventListener('input', function(e) {
+    if (!e.target.classList.contains('buscar-comp-input')) return;
+    const fila = e.target.closest('tr');
+    const dropdown = fila.querySelector('.dropdown-editar');
+    if (!dropdown) return;
+    
+    const termino = e.target.value.trim();
+    if (termino.length < 2) { dropdown.classList.remove('show'); return; }
+
+    clearTimeout(debounceComp);
+    debounceComp = setTimeout(() => {
+        fetch(`${URL_BUSCAR_VARIANTES}?q=${encodeURIComponent(termino)}`)
+            .then(r => r.json())
+            .then(data => {
+                dropdown.innerHTML = '';
+                if (data.resultados.length === 0) {
+                    dropdown.innerHTML = '<div class="sin-resultados">Sin resultados</div>';
+                } else {
+                    data.resultados.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'resultado-producto-item';
+                        div.innerHTML = `<div><div class="nombre">${item.texto}</div><div class="sku">SKU: ${item.sku}</div></div><div class="costo">${item.costo}</div>`;
+                        div.addEventListener('click', () => {
+                            fila.querySelector('.in-comp-id').value = item.id;
+                            fila.querySelector('.buscar-comp-input').value = item.texto;
+                            fila.querySelector('.in-comp-costo').value = item.costo;
+                            dropdown.classList.remove('show');
+                        });
+                        dropdown.appendChild(div);
+                    });
+                }
+                // Posicionar
+                const rect = e.target.getBoundingClientRect();
+                dropdown.style.position = 'fixed';
+                dropdown.style.left = rect.left + 'px';
+                dropdown.style.top = (rect.bottom + 2) + 'px';
+                dropdown.style.width = rect.width + 'px';
+                dropdown.classList.add('show');
+            });
+    }, 300);
+});
+</script>
+{% endblock %}

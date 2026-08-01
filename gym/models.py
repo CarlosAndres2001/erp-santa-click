@@ -124,83 +124,6 @@ class Sucursal(models.Model):
 # ========================================
 # Usuario (reemplaza User de Django)
 # ========================================
-"""
-class UsuarioManager(BaseUserManager):
-    def create_user(self, username, password=None, **extra_fields):
-        if not username:
-            raise ValueError('El username es obligatorio')
-        user = self.model(username=username, **extra_fields)
-        user.set_password(password)
-        user.save(using=self._db)
-        return user
-
-    def create_superuser(self, username, password, **extra_fields):
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
-        return self.create_user(username, password, **extra_fields)
-
- """
-#Modelo Usuario
-"""class Usuario(AbstractBaseUser, PermissionsMixin):
-    username = models.CharField(max_length=50, unique=True)
-    email = models.EmailField(unique=True, blank=True, null=True)
-    nombre = models.CharField(max_length=100)
-    apellido = models.CharField(max_length=100, blank=True, null=True)
-    rol = models.ForeignKey('Rol', on_delete=models.PROTECT)
-    sucursal = models.ForeignKey('Sucursal', on_delete=models.SET_NULL, null=True, blank=True)
-    is_active = models.BooleanField(default=True)
-    is_staff = models.BooleanField(default=False)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    is_logged_in = models.BooleanField(default=False)
-
-    USERNAME_FIELD = 'username'
-    REQUIRED_FIELDS = ['nombre', 'rol']  
-
-    objects = UsuarioManager()
-
-    def __str__(self):
-        return f"{self.nombre} {self.apellido or ''}".strip()
-    
-    def tiene_permiso(self, codigo_modulo, accion='ver'):
-        #Verifica si el usuario tiene un permiso específico
-        if self.rol.nombre.lower() == 'administrador':
-            return True
-        
-        try:
-            permiso = PermisoRol.objects.get(
-                rol=self.rol,
-                modulo__codigo=codigo_modulo,
-                modulo__is_active=True
-            )
-            
-            if accion == 'ver':
-                return permiso.puede_ver
-            elif accion == 'crear':
-                return permiso.puede_crear
-            elif accion == 'editar':
-                return permiso.puede_editar
-            elif accion == 'eliminar':
-                return permiso.puede_eliminar
-            return False
-        except PermisoRol.DoesNotExist:
-            return False
-    
-    def tiene_modulo(self, codigo_modulo):
-        return self.tiene_permiso(codigo_modulo, 'ver')
-    
-    def tiene_permiso_menu(self, codigo):
-        if self.rol.nombre.lower() == 'administrador':
-            return True
-        return PermisoRol.objects.filter(
-            rol=self.rol,
-            modulo__codigo=codigo,
-            puede_ver=True
-        ).exists()
-    
-    class Meta:
-        db_table = 'usuario'
-"""
         
 class UsuarioManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -284,8 +207,6 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     class Meta:
         db_table = 'usuario'
  
-
-
 #=========================================
 # Canal de Venta
 #=========================================

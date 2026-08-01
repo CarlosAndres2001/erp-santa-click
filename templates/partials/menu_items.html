@@ -17,7 +17,7 @@
                 {% for hijo in padre.modulo_set.all %}
                     {% if is_admin or hijo.codigo in user_permisos %}
                         <a href="{% url hijo.codigo %}" 
-                           class="list-group-item list-group-item-action border-0 ps-5 py-2 submenu-link"
+                           class="list-group-item list-group-item-action border-0 ps-3 py-2 submenu-link"
                            data-nombre="{{ hijo.nombre }}"
                            style="background: var(--bg-dark); color: var(--text-muted); font-size: 0.85rem; transition: var(--transition);">
                             <i class="{{ hijo.icono }} me-2" style="font-size: 0.8rem;"></i>
@@ -50,7 +50,7 @@
     .list-group-item-action:hover {
         background-color: var(--bg-sidebar) !important;
         color: var(--primary) !important;
-        padding-left: 3.5rem !important; /* Un pequeño desplazamiento sutil */
+        padding-left: calc(0.8rem + 0.3rem) !important;
     }
 
     /* Quitar bordes molestos de Bootstrap */

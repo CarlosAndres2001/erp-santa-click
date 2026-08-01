@@ -82,6 +82,10 @@ urlpatterns = [
     path('productos-terminados/eliminar/', views.producto_terminado_delete, name='producto_terminado_delete'),
     path('productos-terminados/importar/', views.importar_productos_terminados, name='importar_productos_terminados'),
     path('productos-terminados/importar/confirmar/', views.importar_productos_terminados_confirmar, name='importar_productos_terminados_confirmar'),
+    path('combos/', views.lista_combos, name='lista_combos'),
+    path('combos/crear/', views.crear_combo, name='crear_combo'),
+    path('combos/editar/', views.combo_edit, name='combo_edit'),
+    path('combos/eliminar/', views.combo_delete, name='combo_delete'),
     
     #=======================
     # INSUMO

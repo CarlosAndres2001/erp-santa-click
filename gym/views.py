@@ -868,11 +868,9 @@ def safe_decimal(value, default='0'):
     except InvalidOperation:
         return Decimal(default)
 
-
 def get_tipo_producto(codigo):
     """Busca el TipoProducto por su código fijo (nunca por nombre o id)."""
     return get_object_or_404(TipoProducto, codigo=codigo, is_active=True)
-
 
 CODIGO_INSUMO = 'INS-RAW'
 
@@ -1040,7 +1038,6 @@ def insumo_delete(request):
 #  PRODUCTO
 # ====================================================
 CODIGO_TERMINADO = 'PROD-TERM'
-
  
 def obtener_indices_variantes(post, prefix):
     """
@@ -1051,7 +1048,6 @@ def obtener_indices_variantes(post, prefix):
     patron = re.compile(rf'^{re.escape(prefix)}_sku_(\d+)$')
     indices = [int(m.group(1)) for k in post.keys() if (m := patron.match(k))]
     return sorted(indices)
- 
  
 def crear_variantes_desde_form(producto, post, files, prefix='variante'):
     """Crea N variantes nuevas a partir de campos indexados en el form."""
@@ -1262,6 +1258,274 @@ def producto_terminado_delete(request):
  
     return redirect('producto_list')
 
+CODIGO_COMBO = 'COMBO-PACK'
+
+# ========================================
+# PRODUCTO COMBOS / PACKS
+# ========================================
+@login_required
+@permiso_requerido('producto_list', 'ver')
+def lista_combos(request):
+    empresa = request.user.fk_empresa
+
+    combos = (
+        Producto.objects
+        .filter(fk_tipo_producto__codigo=CODIGO_COMBO, is_active=True, fk_empresa=empresa)
+        .select_related('unidad_medida', 'category')
+        .prefetch_related('variantes__padre_packs__producto_variante__producto')
+        .order_by('nombre')
+    )
+
+    # Lo que se puede elegir como componente: cualquier variante activa
+    # que NO sea a su vez un combo (evita combos-dentro-de-combos).
+    componentes_disponibles_count = (
+        ProductoVariante.objects
+        .filter(is_active=True, producto__fk_empresa=empresa)
+        .exclude(producto__fk_tipo_producto__codigo=CODIGO_COMBO)
+        .count()
+    )
+
+    context = {
+        'combos': combos,
+        'unidades_medida': UnidadMedida.objects.filter(is_active=True, fk_empresa=empresa),
+        'categorias': Category.objects.filter(is_active=True, fk_empresa=empresa),
+        'componentes_disponibles_count': componentes_disponibles_count,
+        'titulo': 'Combos / Packs',
+    }
+    return render(request, 'inventario/lista_combos.html', context)
+
+
+# ========================================
+# CREAR
+# ========================================
+@login_required
+@permiso_requerido('producto_list', 'crear')
+def crear_combo(request):
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                empresa = request.user.fk_empresa
+                nombre = request.POST.get('nombre', '').strip()
+                unidad_medida_id = request.POST.get('unidad_medida')
+                sku = request.POST.get('sku', '').strip()
+
+                if not nombre:
+                    raise ValueError("El nombre del combo es obligatorio.")
+                if not unidad_medida_id:
+                    raise ValueError("La unidad de medida es obligatoria.")
+                if not sku:
+                    raise ValueError("El SKU del combo es obligatorio.")
+                if ProductoVariante.objects.filter(sku=sku).exists():
+                    raise ValueError(f"El SKU '{sku}' ya está en uso.")
+
+                tipo_combo = get_tipo_producto(CODIGO_COMBO)
+
+                producto = Producto.objects.create(
+                    nombre=nombre,
+                    descripcion=request.POST.get('descripcion', ''),
+                    fk_empresa=empresa,
+                    fk_tipo_producto=tipo_combo,
+                    unidad_medida_id=unidad_medida_id,
+                    category_id=request.POST.get('categoria') or None,
+                )
+
+                variante_padre = ProductoVariante.objects.create(
+                    producto=producto,
+                    nombre_variante="Pack",
+                    sku=sku,
+                    codigo_barras=request.POST.get('codigo_barras') or None,
+                    precio_referencial=safe_decimal(request.POST.get('precio_venta')),
+                    costo=0,  # se calcula abajo, suma de componentes
+                    maneja_stock=False,  # combo virtual, no tiene stock propio
+                )
+
+                indices = obtener_indices(request.POST, 'componente', 'tipo')
+                if not indices:
+                    raise ValueError("Un combo necesita al menos un producto componente.")
+
+                costo_total = Decimal('0')
+                componentes_creados = 0
+
+                for i in indices:
+                    tipo_componente = request.POST.get(f'componente_tipo_{i}')  # 'variante' | 'producto'
+                    item_id = request.POST.get(f'componente_id_{i}')
+                    if not item_id:
+                        continue
+
+                    cantidad = safe_decimal(request.POST.get(f'componente_cantidad_{i}'), '1')
+                    if cantidad <= 0:
+                        raise ValueError(f"La cantidad del componente en la fila {i + 1} debe ser mayor a cero.")
+
+                    costo_unitario = safe_decimal(request.POST.get(f'componente_costo_{i}'), '0')
+
+                    if tipo_componente == 'producto':
+                        # Componente "abierto": cualquier variante de este producto,
+                        # el cajero elige cuál al momento de vender.
+                        DetallePack.objects.create(
+                            producto_padre=variante_padre,
+                            producto_id=item_id,
+                            producto_variante=None,
+                            cantidad=cantidad,
+                            costo_unitario=costo_unitario,
+                        )
+                    else:
+                        # Componente fijo: una variante específica siempre.
+                        comp_variante = ProductoVariante.objects.get(id=item_id)
+                        if comp_variante.id == variante_padre.id:
+                            raise ValueError("Un combo no puede incluirse a sí mismo como componente.")
+                        if not costo_unitario:
+                            costo_unitario = comp_variante.costo
+
+                        DetallePack.objects.create(
+                            producto_padre=variante_padre,
+                            producto_variante=comp_variante,
+                            producto=None,
+                            cantidad=cantidad,
+                            costo_unitario=costo_unitario,
+                        )
+
+                    costo_total += cantidad * costo_unitario
+                    componentes_creados += 1
+
+                if componentes_creados == 0:
+                    raise ValueError("Un combo necesita al menos un producto componente.")
+
+                variante_padre.costo = costo_total
+                variante_padre.save(update_fields=['costo'])
+
+                messages.success(request, f'✅ Combo "{nombre}" creado correctamente.')
+
+        except ValueError as e:
+            messages.error(request, f'❌ {e}')
+        except IntegrityError:
+            messages.error(request, '❌ Ya existe un registro con ese SKU.')
+        except Exception as e:
+            messages.error(request, f'❌ Error al crear el combo: {e}')
+
+    return redirect('lista_combos')
+
+@login_required
+@permiso_requerido('producto_list', 'editar')
+def combo_edit(request):
+    if request.method == 'POST':
+        try:
+            with transaction.atomic():
+                empresa = request.user.fk_empresa
+                producto_id = request.POST.get('id')
+                producto = get_object_or_404(
+                    Producto, id=producto_id, fk_tipo_producto__codigo=CODIGO_COMBO, fk_empresa=empresa
+                )
+                variante_padre = producto.variantes.filter(is_active=True).first()
+                if not variante_padre:
+                    raise ValueError("Este combo no tiene una variante activa.")
+
+                nombre = request.POST.get('nombre', '').strip()
+                unidad_medida_id = request.POST.get('unidad_medida')
+                sku = request.POST.get('sku', '').strip()
+
+                if not nombre:
+                    raise ValueError("El nombre del combo es obligatorio.")
+                if not unidad_medida_id:
+                    raise ValueError("La unidad de medida es obligatoria.")
+                if not sku:
+                    raise ValueError("El SKU del combo es obligatorio.")
+                if ProductoVariante.objects.filter(sku=sku).exclude(id=variante_padre.id).exists():
+                    raise ValueError(f"El SKU '{sku}' ya está en uso.")
+
+                producto.nombre = nombre
+                producto.descripcion = request.POST.get('descripcion', '')
+                producto.unidad_medida_id = unidad_medida_id
+                producto.category_id = request.POST.get('categoria') or None
+                producto.save()
+
+                variante_padre.sku = sku
+                variante_padre.codigo_barras = request.POST.get('codigo_barras') or None
+                variante_padre.precio_referencial = safe_decimal(request.POST.get('precio_venta'))
+
+                # --- Componentes existentes: actualizar o eliminar ---
+                costo_total = Decimal('0')
+                componente_ids = request.POST.getlist('componente_existente_id[]')
+                for cid in componente_ids:
+                    detalle = get_object_or_404(DetallePack, id=cid, producto_padre=variante_padre)
+
+                    if request.POST.get(f'eliminar_componente_{cid}') == 'on':
+                        detalle.delete()
+                        continue
+
+                    nueva_cantidad = safe_decimal(request.POST.get(f'cantidad_existente_{cid}'), '1')
+                    if nueva_cantidad <= 0:
+                        raise ValueError("La cantidad de un componente debe ser mayor a cero.")
+                    nuevo_costo = safe_decimal(request.POST.get(f'costo_existente_{cid}'), str(detalle.costo_unitario))
+
+                    detalle.cantidad = nueva_cantidad
+                    detalle.costo_unitario = nuevo_costo
+                    detalle.save()
+
+                    costo_total += nueva_cantidad * nuevo_costo
+
+                # --- Componentes nuevos agregados en la edición ---
+                prefix_nuevos = f'nuevo_componente_{producto.id}'
+                for i in obtener_indices(request.POST, prefix_nuevos, 'variante'):
+                    comp_variante_id = request.POST.get(f'{prefix_nuevos}_variante_{i}')
+                    if not comp_variante_id:
+                        continue
+                    if int(comp_variante_id) == variante_padre.id:
+                        raise ValueError("Un combo no puede incluirse a sí mismo como componente.")
+
+                    cantidad = safe_decimal(request.POST.get(f'{prefix_nuevos}_cantidad_{i}'), '1')
+                    if cantidad <= 0:
+                        raise ValueError(f"La cantidad del componente nuevo en la fila {i + 1} debe ser mayor a cero.")
+
+                    comp_variante = ProductoVariante.objects.get(id=comp_variante_id)
+                    costo_unitario = safe_decimal(
+                        request.POST.get(f'{prefix_nuevos}_costo_{i}'), str(comp_variante.costo)
+                    )
+
+                    DetallePack.objects.create(
+                        producto_padre=variante_padre,
+                        producto_variante=comp_variante,
+                        cantidad=cantidad,
+                        costo_unitario=costo_unitario,
+                    )
+                    costo_total += cantidad * costo_unitario
+
+                if not variante_padre.padre_packs.exists():
+                    raise ValueError("Un combo necesita al menos un producto componente.")
+
+                variante_padre.costo = costo_total
+                variante_padre.save()
+
+                messages.success(request, f'✅ Combo "{nombre}" actualizado correctamente.')
+
+        except ValueError as e:
+            messages.error(request, f'❌ {e}')
+        except IntegrityError:
+            messages.error(request, '❌ Ya existe un registro con ese SKU.')
+        except Exception as e:
+            messages.error(request, f'❌ Error al actualizar el combo: {e}')
+
+    return redirect('lista_combos')
+
+@login_required
+@permiso_requerido('producto_list', 'eliminar')
+def combo_delete(request):
+    if request.method == 'POST':
+        try:
+            empresa = request.user.fk_empresa
+            producto_id = request.POST.get('id')
+            producto = get_object_or_404(
+                Producto, id=producto_id, fk_tipo_producto__codigo=CODIGO_COMBO, fk_empresa=empresa
+            )
+            nombre = producto.nombre
+            producto.is_active = False
+            producto.save()
+            producto.variantes.update(is_active=False)
+            messages.success(request, f'✅ Combo "{nombre}" eliminado correctamente.')
+        except Exception as e:
+            messages.error(request, f'❌ Error al eliminar el combo: {e}')
+
+    return redirect('lista_combos')
+
 #=====================================================
 # IMPORTACION DE PRODUCTOS
 #=====================================================
@@ -1272,15 +1536,12 @@ CAMPOS_EXCEL = [
     'unidades_por_caja', 'tara_por_caja', 'maneja_stock',
 ]
  
- 
 def normalizar(valor):
     return '' if valor is None else str(valor).strip()
  
- 
 def _bool_desde_texto(valor):
     return normalizar(valor).lower() in ('1', 'si', 'sí', 'true', 'x')
- 
- 
+
 # ============================================================
 # PASO 1: subir Excel -> mostrar vista previa editable
 # ============================================================
