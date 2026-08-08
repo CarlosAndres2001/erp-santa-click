@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Reporte de Ingresos{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h3 class="mb-4">Reporte de Ingresos</h3>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Tarjetas de totales -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-secondary">
+                <div class="card-body">
+                    <h6 class="card-subtitle text">Total General</h6>
+                    <h4 class="card-title">Bs. {{ total_general|floatformat:2|intcomma }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h6 class="card-subtitle text">Total Activos</h6>
+                    <h4 class="card-title text-success">Bs. {{ total_activos|floatformat:2|intcomma }}</h4>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <h6 class="card-subtitle text">Total Anulados</h6>
+                    <h4 class="card-title text-danger">Bs. {{ total_anulados|floatformat:2|intcomma }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filtros -->
+    <form method="get" class="row g-2 mb-4 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label small">Fecha inicio</label>
+            <input type="date" name="fecha_inicio" class="form-control form-control-sm"
+                   value="{{ filtros.fecha_inicio }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">Fecha fin</label>
+            <input type="date" name="fecha_fin" class="form-control form-control-sm"
+                   value="{{ filtros.fecha_fin }}">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">Motivo</label>
+            <select name="motivo" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                {% for m in tipos_ingreso %}
+                    <option value="{{ m.id }}" {% if filtros.motivo == m.id|stringformat:"s" %}selected{% endif %}>
+                        {{ m.nombre }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">Estado</label>
+            <select name="estado" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                <option value="activos" {% if filtros.estado == "activos" %}selected{% endif %}>Activos</option>
+                <option value="anulados" {% if filtros.estado == "anulados" %}selected{% endif %}>Anulados</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small">Buscar</label>
+            <input type="text" name="q" class="form-control form-control-sm"
+                   placeholder="Observaciones..." value="{{ filtros.q|default:'' }}">
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary btn-sm w-100">
+                <i class="bi bi-search"></i> Filtrar
+            </button>
+        </div>
+    </form>
+
+    <!-- Tabla -->
+    <div class="table-responsive">
+        <table class="table table-hover table-sm align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>#</th>
+                    <th>Fecha</th>
+                    <th>Motivo</th>
+                    <th>Monto</th>
+                    <th>Usuario</th>
+                    <th>Caja / Turno</th>
+                    <th>Observaciones</th>
+                    <th>Estado</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ingreso in ingresos %}
+                <tr class="{% if not ingreso.is_active %}table-danger opacity-75{% endif %}">
+                    <td>{{ ingreso.id }}</td>
+                    <td>{{ ingreso.fecha|date:"d/m/Y H:i" }}</td>
+                    <td>{{ ingreso.motivo.nombre }}</td>
+                    <td class="fw-bold">Bs. {{ ingreso.monto|floatformat:2|intcomma }}</td>
+                    <td>{{ ingreso.usuario.get_full_name|default:ingreso.usuario.nombre }}</td>
+                    <td>{{ ingreso.caja_turno.id|default:"—" }}</td>
+                    <td>
+                        {{ ingreso.observaciones|default:"—"|truncatechars:40 }}
+                        {% if not ingreso.is_active and ingreso.motivo_anulacion %}
+                            <br><small class="text-danger">Anulado: {{ ingreso.motivo_anulacion|truncatechars:40 }}</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if ingreso.is_active %}
+                            <span class="badge bg-success">Activo</span>
+                        {% else %}
+                            <span class="badge bg-danger">Anulado</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-center">
+                        {% if ingreso.is_active %}
+                            <button type="button" class="btn btn-outline-danger btn-sm"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#modalAnular{{ ingreso.id }}">
+                                <i class="bi bi-x-circle"></i> Anular
+                            </button>
+
+                            <!-- Modal de confirmación -->
+                            <div class="modal fade" id="modalAnular{{ ingreso.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <form method="post" action="{% url 'anular_ingreso' ingreso.id %}">
+                                        {% csrf_token %}
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Anular Ingreso #{{ ingreso.id }}</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body text-start">
+                                                <p>¿Seguro que deseas anular este ingreso de
+                                                    <strong>Bs. {{ ingreso.monto }}</strong>
+                                                    ({{ ingreso.motivo.nombre }})?</p>
+                                                <div class="mb-2">
+                                                    <label class="form-label">Motivo de anulación *</label>
+                                                    <textarea name="motivo_anulacion" class="form-control"
+                                                              rows="2" required></textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                <button type="submit" class="btn btn-danger">Confirmar anulación</button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        {% else %}
+                            <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">No hay ingresos registrados con esos filtros.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginación -->
+    {% if ingresos.has_other_pages %}
+    <nav>
+        <ul class="pagination pagination-sm justify-content-center">
+            {% if ingresos.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ ingresos.previous_page_number }}&{{ request.GET.urlencode }}">Anterior</a>
+                </li>
+            {% endif %}
+            <li class="page-item disabled">
+                <span class="page-link">Página {{ ingresos.number }} de {{ ingresos.paginator.num_pages }}</span>
+            </li>
+            {% if ingresos.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ ingresos.next_page_number }}&{{ request.GET.urlencode }}">Siguiente</a>
+                </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %}

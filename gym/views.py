@@ -1,11 +1,9 @@
-from datetime import timezone
+from datetime import timedelta, timezone, datetime
 import json
 from plistlib import InvalidFileException
 import re
-from django.db.models import Count
-from django.db.models import Q, Sum, Count
-from django.db.models import Q, Count
-from django.db.models import Sum as DjangoSum
+from django.db import models
+from django.db.models import Q, Count, Sum as DjangoSum
 from django.http import JsonResponse
 from django.urls import reverse
 from django.utils import timezone
@@ -17,6 +15,9 @@ from django.db import transaction,  IntegrityError
 from django.contrib.auth.hashers import make_password
 import openpyxl
 from sympy import Sum
+from django.core.paginator import Paginator
+from django.utils.dateparse import parse_date
+from django.conf import settings 
 from .models import (
     Almacen, DetallePack, IngresoMonetario, Kardex, MetodoPago, Modulo, MovimientoCaja, PagoVenta, PermisoRol, ProductoVariante, Rol, PlanEmpresa, Empresa, Sucursal, TipoProducto, Usuario, CanalVenta, UnidadMedida, Category,
     Producto, PrecioProducto, Stock, TipoIngreso, Ingreso, DetalleIngreso, Turno,
@@ -28,9 +29,7 @@ from django.core.exceptions import ValidationError
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.http import StreamingHttpResponse
-import json
 import time
-from datetime import datetime
 from gym.decorators import permiso_requerido
 
 # ====================================================
@@ -1258,273 +1257,221 @@ def producto_terminado_delete(request):
  
     return redirect('producto_list')
 
-CODIGO_COMBO = 'COMBO-PACK'
-
-# ========================================
-# PRODUCTO COMBOS / PACKS
-# ========================================
+# ============================================
+# API: OBTENER PRODUCTOS GENÉRICOS (EXACTO COMO PHP)
+# ============================================
 @login_required
-@permiso_requerido('producto_list', 'ver')
+def obtener_productos_genericos(request):
+    """
+    EXACTO como en PHP:
+    SELECT DISTINCT p.id, p.nombre
+    FROM producto p
+    WHERE p.activo = 1
+    AND p.tiene_variantes = 1
+    AND EXISTS (SELECT 1 FROM producto_variante pv WHERE pv.fk_producto = p.id AND pv.activo = 1)
+    """
+    productos = Producto.objects.filter(
+        is_active=True,
+        # En PHP: p.tiene_variantes = 1
+        # En Django: filtramos por productos que tienen variantes
+    ).filter(
+        # EXISTS: que tengan al menos una variante activa
+        variantes__is_active=True
+    ).distinct().order_by('nombre')
+    
+    resultados = [{'id': p.id, 'nombre': p.nombre} for p in productos]
+    return JsonResponse({'productos': resultados})
+
+
+# ============================================
+# API: OBTENER PRODUCTOS DEFINIDOS (EXACTO COMO PHP)
+# ============================================
+@login_required
+def obtener_productos_definidos(request):
+    """
+    EXACTO como en PHP:
+    SELECT pv.id AS producto_variante_id, p.id AS producto_id, CONCAT(...) AS nombre_completo
+    FROM producto_variante pv
+    INNER JOIN producto p ON p.id = pv.fk_producto
+    WHERE p.activo = 1 AND pv.activo = 1
+    """
+    variantes = ProductoVariante.objects.filter(
+        is_active=True,
+        producto__is_active=True
+    ).select_related('producto')
+    
+    resultados = []
+    for v in variantes:
+        # Excluir packs (como en PHP: p.fk_tipo_producto = 1)
+        if v.producto.fk_tipo_producto and v.producto.fk_tipo_producto.codigo == 'COMBO-PACK':
+            continue
+        
+        # Construir nombre_completo como en PHP
+        nombre_completo = v.producto.nombre
+        if hasattr(v, 'fk_sabor') and v.fk_sabor:
+            nombre_completo += f" - {v.fk_sabor.nombre}"
+        elif hasattr(v, 'fk_color') and v.fk_color:
+            nombre_completo += f" - {v.fk_color.nombre}"
+        
+        resultados.append({
+            'producto_variante_id': v.id,
+            'producto_id': v.producto.id,
+            'nombre_completo': nombre_completo,
+            'sku': v.sku
+        })
+    
+    return JsonResponse({'variantes': resultados})
+
+
+# ============================================
+# LISTAR COMBOS
+# ============================================
+@login_required
 def lista_combos(request):
-    empresa = request.user.fk_empresa
-
-    combos = (
-        Producto.objects
-        .filter(fk_tipo_producto__codigo=CODIGO_COMBO, is_active=True, fk_empresa=empresa)
-        .select_related('unidad_medida', 'category')
-        .prefetch_related('variantes__padre_packs__producto_variante__producto')
-        .order_by('nombre')
-    )
-
-    # Lo que se puede elegir como componente: cualquier variante activa
-    # que NO sea a su vez un combo (evita combos-dentro-de-combos).
-    componentes_disponibles_count = (
-        ProductoVariante.objects
-        .filter(is_active=True, producto__fk_empresa=empresa)
-        .exclude(producto__fk_tipo_producto__codigo=CODIGO_COMBO)
-        .count()
-    )
-
+    combos = Producto.objects.filter(
+        is_active=True,
+        fk_tipo_producto__codigo='COMBO-PACK'
+    ).select_related('category', 'unidad_medida').prefetch_related('variantes__padre_packs')
+    
     context = {
         'combos': combos,
-        'unidades_medida': UnidadMedida.objects.filter(is_active=True, fk_empresa=empresa),
-        'categorias': Category.objects.filter(is_active=True, fk_empresa=empresa),
-        'componentes_disponibles_count': componentes_disponibles_count,
-        'titulo': 'Combos / Packs',
+        'categorias': Category.objects.filter(is_active=True),
+        'unidades_medida': UnidadMedida.objects.filter(is_active=True),
     }
     return render(request, 'inventario/lista_combos.html', context)
 
 
-# ========================================
-# CREAR
-# ========================================
+# ============================================
+# CREAR PACK (EXACTO COMO PHP)
+# ============================================
 @login_required
-@permiso_requerido('producto_list', 'crear')
 def crear_combo(request):
-    if request.method == 'POST':
-        try:
-            with transaction.atomic():
-                empresa = request.user.fk_empresa
-                nombre = request.POST.get('nombre', '').strip()
-                unidad_medida_id = request.POST.get('unidad_medida')
-                sku = request.POST.get('sku', '').strip()
-
-                if not nombre:
-                    raise ValueError("El nombre del combo es obligatorio.")
-                if not unidad_medida_id:
-                    raise ValueError("La unidad de medida es obligatoria.")
-                if not sku:
-                    raise ValueError("El SKU del combo es obligatorio.")
-                if ProductoVariante.objects.filter(sku=sku).exists():
-                    raise ValueError(f"El SKU '{sku}' ya está en uso.")
-
-                tipo_combo = get_tipo_producto(CODIGO_COMBO)
-
-                producto = Producto.objects.create(
-                    nombre=nombre,
-                    descripcion=request.POST.get('descripcion', ''),
-                    fk_empresa=empresa,
-                    fk_tipo_producto=tipo_combo,
-                    unidad_medida_id=unidad_medida_id,
-                    category_id=request.POST.get('categoria') or None,
-                )
-
-                variante_padre = ProductoVariante.objects.create(
-                    producto=producto,
-                    nombre_variante="Pack",
-                    sku=sku,
-                    codigo_barras=request.POST.get('codigo_barras') or None,
-                    precio_referencial=safe_decimal(request.POST.get('precio_venta')),
-                    costo=0,  # se calcula abajo, suma de componentes
-                    maneja_stock=False,  # combo virtual, no tiene stock propio
-                )
-
-                indices = obtener_indices(request.POST, 'componente', 'tipo')
-                if not indices:
-                    raise ValueError("Un combo necesita al menos un producto componente.")
-
-                costo_total = Decimal('0')
-                componentes_creados = 0
-
-                for i in indices:
-                    tipo_componente = request.POST.get(f'componente_tipo_{i}')  # 'variante' | 'producto'
-                    item_id = request.POST.get(f'componente_id_{i}')
-                    if not item_id:
-                        continue
-
-                    cantidad = safe_decimal(request.POST.get(f'componente_cantidad_{i}'), '1')
-                    if cantidad <= 0:
-                        raise ValueError(f"La cantidad del componente en la fila {i + 1} debe ser mayor a cero.")
-
-                    costo_unitario = safe_decimal(request.POST.get(f'componente_costo_{i}'), '0')
-
-                    if tipo_componente == 'producto':
-                        # Componente "abierto": cualquier variante de este producto,
-                        # el cajero elige cuál al momento de vender.
-                        DetallePack.objects.create(
-                            producto_padre=variante_padre,
-                            producto_id=item_id,
-                            producto_variante=None,
-                            cantidad=cantidad,
-                            costo_unitario=costo_unitario,
-                        )
-                    else:
-                        # Componente fijo: una variante específica siempre.
-                        comp_variante = ProductoVariante.objects.get(id=item_id)
-                        if comp_variante.id == variante_padre.id:
-                            raise ValueError("Un combo no puede incluirse a sí mismo como componente.")
-                        if not costo_unitario:
-                            costo_unitario = comp_variante.costo
-
-                        DetallePack.objects.create(
-                            producto_padre=variante_padre,
-                            producto_variante=comp_variante,
-                            producto=None,
-                            cantidad=cantidad,
-                            costo_unitario=costo_unitario,
-                        )
-
-                    costo_total += cantidad * costo_unitario
-                    componentes_creados += 1
-
-                if componentes_creados == 0:
-                    raise ValueError("Un combo necesita al menos un producto componente.")
-
-                variante_padre.costo = costo_total
-                variante_padre.save(update_fields=['costo'])
-
-                messages.success(request, f'✅ Combo "{nombre}" creado correctamente.')
-
-        except ValueError as e:
-            messages.error(request, f'❌ {e}')
-        except IntegrityError:
-            messages.error(request, '❌ Ya existe un registro con ese SKU.')
-        except Exception as e:
-            messages.error(request, f'❌ Error al crear el combo: {e}')
-
-    return redirect('lista_combos')
-
-@login_required
-@permiso_requerido('producto_list', 'editar')
-def combo_edit(request):
-    if request.method == 'POST':
-        try:
-            with transaction.atomic():
-                empresa = request.user.fk_empresa
-                producto_id = request.POST.get('id')
-                producto = get_object_or_404(
-                    Producto, id=producto_id, fk_tipo_producto__codigo=CODIGO_COMBO, fk_empresa=empresa
-                )
-                variante_padre = producto.variantes.filter(is_active=True).first()
-                if not variante_padre:
-                    raise ValueError("Este combo no tiene una variante activa.")
-
-                nombre = request.POST.get('nombre', '').strip()
-                unidad_medida_id = request.POST.get('unidad_medida')
-                sku = request.POST.get('sku', '').strip()
-
-                if not nombre:
-                    raise ValueError("El nombre del combo es obligatorio.")
-                if not unidad_medida_id:
-                    raise ValueError("La unidad de medida es obligatoria.")
-                if not sku:
-                    raise ValueError("El SKU del combo es obligatorio.")
-                if ProductoVariante.objects.filter(sku=sku).exclude(id=variante_padre.id).exists():
-                    raise ValueError(f"El SKU '{sku}' ya está en uso.")
-
-                producto.nombre = nombre
-                producto.descripcion = request.POST.get('descripcion', '')
-                producto.unidad_medida_id = unidad_medida_id
-                producto.category_id = request.POST.get('categoria') or None
-                producto.save()
-
-                variante_padre.sku = sku
-                variante_padre.codigo_barras = request.POST.get('codigo_barras') or None
-                variante_padre.precio_referencial = safe_decimal(request.POST.get('precio_venta'))
-
-                # --- Componentes existentes: actualizar o eliminar ---
-                costo_total = Decimal('0')
-                componente_ids = request.POST.getlist('componente_existente_id[]')
-                for cid in componente_ids:
-                    detalle = get_object_or_404(DetallePack, id=cid, producto_padre=variante_padre)
-
-                    if request.POST.get(f'eliminar_componente_{cid}') == 'on':
-                        detalle.delete()
-                        continue
-
-                    nueva_cantidad = safe_decimal(request.POST.get(f'cantidad_existente_{cid}'), '1')
-                    if nueva_cantidad <= 0:
-                        raise ValueError("La cantidad de un componente debe ser mayor a cero.")
-                    nuevo_costo = safe_decimal(request.POST.get(f'costo_existente_{cid}'), str(detalle.costo_unitario))
-
-                    detalle.cantidad = nueva_cantidad
-                    detalle.costo_unitario = nuevo_costo
-                    detalle.save()
-
-                    costo_total += nueva_cantidad * nuevo_costo
-
-                # --- Componentes nuevos agregados en la edición ---
-                prefix_nuevos = f'nuevo_componente_{producto.id}'
-                for i in obtener_indices(request.POST, prefix_nuevos, 'variante'):
-                    comp_variante_id = request.POST.get(f'{prefix_nuevos}_variante_{i}')
-                    if not comp_variante_id:
-                        continue
-                    if int(comp_variante_id) == variante_padre.id:
-                        raise ValueError("Un combo no puede incluirse a sí mismo como componente.")
-
-                    cantidad = safe_decimal(request.POST.get(f'{prefix_nuevos}_cantidad_{i}'), '1')
-                    if cantidad <= 0:
-                        raise ValueError(f"La cantidad del componente nuevo en la fila {i + 1} debe ser mayor a cero.")
-
-                    comp_variante = ProductoVariante.objects.get(id=comp_variante_id)
-                    costo_unitario = safe_decimal(
-                        request.POST.get(f'{prefix_nuevos}_costo_{i}'), str(comp_variante.costo)
-                    )
-
-                    DetallePack.objects.create(
-                        producto_padre=variante_padre,
-                        producto_variante=comp_variante,
-                        cantidad=cantidad,
-                        costo_unitario=costo_unitario,
-                    )
-                    costo_total += cantidad * costo_unitario
-
-                if not variante_padre.padre_packs.exists():
-                    raise ValueError("Un combo necesita al menos un producto componente.")
-
-                variante_padre.costo = costo_total
-                variante_padre.save()
-
-                messages.success(request, f'✅ Combo "{nombre}" actualizado correctamente.')
-
-        except ValueError as e:
-            messages.error(request, f'❌ {e}')
-        except IntegrityError:
-            messages.error(request, '❌ Ya existe un registro con ese SKU.')
-        except Exception as e:
-            messages.error(request, f'❌ Error al actualizar el combo: {e}')
-
-    return redirect('lista_combos')
-
-@login_required
-@permiso_requerido('producto_list', 'eliminar')
-def combo_delete(request):
-    if request.method == 'POST':
-        try:
-            empresa = request.user.fk_empresa
-            producto_id = request.POST.get('id')
-            producto = get_object_or_404(
-                Producto, id=producto_id, fk_tipo_producto__codigo=CODIGO_COMBO, fk_empresa=empresa
+    if request.method != 'POST':
+        return redirect('lista_combos')
+    
+    try:
+        with transaction.atomic():
+            # ========= 1. VALIDACIONES =========
+            nombre = request.POST.get('nombre', '').strip()
+            if len(nombre) < 2:
+                messages.error(request, 'El nombre debe tener al menos 2 caracteres')
+                return redirect('lista_combos')
+            
+            precio_venta = Decimal(request.POST.get('precio_venta', '0'))
+            if precio_venta <= 0:
+                messages.error(request, 'El precio de venta debe ser un número positivo')
+                return redirect('lista_combos')
+            
+            precio_costo = Decimal(request.POST.get('precio_costo', '0'))
+            if precio_costo < 0:
+                messages.error(request, 'El precio de costo no puede ser negativo')
+                return redirect('lista_combos')
+            
+            # ========= 2. RECOLECTAR DETALLES =========
+            detalles = []
+            i = 0
+            while True:
+                tipo_key = f'detalle_{i}_tipo'
+                if tipo_key not in request.POST:
+                    break
+                
+                tipo = request.POST.get(tipo_key)
+                cantidad = Decimal(request.POST.get(f'detalle_{i}_cantidad', '1'))
+                precio_unitario = Decimal(request.POST.get(f'detalle_{i}_precio_unitario', '0'))
+                
+                if cantidad <= 0:
+                    raise Exception(f"Cantidad inválida en el detalle #{i+1}")
+                
+                if tipo == 'variante':
+                    # Producto DEFINIDO
+                    variante_id = request.POST.get(f'detalle_{i}_producto_variante_id')
+                    if variante_id:
+                        try:
+                            variante = ProductoVariante.objects.get(id=variante_id, is_active=True)
+                            detalles.append({
+                                'producto_variante_id': variante_id,
+                                'producto_item_id': None,
+                                'cantidad': cantidad,
+                                'precio_unitario': precio_unitario if precio_unitario > 0 else variante.costo
+                            })
+                        except ProductoVariante.DoesNotExist:
+                            raise Exception(f"La variante no existe en el detalle #{i+1}")
+                
+                elif tipo == 'item':
+                    # Producto GENÉRICO
+                    producto_id = request.POST.get(f'detalle_{i}_producto_item_id')
+                    if producto_id:
+                        try:
+                            producto = Producto.objects.get(id=producto_id, is_active=True)
+                            detalles.append({
+                                'producto_variante_id': None,
+                                'producto_item_id': producto_id,
+                                'cantidad': cantidad,
+                                'precio_unitario': precio_unitario
+                            })
+                        except Producto.DoesNotExist:
+                            raise Exception(f"El producto no existe en el detalle #{i+1}")
+                
+                i += 1
+            
+            if not detalles:
+                raise Exception("El pack debe tener al menos un producto")
+            
+            # ========= 3. CREAR PRODUCTO PACK =========
+            tipo_combo = TipoProducto.objects.get(codigo='COMBO-PACK')
+            
+            producto = Producto.objects.create(
+                nombre=nombre,
+                descripcion=request.POST.get('descripcion', ''),
+                fk_empresa=request.user.fk_empresa,
+                fk_tipo_producto=tipo_combo,
+                unidad_medida_id=request.POST.get('unidad_medida'),
+                category_id=request.POST.get('categoria') or None,
+                is_active=True
             )
-            nombre = producto.nombre
-            producto.is_active = False
-            producto.save()
-            producto.variantes.update(is_active=False)
-            messages.success(request, f'✅ Combo "{nombre}" eliminado correctamente.')
-        except Exception as e:
-            messages.error(request, f'❌ Error al eliminar el combo: {e}')
-
+            
+            # ========= 4. CREAR VARIANTE DEL PACK =========
+            codigo = request.POST.get('codigo', '').strip()
+            if not codigo:
+                codigo = generar_codigo_pack()
+            
+            if ProductoVariante.objects.filter(sku=codigo).exists():
+                raise Exception(f"El código '{codigo}' ya existe")
+            
+            variante = ProductoVariante.objects.create(
+                producto=producto,
+                nombre_variante='Única',
+                sku=codigo,
+                codigo_barras=request.POST.get('codigo_barras', ''),
+                precio_referencial=precio_venta,
+                costo=precio_costo,
+                maneja_stock=False,
+                is_active=True
+            )
+            
+            # ========= 5. CREAR DETALLES =========
+            for detalle in detalles:
+                DetallePack.objects.create(
+                    producto_padre=variante,
+                    producto_variante_id=detalle['producto_variante_id'],
+                    producto_id=detalle['producto_item_id'],
+                    cantidad=detalle['cantidad'],
+                    costo_unitario=detalle['precio_unitario']
+                )
+            
+            messages.success(request, f'¡Pack "{nombre}" creado exitosamente con {len(detalles)} productos!')
+            
+    except Exception as e:
+        messages.error(request, str(e))
+    
     return redirect('lista_combos')
+
+
+def generar_codigo_pack():
+    prefix = "PACK-"
+    ultimo = ProductoVariante.objects.filter(sku__startswith=prefix).order_by('-sku').first()
+    numero = int(ultimo.sku.split('-')[1]) + 1 if ultimo else 1
+    return f"{prefix}{str(numero).zfill(4)}"
 
 #=====================================================
 # IMPORTACION DE PRODUCTOS
@@ -3965,9 +3912,113 @@ def traspaso_delete(request):
     return redirect('traspaso_list')
 
 
+def validar_anulacion(registro):
+    """
+    Devuelve (True, None) si se puede anular, o (False, "motivo") si no.
+    Regla: no se puede anular si ya pasó el límite de horas configurado,
+    tomando como referencia el cierre de la caja_turno (si existe y está cerrada)
+    o la fecha de creación del propio registro.
+    """
+    if not registro.is_active:
+        return False, "Este movimiento ya fue anulado anteriormente."
+
+    limite_horas = getattr(settings, "HORAS_LIMITE_ANULACION_MOVIMIENTO", 24)
+
+    # Punto de referencia: cierre de caja si existe, si no, la creación del registro
+    caja = registro.caja_turno
+    if caja is not None and getattr(caja, "fecha_cierre", None):
+        referencia = caja.fecha_cierre
+    else:
+        referencia = registro.created_at
+
+    limite = referencia + timedelta(hours=limite_horas)
+
+    if timezone.now() > limite:
+        return False, (
+            f"No se puede anular: han pasado más de {limite_horas} horas "
+            f"desde el registro/cierre de caja."
+        )
+
+    return True, None
+
 # ====================================================
 #  INGRESO MONETARIO
 # ====================================================
+@login_required
+@permiso_requerido('reporte_ingresos', 'ver')
+def reporte_ingresos(request):
+    ingresos = IngresoMonetario.objects.select_related(
+        "motivo", "usuario", "caja_turno"
+    ).all().order_by("-fecha")
+
+    fecha_inicio = request.GET.get("fecha_inicio")
+    fecha_fin = request.GET.get("fecha_fin")
+    motivo_id = request.GET.get("motivo")
+    usuario_id = request.GET.get("usuario")
+    caja_turno_id = request.GET.get("caja_turno")
+    estado = request.GET.get("estado")
+    q = request.GET.get("q")
+
+    if fecha_inicio:
+        ingresos = ingresos.filter(fecha__date__gte=parse_date(fecha_inicio))
+    if fecha_fin:
+        ingresos = ingresos.filter(fecha__date__lte=parse_date(fecha_fin))
+    if motivo_id:
+        ingresos = ingresos.filter(motivo_id=motivo_id)
+    if usuario_id:
+        ingresos = ingresos.filter(usuario_id=usuario_id)
+    if caja_turno_id:
+        ingresos = ingresos.filter(caja_turno_id=caja_turno_id)
+    if estado == "activos":
+        ingresos = ingresos.filter(is_active=True)
+    elif estado == "anulados":
+        ingresos = ingresos.filter(is_active=False)
+    if q:
+        ingresos = ingresos.filter(observaciones__icontains=q)
+
+    total_general = ingresos.aggregate(total=DjangoSum("monto"))["total"] or 0
+    total_activos = ingresos.filter(is_active=True).aggregate(
+        total=DjangoSum("monto")
+    )["total"] or 0
+    total_anulados = ingresos.filter(is_active=False).aggregate(
+        total=DjangoSum("monto")
+    )["total"] or 0
+
+    paginator = Paginator(ingresos, 25)
+    page = paginator.get_page(request.GET.get("page"))
+    tipos_ingreso = TipoIngreso.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa)
+    contexto = {
+        "ingresos": page,
+        "total_general": total_general,
+        "total_activos": total_activos,
+        "total_anulados": total_anulados,
+        "filtros": request.GET,
+        "tipos_ingreso": tipos_ingreso,
+    }
+    return render(request, "empresa/reporte_ingresos.html", contexto)
+
+@login_required
+@permiso_requerido('reporte_ingresos', 'eliminar')
+def anular_ingreso(request, pk):
+    ingreso = get_object_or_404(IngresoMonetario, pk=pk)
+
+    puede_anular, error = validar_anulacion(ingreso)
+    if not puede_anular:
+        messages.error(request, error)
+        return redirect("reporte_ingresos")
+
+    motivo_anulacion = request.POST.get("motivo_anulacion", "").strip()
+    if not motivo_anulacion:
+        messages.error(request, "Debes indicar el motivo de la anulación.")
+        return redirect("reporte_ingresos")
+
+    ingreso.is_active = False
+    ingreso.motivo_anulacion = motivo_anulacion
+    ingreso.save(update_fields=["is_active", "motivo_anulacion", "updated_at"])
+
+    messages.success(request, "Ingreso anulado correctamente.")
+    return redirect("reporte_ingresos")
+
 @login_required
 def crear_ingreso_monetario(request):
 
@@ -4040,6 +4091,84 @@ def ticket_ingreso_monetario(request, id):
 # ====================================================
 #  EGRESO MONETARIO
 # ====================================================
+@login_required
+@permiso_requerido('reporte_egresos', 'ver')
+def reporte_egresos(request):
+    egresos = EgresoMonetario.objects.select_related(
+        "motivo", "usuario", "caja_turno"
+    ).all().order_by("-fecha")
+
+    # ---- Filtros ----
+    fecha_inicio = request.GET.get("fecha_inicio")
+    fecha_fin = request.GET.get("fecha_fin")
+    motivo_id = request.GET.get("motivo")
+    usuario_id = request.GET.get("usuario")
+    caja_turno_id = request.GET.get("caja_turno")
+    estado = request.GET.get("estado")  # 'activos' / 'anulados' / '' (todos)
+    q = request.GET.get("q")  # búsqueda libre en observaciones
+
+    if fecha_inicio:
+        egresos = egresos.filter(fecha__date__gte=parse_date(fecha_inicio))
+    if fecha_fin:
+        egresos = egresos.filter(fecha__date__lte=parse_date(fecha_fin))
+    if motivo_id:
+        egresos = egresos.filter(motivo_id=motivo_id)
+    if usuario_id:
+        egresos = egresos.filter(usuario_id=usuario_id)
+    if caja_turno_id:
+        egresos = egresos.filter(caja_turno_id=caja_turno_id)
+    if estado == "activos":
+        egresos = egresos.filter(is_active=True)
+    elif estado == "anulados":
+        egresos = egresos.filter(is_active=False)
+    if q:
+        egresos = egresos.filter(observaciones__icontains=q)
+
+    # ---- Totales ----
+    total_general = egresos.aggregate(total=DjangoSum("monto"))["total"] or 0
+    total_activos = egresos.filter(is_active=True).aggregate(
+        total=DjangoSum("monto")
+    )["total"] or 0
+    total_anulados = egresos.filter(is_active=False).aggregate(
+        total=DjangoSum("monto")
+    )["total"] or 0
+
+    # ---- Paginación ----
+    paginator = Paginator(egresos, 25)
+    page = paginator.get_page(request.GET.get("page"))
+    tipos_egreso = TipoEgreso.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa)
+    contexto = {
+        "egresos": page,
+        "total_general": total_general,
+        "total_activos": total_activos,
+        "total_anulados": total_anulados,
+        "filtros": request.GET,
+        "tipos_egreso": tipos_egreso,
+    }
+    return render(request, "empresa/reporte_egresos.html", contexto)
+
+@login_required
+@permiso_requerido('reporte_egresos', 'eliminar')
+def anular_egreso(request, pk):
+    egreso = get_object_or_404(EgresoMonetario, pk=pk)
+
+    puede_anular, error = validar_anulacion(egreso)
+    if not puede_anular:
+        messages.error(request, error)
+        return redirect("reporte_egresos")
+
+    motivo_anulacion = request.POST.get("motivo_anulacion", "").strip()
+    if not motivo_anulacion:
+        messages.error(request, "Debes indicar el motivo de la anulación.")
+        return redirect("reporte_egresos")
+
+    egreso.is_active = False
+    egreso.motivo_anulacion = motivo_anulacion
+    egreso.save(update_fields=["is_active", "motivo_anulacion", "updated_at"])
+
+    messages.success(request, "Egreso anulado correctamente.")
+    return redirect("reporte_egresos")
+
 @login_required
 def crear_egreso_monetario(request):
 
@@ -4191,10 +4320,6 @@ def plan_delete(request):
 #====================================================
 #  CLIENTE
 #====================================================
-from django.http import JsonResponse
-from django.db.models import Q
-import json
-
 @login_required
 def buscar_clientes(request):
     q = request.GET.get('q', '')

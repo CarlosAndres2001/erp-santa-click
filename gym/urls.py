@@ -82,10 +82,11 @@ urlpatterns = [
     path('productos-terminados/eliminar/', views.producto_terminado_delete, name='producto_terminado_delete'),
     path('productos-terminados/importar/', views.importar_productos_terminados, name='importar_productos_terminados'),
     path('productos-terminados/importar/confirmar/', views.importar_productos_terminados_confirmar, name='importar_productos_terminados_confirmar'),
+
     path('combos/', views.lista_combos, name='lista_combos'),
-    path('combos/crear/', views.crear_combo, name='crear_combo'),
-    path('combos/editar/', views.combo_edit, name='combo_edit'),
-    path('combos/eliminar/', views.combo_delete, name='combo_delete'),
+    path('crear-combo/', views.crear_combo, name='crear_combo'),
+    path('api/productos-genericos/', views.obtener_productos_genericos, name='obtener_productos_genericos'),
+    path('api/productos-definidos/', views.obtener_productos_definidos, name='obtener_productos_definidos'),
     
     #=======================
     # INSUMO
@@ -204,6 +205,11 @@ urlpatterns = [
     path('egreso-monetario/crear/', views.crear_egreso_monetario, name='crear_egreso_monetario'),
     path('ingreso-monetario/ticket/<int:id>/', views.ticket_ingreso_monetario, name='ticket_ingreso_monetario'),
     path('egreso-monetario/ticket/<int:id>/', views.ticket_egreso_monetario, name='ticket_egreso_monetario'),
+    path("reportes/egresos/", views.reporte_egresos, name="reporte_egresos"),
+    path("reportes/ingresos/", views.reporte_ingresos, name="reporte_ingresos"),
+    path("egresos/<int:pk>/anular/", views.anular_egreso, name="anular_egreso"),
+    path("ingresos/<int:pk>/anular/", views.anular_ingreso, name="anular_ingreso"),
+    
     # ====================================================
     # PLAN
     # ====================================================

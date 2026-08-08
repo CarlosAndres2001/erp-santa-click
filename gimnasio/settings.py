@@ -141,3 +141,5 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 LOGIN_URL = 'login'
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 100000
+# Límite de tiempo para poder anular un ingreso/egreso (en horas)
+HORAS_LIMITE_ANULACION_MOVIMIENTO = 48  # ajustable: 24hs, 48hs, etc.
