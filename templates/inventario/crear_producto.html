@@ -1,0 +1,585 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Crear Producto{% endblock %}
+
+{% block content %}
+<style>
+    .np-card {
+        background-color: #1a1d23;
+        border: 1px solid #2d3139;
+        border-radius: 12px;
+        padding: 24px;
+        margin-bottom: 24px;
+    }
+
+    .np-card-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #2d3139;
+    }
+
+    .np-card-header .material-symbols-outlined { color: #4edea3; }
+
+    .np-card-header h3 {
+        font-size: 20px;
+        font-weight: 600;
+        margin: 0;
+        color: #dde4dd;
+    }
+
+    .np-hint {
+        color: #86948a;
+        font-size: 14px;
+        margin-bottom: 16px;
+    }
+
+    .np-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 24px;
+    }
+
+    .np-grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+    }
+
+    .np-col-span-2 { grid-column: span 2; }
+
+    @media (max-width: 720px) {
+        .np-grid, .np-grid-3 { grid-template-columns: 1fr; }
+        .np-col-span-2 { grid-column: span 1; }
+    }
+
+    .np-field { display: flex; flex-direction: column; gap: 8px; }
+
+    .np-field label {
+        font-size: 14px;
+        color: #dde4dd;
+        font-weight: 500;
+    }
+
+    .np-field input[type="text"],
+    .np-field input[type="number"],
+    .np-field input[type="file"],
+    .np-field textarea {
+        background-color: #0f1115;
+        border: 1px solid #2d3139;
+        color: #dde4dd;
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-size: 16px;
+        width: 100%;
+        font-family: inherit;
+    }
+
+    .np-field input[type="file"] { padding: 6px 12px; font-size: 14px; }
+
+    .np-field textarea { resize: none; }
+
+    .np-field input:focus,
+    .np-field textarea:focus,
+    .np-select-wrap select:focus {
+        outline: none;
+        border-color: #10b981;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    }
+
+    .np-text-right { text-align: right; }
+
+    /* Select bonito */
+    .np-select-wrap { position: relative; }
+
+    .np-select-wrap select {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        width: 100%;
+        background-color: #0f1115;
+        border: 1px solid #2d3139;
+        color: #dde4dd;
+        border-radius: 8px;
+        padding: 10px 40px 10px 16px;
+        font-size: 16px;
+        cursor: pointer;
+        font-family: inherit;
+    }
+
+    .np-select-wrap::after {
+        content: "▾";
+        position: absolute;
+        right: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #86948a;
+        pointer-events: none;
+        font-size: 14px;
+    }
+
+    /* Pills visibilidad */
+    .np-pills {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .np-pill {
+        cursor: pointer;
+        border: 1px solid #2d3139;
+        background-color: #0f1115;
+        color: #86948a;
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        transition: all .15s ease;
+        user-select: none;
+    }
+
+    .np-pill.activa {
+        border-color: #10b981;
+        background-color: rgba(16, 185, 129, 0.12);
+        color: #4edea3;
+    }
+
+    /* Toggle switch */
+    .np-toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 12px;
+        border-bottom: 1px solid #2d3139;
+        margin-bottom: 16px;
+    }
+
+    .np-toggle-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .np-toggle-label .np-toggle-text {
+        font-size: 14px;
+        color: #86948a;
+    }
+
+    .np-switch {
+        position: relative;
+        width: 40px;
+        height: 24px;
+        background-color: #2d3139;
+        border-radius: 999px;
+        transition: background-color .15s ease;
+        flex-shrink: 0;
+    }
+
+    .np-switch::before {
+        content: "";
+        position: absolute;
+        left: 4px;
+        top: 4px;
+        width: 16px;
+        height: 16px;
+        background-color: #dde4dd;
+        border-radius: 50%;
+        transition: transform .15s ease;
+    }
+
+    .np-toggle-label input[type="checkbox"] { display: none; }
+    .np-toggle-label input[type="checkbox"]:checked + .np-switch { background-color: #10b981; }
+    .np-toggle-label input[type="checkbox"]:checked + .np-switch::before { transform: translateX(16px); }
+
+    .np-checkbox-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-top: 24px;
+    }
+
+    .np-checkbox-row input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: #10b981;
+    }
+
+    .np-checkbox-row label { font-size: 14px; color: #dde4dd; margin: 0; }
+
+    /* Fila variante */
+    .np-fila-variante {
+        border: 1px solid #2d3139;
+        border-radius: 8px;
+        padding: 16px;
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 16px;
+        position: relative;
+        margin-bottom: 16px;
+    }
+
+    @media (max-width: 900px) {
+        .np-fila-variante { grid-template-columns: 1fr 1fr; }
+    }
+
+    .np-fila-variante .np-col-span-2 { grid-column: span 2; }
+
+    .np-fila-variante label {
+        font-size: 12px;
+        color: #86948a;
+        display: block;
+        margin-bottom: 4px;
+    }
+
+    .np-btn-eliminar-fila {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: none;
+        border: none;
+        color: #86948a;
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+    }
+
+    .np-btn-eliminar-fila:hover { color: #ffb4ab; }
+
+    .np-btn-agregar-variante {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: none;
+        border: none;
+        color: #4edea3;
+        font-size: 14px;
+        cursor: pointer;
+        padding: 0;
+    }
+
+    .np-btn-agregar-variante:hover { opacity: .8; }
+
+    .np-hidden { display: none !important; }
+
+    .np-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 16px;
+        padding-top: 8px;
+    }
+
+    .np-btn {
+        padding: 10px 32px;
+        border-radius: 8px;
+        font-size: 14px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: none;
+    }
+
+    .np-btn-cancel {
+        border: 1px solid #3c4a42;
+        color: #dde4dd;
+        background-color: transparent;
+    }
+
+    .np-btn-cancel:hover { background-color: #1a1d23; }
+
+    .np-btn-save {
+        background-color: #10b981;
+        color: #003824;
+        font-weight: 700;
+    }
+
+    .np-btn-save:hover { opacity: .9; }
+
+    .np-alert {
+        margin-bottom: 16px;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+    }
+
+    .np-alert-success {
+        background-color: rgba(78, 222, 163, 0.1);
+        color: #4edea3;
+        border: 1px solid rgba(78, 222, 163, 0.3);
+    }
+
+    .np-alert-error {
+        background-color: rgba(255, 180, 171, 0.1);
+        color: #ffb4ab;
+        border: 1px solid rgba(255, 180, 171, 0.3);
+    }
+
+    .np-alert-info {
+        background-color: #1a1d23;
+        color: #dde4dd;
+        border: 1px solid #2d3139;
+    }
+</style>
+<div style="max-width: 900px; margin: 0 auto; padding: 24px;">
+
+    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:24px;">
+        <div>
+            <h2 style="font-size:28px; font-weight:600; margin:0; color:#dde4dd;">Crear Nuevo Producto</h2>
+            <p style="color:#86948a; margin-top:8px;">Añade un nuevo artículo terminado al catálogo.</p>
+        </div>
+        <a href="{% url 'producto_list' %}" style="color:#86948a; text-decoration:none; font-size:14px;">
+            ← Volver a la lista
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="np-alert {% if message.tags == 'success' %}np-alert-success{% elif message.tags == 'error' %}np-alert-error{% else %}np-alert-info{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" id="formProducto">
+        {% csrf_token %}
+
+        <!-- Información General -->
+        <section class="np-card">
+            <div class="np-card-header">
+                <span class="material-symbols-outlined">info</span>
+                <h3>Información General</h3>
+            </div>
+            <div class="np-grid">
+                <div class="np-field np-col-span-2">
+                    <label for="nombre">Nombre del Producto *</label>
+                    <input type="text" id="nombre" name="nombre" placeholder="Ej. Harina Pan 1kg" required>
+                </div>
+
+                <div class="np-field">
+                    <label for="categoria">Categoría</label>
+                    <div class="np-select-wrap">
+                        <select id="categoria" name="categoria">
+                            <option value="">Selecciona una categoría...</option>
+                            {% for cat in categorias %}
+                                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="np-field">
+                    <label for="unidad_medida">Unidad de Medida *</label>
+                    <div class="np-select-wrap">
+                        <select id="unidad_medida" name="unidad_medida" required>
+                            <option value="">Selecciona...</option>
+                            {% for u in unidades_medida %}
+                                <option value="{{ u.id }}">{{ u.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="np-field np-col-span-2">
+                    <label for="descripcion">Descripción Breve</label>
+                    <textarea id="descripcion" name="descripcion" rows="2" placeholder="Detalles del producto..."></textarea>
+                </div>
+
+                <div class="np-field">
+                    <label for="unidades_por_caja">Unidades por Caja</label>
+                    <input type="number" id="unidades_por_caja" name="unidades_por_caja" min="0" placeholder="0">
+                </div>
+
+                <div class="np-field">
+                    <label for="tara_por_caja">Tara por Caja</label>
+                    <input type="number" id="tara_por_caja" name="tara_por_caja" step="0.01" placeholder="0.00">
+                </div>
+            </div>
+        </section>
+
+        <!-- Visibilidad -->
+        <section class="np-card">
+            <div class="np-card-header">
+                <span class="material-symbols-outlined">visibility</span>
+                <h3>Visibilidad</h3>
+            </div>
+            <p class="np-hint">
+                ¿Dónde debe aparecer este producto? Un insumo como la harina normalmente solo se ve en
+                <strong style="color:#dde4dd;">Compras</strong>, mientras un producto terminado como una
+                gaseosa se ve en <strong style="color:#dde4dd;">ambos</strong>.
+            </p>
+
+            <div class="np-grid" style="align-items:end;">
+                <div class="np-field">
+                    <label for="visibilidad">Producto visible en *</label>
+                    <div class="np-select-wrap">
+                        <select id="visibilidad" name="visibilidad" required>
+                            <option value="ambos" selected>Ventas y Compras (Ambos)</option>
+                            <option value="venta">Solo Ventas</option>
+                            <option value="compra">Solo Compras</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="np-pills" id="visibilidadPills">
+                    <span class="np-pill activa" data-valor="ambos">↔ Ambos</span>
+                    <span class="np-pill" data-valor="venta">🛒 Ventas</span>
+                    <span class="np-pill" data-valor="compra">📦 Compras</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Variantes -->
+        <section class="np-card">
+            <div class="np-toggle-row">
+                <div class="np-card-header" style="border:none; margin:0; padding:0;">
+                    <span class="material-symbols-outlined">style</span>
+                    <h3>Variantes</h3>
+                </div>
+                <label class="np-toggle-label">
+                    <span class="np-toggle-text">¿Tiene variantes?</span>
+                    <input type="checkbox" id="tiene_variantes" name="tiene_variantes">
+                    <span class="np-switch"></span>
+                </label>
+            </div>
+
+            <!-- Bloque SKU único -->
+            <div id="bloqueSinVariantes" class="np-grid-3">
+                <div class="np-field">
+                    <label>SKU *</label>
+                    <input type="text" name="sku_base" placeholder="EJ-12345">
+                </div>
+                <div class="np-field">
+                    <label>Código de Barras</label>
+                    <input type="text" name="codigo_barras_base">
+                </div>
+                <div class="np-field">
+                    <label>Precio</label>
+                    <input type="number" step="0.01" name="precio_base" class="np-text-right" placeholder="0.00">
+                </div>
+                <div class="np-field">
+                    <label>Costo</label>
+                    <input type="number" step="0.01" name="costo_base" class="np-text-right" placeholder="0.00">
+                </div>
+                <div class="np-field">
+                    <label>Foto</label>
+                    <input type="file" name="foto_base" accept="image/*">
+                </div>
+                <div class="np-checkbox-row">
+                    <input type="checkbox" name="maneja_stock_base" id="maneja_stock_base">
+                    <label for="maneja_stock_base">Maneja stock</label>
+                </div>
+            </div>
+
+            <!-- Bloque con variantes -->
+            <div id="bloqueVariantes" class="np-hidden">
+                <div id="filasVariantes"></div>
+                <button type="button" id="btnAgregarVariante" class="np-btn-agregar-variante">
+                    + Agregar variante
+                </button>
+            </div>
+        </section>
+
+        <div class="np-actions">
+            <a href="{% url 'producto_list' %}" class="np-btn np-btn-cancel">Cancelar</a>
+            <button type="submit" class="np-btn np-btn-save">Guardar Producto</button>
+        </div>
+    </form>
+</div>
+
+<!-- Template de fila de variante -->
+<template id="templateFilaVariante">
+    <div class="np-fila-variante">
+        <div class="np-col-span-2">
+            <label>Nombre variante</label>
+            <input type="text" data-field="nombre" placeholder="Ej. Rojo / M">
+        </div>
+        <div>
+            <label>SKU *</label>
+            <input type="text" data-field="sku" placeholder="EJ-001">
+        </div>
+        <div>
+            <label>Código de barras</label>
+            <input type="text" data-field="codigo_barras">
+        </div>
+        <div>
+            <label>Precio</label>
+            <input type="number" step="0.01" data-field="precio" class="np-text-right" placeholder="0.00">
+        </div>
+        <div>
+            <label>Costo</label>
+            <input type="number" step="0.01" data-field="costo" class="np-text-right" placeholder="0.00">
+        </div>
+        <div class="np-col-span-2">
+            <label>Foto</label>
+            <input type="file" data-field="foto" accept="image/*">
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" data-field="maneja_stock">
+            <label style="margin:0;">Maneja stock</label>
+        </div>
+        <button type="button" class="np-btn-eliminar-fila">✕</button>
+    </div>
+</template>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const selectVisibilidad = document.getElementById('visibilidad');
+    const pills = document.querySelectorAll('.np-pill');
+
+    function actualizarPills(valor) {
+        pills.forEach(p => p.classList.toggle('activa', p.dataset.valor === valor));
+    }
+
+    selectVisibilidad.addEventListener('change', () => actualizarPills(selectVisibilidad.value));
+    pills.forEach(p => {
+        p.addEventListener('click', () => {
+            selectVisibilidad.value = p.dataset.valor;
+            actualizarPills(p.dataset.valor);
+        });
+    });
+
+    const chkVariantes = document.getElementById('tiene_variantes');
+    const bloqueSin = document.getElementById('bloqueSinVariantes');
+    const bloqueCon = document.getElementById('bloqueVariantes');
+    const filasVariantes = document.getElementById('filasVariantes');
+    const template = document.getElementById('templateFilaVariante');
+    const btnAgregar = document.getElementById('btnAgregarVariante');
+
+    let contadorVariante = 0;
+
+    function agregarFilaVariante() {
+        const nodo = template.content.cloneNode(true);
+        const fila = nodo.querySelector('.np-fila-variante');
+        const idx = contadorVariante++;
+
+        fila.querySelectorAll('[data-field]').forEach(input => {
+            input.name = `variante_${input.dataset.field}_${idx}`;
+        });
+
+        fila.querySelector('.np-btn-eliminar-fila').addEventListener('click', () => fila.remove());
+        filasVariantes.appendChild(fila);
+    }
+
+    btnAgregar.addEventListener('click', agregarFilaVariante);
+
+    chkVariantes.addEventListener('change', function () {
+        const activo = this.checked;
+        bloqueSin.classList.toggle('np-hidden', activo);
+        bloqueCon.classList.toggle('np-hidden', !activo);
+        bloqueSin.querySelectorAll('input, select').forEach(el => el.disabled = activo);
+
+        if (activo && filasVariantes.children.length === 0) {
+            agregarFilaVariante();
+        }
+    });
+});
+</script>
+{% endblock %}

@@ -1,62 +1,622 @@
 {% extends 'base.html' %}
 {% load static %}
-
+{% block title %}Productos{% endblock %}
 {% block content %}
-<div class="container mt-4">
 
-    <h2>
-        <i class="bi bi-bag-check-fill me-2 text-primary"></i> Productos Terminados
-    </h2>
+<div class="container-fluid mt-4 px-4">
 
-    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#createProductoModal">
-        <i class="bi bi-plus-lg"></i> Nuevo Producto
-    </button>
+    <!-- ========================================================= -->
+    <!-- ENCABEZADO -->
+    <!-- ========================================================= -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
 
-    <table class="table table-bordered table-striped align-middle">
-        <thead class="table-dark">
-            <tr>
-                <th><i class="bi bi-code-slash me-1"></i> Código</th>
-                <th><i class="bi bi-box-fill"></i> Nombre</th>
-                <th><i class="bi bi-tags"></i> Categoría</th>
-                <th><i class="bi bi-rulers"></i> Unidad</th>
-                <th class="text-center"><i class="bi bi-diagram-3-fill"></i> Variantes</th>
-                <th class="text-center"><i class="bi bi-gear-fill"></i> Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for p in productos %}
-            <tr>
-                <td><i class="bi bi-box me-1 text-primary"></i> {{ p.variantes.first.sku }}</td>
-                <td>{{ p.nombre }}</td>
-                <td>{{ p.category.name|default:"—" }}</td>
-                <td>{{ p.unidad_medida.abreviatura|default:p.unidad_medida.nombre }}</td>
-                <td class="text-center">
-                    <span class="badge bg-info text-dark">{{ p.variantes.count }}</span>
-                </td>
-                <td class="text-center">
-                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editProductoModal-{{ p.id }}">
-                        <i class="bi bi-pencil-fill"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger"
-                        data-bs-toggle="modal"
-                        data-bs-target="#deleteProductoModal"
-                        data-id="{{ p.id }}"
-                        data-nombre="{{ p.nombre|escapejs }}">
-                        <i class="bi bi-trash-fill"></i>
-                    </button>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="5" class="text-center">
-                    <i class="bi bi-exclamation-circle text-warning"></i> No hay productos terminados registrados.
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-bag-check-fill me-2 text-primary"></i>
+                Productos Terminados
+            </h2>
+
+            <div class="text-muted small">
+                Gestión y administración de productos terminados
+            </div>
+        </div>
+
+        <div>
+            <a href="{% url 'crear_producto_terminado' %}"
+               class="btn btn-primary shadow-sm">
+                <i class="bi bi-plus-lg me-1"></i>
+                Nuevo Producto
+            </a>
+        </div>
+
+    </div>
+
+
+    <!-- ========================================================= -->
+    <!-- PANEL DE FILTROS / BUSCADOR -->
+    <!-- ========================================================= -->
+    <div class="card border-0 shadow-sm mb-4">
+
+        <div class="card-body">
+
+            <form method="get"
+                  action=""
+                  id="formBusqueda">
+
+                <div class="row g-3 align-items-end">
+
+                    <!-- BUSCADOR -->
+                    <div class="col-lg-6 col-md-8">
+
+                        <label for="inputBusqueda"
+                               class="form-label fw-semibold">
+
+                            <i class="bi bi-search me-1"></i>
+                            Buscar producto
+
+                        </label>
+
+                        <div class="input-group">
+
+                            <span class="input-group-text bg-white">
+                                <i class="bi bi-search text-muted"></i>
+                            </span>
+
+                            <input
+                                type="text"
+                                name="q"
+                                id="inputBusqueda"
+                                class="form-control"
+                                placeholder="Buscar por nombre, SKU, código de barras o categoría..."
+                                value="{{ busqueda|default:'' }}"
+                                autocomplete="off"
+                            >
+
+                            {% if busqueda %}
+                                <a href="{% url 'producto_list' %}"
+                                   class="btn btn-outline-secondary"
+                                   title="Limpiar búsqueda">
+
+                                    <i class="bi bi-x-lg"></i>
+
+                                </a>
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- BOTÓN BUSCAR -->
+                    <div class="col-lg-auto col-md-4">
+
+                        <button type="submit"
+                                class="btn btn-dark w-100">
+
+                            <i class="bi bi-search me-1"></i>
+                            Buscar
+
+                        </button>
+
+                    </div>
+
+
+                    <!-- EXPORTAR -->
+                    <div class="col-lg-auto ms-lg-auto">
+
+                        <button type="button"
+                                id="btnExportarExcel"
+                                class="btn btn-outline-success w-100">
+
+                            <i class="bi bi-file-earmark-excel me-1"></i>
+                            Exportar Excel
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+
+    <!-- ========================================================= -->
+    <!-- INFORMACIÓN DE RESULTADOS -->
+    <!-- ========================================================= -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+
+        <div class="text-muted small">
+
+            {% if paginator.count > 0 %}
+
+                Mostrando
+                <strong>
+                    {{ page_obj.start_index }}
+                </strong>
+                -
+                <strong>
+                    {{ page_obj.end_index }}
+                </strong>
+
+                de
+                <strong>
+                    {{ paginator.count }}
+                </strong>
+
+                productos
+
+            {% else %}
+
+                No existen productos para mostrar.
+
+            {% endif %}
+
+            {% if busqueda %}
+
+                <span class="ms-2">
+                    · Búsqueda:
+                    <strong>"{{ busqueda }}"</strong>
+                </span>
+
+            {% endif %}
+
+        </div>
+
+
+        <div class="text-muted small">
+
+            <i class="bi bi-layers me-1"></i>
+
+            {{ paginator.num_pages }}
+            {% if paginator.num_pages == 1 %}
+                página
+            {% else %}
+                páginas
+            {% endif %}
+
+        </div>
+
+    </div>
+
+
+    <!-- ========================================================= -->
+    <!-- TABLA -->
+    <!-- ========================================================= -->
+    <div class="card border-0 shadow-sm">
+
+        <div class="card-body p-0">
+
+            <div class="table-responsive">
+
+                <table
+                    id="tablaProductos"
+                    class="table table-hover align-middle mb-0">
+
+                    <thead class="table-dark">
+
+                        <tr>
+
+                            <th class="px-3">
+                                <i class="bi bi-upc-scan me-1"></i>
+                                Código
+                            </th>
+
+                            <th>
+                                <i class="bi bi-box-fill me-1"></i>
+                                Producto
+                            </th>
+
+                            <th>
+                                <i class="bi bi-tags me-1"></i>
+                                Categoría
+                            </th>
+
+                            <th>
+                                <i class="bi bi-rulers me-1"></i>
+                                Unidad
+                            </th>
+
+                            <th class="text-center">
+                                <i class="bi bi-diagram-3-fill me-1"></i>
+                                Variantes
+                            </th>
+
+                            <th class="text-center px-3">
+                                <i class="bi bi-gear-fill me-1"></i>
+                                Acciones
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+
+                    <tbody>
+
+                        {% for p in productos %}
+
+                        <tr>
+
+                            <!-- CÓDIGO -->
+                            <td class="px-3">
+
+                                {% with variante=p.variantes.all|first %}
+
+                                    {% if variante and variante.sku %}
+
+                                        <span class="font-monospace text-primary fw-semibold">
+                                            {{ variante.sku }}
+                                        </span>
+
+                                    {% else %}
+
+                                        <span class="text-muted">
+                                            —
+                                        </span>
+
+                                    {% endif %}
+
+                                {% endwith %}
+
+                            </td>
+
+
+                            <!-- PRODUCTO -->
+                            <td>
+
+                                <div class="fw-semibold">
+                                    {{ p.nombre }}
+                                </div>
+
+                                <div class="small text-muted">
+                                    ID #{{ p.id }}
+                                </div>
+
+                            </td>
+
+
+                            <!-- CATEGORÍA -->
+                            <td>
+
+                                {% if p.category %}
+
+                                    <span class="badge bg-light text-dark border">
+                                        <i class="bi bi-tag me-1"></i>
+                                        {{ p.category.name }}
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="text-muted">
+                                        —
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+
+                            <!-- UNIDAD -->
+                            <td>
+
+                                {% if p.unidad_medida %}
+
+                                    {{ p.unidad_medida.abreviatura|default:p.unidad_medida.nombre }}
+
+                                {% else %}
+
+                                    <span class="text-muted">
+                                        —
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+
+                            <!-- VARIANTES -->
+                            <td class="text-center">
+
+                                {% with cantidad=p.variantes.all|length %}
+
+                                    {% if cantidad > 0 %}
+
+                                        <span class="badge rounded-pill bg-info text-dark px-3">
+                                            {{ cantidad }}
+                                        </span>
+
+                                    {% else %}
+
+                                        <span class="badge rounded-pill bg-secondary px-3">
+                                            0
+                                        </span>
+
+                                    {% endif %}
+
+                                {% endwith %}
+
+                            </td>
+
+
+                            <!-- ACCIONES -->
+                            <td class="text-center px-3">
+
+                                <div class="btn-group"
+                                     role="group">
+
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-warning"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#editProductoModal-{{ p.id }}"
+                                        title="Editar producto">
+
+                                        <i class="bi bi-pencil-fill"></i>
+
+                                    </button>
+
+
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#deleteProductoModal"
+                                        data-id="{{ p.id }}"
+                                        data-nombre="{{ p.nombre|escapejs }}"
+                                        title="Eliminar producto">
+
+                                        <i class="bi bi-trash-fill"></i>
+
+                                    </button>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                        {% empty %}
+
+                        <tr>
+
+                            <td colspan="6"
+                                class="text-center py-5">
+
+                                <div class="text-muted">
+
+                                    <i class="bi bi-inbox display-5 d-block mb-3"></i>
+
+                                    <h5 class="mb-1">
+                                        No se encontraron productos
+                                    </h5>
+
+                                    <div class="small">
+
+                                        {% if busqueda %}
+
+                                            No existen productos que coincidan
+                                            con "{{ busqueda }}".
+
+                                        {% else %}
+
+                                            No hay productos terminados registrados.
+
+                                        {% endif %}
+
+                                    </div>
+
+                                </div>
+
+                            </td>
+
+                        </tr>
+
+                        {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+
+        <!-- ===================================================== -->
+        <!-- PAGINACIÓN -->
+        <!-- ===================================================== -->
+
+        {% if is_paginated %}
+
+        <div class="card-footer bg-white border-top py-3">
+
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+
+                <!-- INFORMACIÓN -->
+                <div class="small text-muted">
+
+                    Página
+                    <strong>{{ page_obj.number }}</strong>
+                    de
+                    <strong>{{ paginator.num_pages }}</strong>
+
+                </div>
+
+
+                <!-- PAGINADOR -->
+                <nav aria-label="Paginación de productos">
+
+                    <ul class="pagination pagination-sm mb-0">
+
+
+                        <!-- PRIMERA -->
+                        {% if page_obj.has_previous %}
+
+                            <li class="page-item">
+
+                                <a class="page-link"
+                                   href="?page=1{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}"
+                                   title="Primera página">
+
+                                    <i class="bi bi-chevron-double-left"></i>
+
+                                </a>
+
+                            </li>
+
+                        {% else %}
+
+                            <li class="page-item disabled">
+
+                                <span class="page-link">
+                                    <i class="bi bi-chevron-double-left"></i>
+                                </span>
+
+                            </li>
+
+                        {% endif %}
+
+
+                        <!-- ANTERIOR -->
+                        {% if page_obj.has_previous %}
+
+                            <li class="page-item">
+
+                                <a class="page-link"
+                                   href="?page={{ page_obj.previous_page_number }}{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}">
+
+                                    <i class="bi bi-chevron-left"></i>
+                                    Anterior
+
+                                </a>
+
+                            </li>
+
+                        {% else %}
+
+                            <li class="page-item disabled">
+
+                                <span class="page-link">
+
+                                    <i class="bi bi-chevron-left"></i>
+                                    Anterior
+
+                                </span>
+
+                            </li>
+
+                        {% endif %}
+
+
+                        <!-- NÚMEROS -->
+                        {% for num in paginator.page_range %}
+
+                            {% if num == page_obj.number %}
+
+                                <li class="page-item active">
+
+                                    <span class="page-link">
+                                        {{ num }}
+                                    </span>
+
+                                </li>
+
+                            {% elif num >= page_obj.number|add:'-2'
+                                  and num <= page_obj.number|add:'2' %}
+
+                                <li class="page-item">
+
+                                    <a class="page-link"
+                                       href="?page={{ num }}{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}">
+
+                                        {{ num }}
+
+                                    </a>
+
+                                </li>
+
+                            {% endif %}
+
+                        {% endfor %}
+
+
+                        <!-- SIGUIENTE -->
+                        {% if page_obj.has_next %}
+
+                            <li class="page-item">
+
+                                <a class="page-link"
+                                   href="?page={{ page_obj.next_page_number }}{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}">
+
+                                    Siguiente
+                                    <i class="bi bi-chevron-right"></i>
+
+                                </a>
+
+                            </li>
+
+                        {% else %}
+
+                            <li class="page-item disabled">
+
+                                <span class="page-link">
+
+                                    Siguiente
+                                    <i class="bi bi-chevron-right"></i>
+
+                                </span>
+
+                            </li>
+
+                        {% endif %}
+
+
+                        <!-- ÚLTIMA -->
+                        {% if page_obj.has_next %}
+
+                            <li class="page-item">
+
+                                <a class="page-link"
+                                   href="?page={{ paginator.num_pages }}{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}"
+                                   title="Última página">
+
+                                    <i class="bi bi-chevron-double-right"></i>
+
+                                </a>
+
+                            </li>
+
+                        {% else %}
+
+                            <li class="page-item disabled">
+
+                                <span class="page-link">
+
+                                    <i class="bi bi-chevron-double-right"></i>
+
+                                </span>
+
+                            </li>
+
+                        {% endif %}
+
+                    </ul>
+
+                </nav>
+
+            </div>
+
+        </div>
+
+        {% endif %}
+
+    </div>
+
 </div>
-
 <!-- ===== PLANTILLA (oculta) DE FILA DE VARIANTE NUEVA ===== -->
 <template id="tpl-variante-nueva">
     <tr class="fila-variante">

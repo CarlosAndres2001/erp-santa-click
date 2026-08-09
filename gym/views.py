@@ -1078,21 +1078,80 @@ def crear_variantes_desde_form(producto, post, files, prefix='variante'):
 @permiso_requerido('producto_list', 'ver')
 def producto_list(request):
     empresa = request.user.sucursal.fk_empresa
-    productos = (
+
+    # ==============================
+    # BUSCADOR
+    # ==============================
+    busqueda = request.GET.get('q', '').strip()
+
+    productos_queryset = (
         Producto.objects
-        .filter(fk_tipo_producto__codigo=CODIGO_TERMINADO, is_active=True, fk_empresa=empresa)
-        .select_related('unidad_medida', 'category')
-        .prefetch_related('variantes')
-        .order_by('nombre')
+        .filter(
+            fk_tipo_producto__codigo=CODIGO_TERMINADO,
+            is_active=True,
+            fk_empresa=empresa
+        )
+        .select_related(
+            'unidad_medida',
+            'category'
+        )
+        .prefetch_related(
+            'variantes'
+        )
+        .order_by('nombre', 'id')
     )
+
+    # Aplicar búsqueda
+    if busqueda:
+        productos_queryset = productos_queryset.filter(
+            Q(nombre__icontains=busqueda) |
+            Q(category__name__icontains=busqueda) |
+            Q(variantes__sku__icontains=busqueda) |
+            Q(variantes__codigo_barras__icontains=busqueda)
+        ).distinct()
+
+    # ==============================
+    # PAGINACIÓN
+    # ==============================
+    paginator = Paginator(productos_queryset, 100)
+
+    page_number = request.GET.get('page')
+
+    productos = paginator.get_page(page_number)
+
+    # ==============================
+    # CONTEXTO
+    # ==============================
     context = {
         'productos': productos,
-        'unidades_medida': UnidadMedida.objects.filter(is_active=True, fk_empresa=empresa),
-        'categorias': Category.objects.filter(is_active=True, fk_empresa=empresa),
+
+        'unidades_medida': UnidadMedida.objects.filter(
+            is_active=True,
+            fk_empresa=empresa
+        ),
+
+        'categorias': Category.objects.filter(
+            is_active=True,
+            fk_empresa=empresa
+        ),
+
         'titulo': 'Productos Terminados',
+
+        # Paginación
+        'paginator': paginator,
+        'page_obj': productos,
+        'is_paginated': productos.has_other_pages(),
+
+        # Buscador
+        'busqueda': busqueda,
     }
-    return render(request, 'inventario/lista_productos.html', context)
- 
+
+    return render(
+        request,
+        'inventario/lista_productos.html',
+        context
+    )
+    
 @login_required
 @permiso_requerido('producto_list', 'crear')
 def crear_producto_terminado(request):
@@ -1102,7 +1161,10 @@ def crear_producto_terminado(request):
                 empresa = request.user.sucursal.fk_empresa
                 nombre = request.POST.get('nombre', '').strip()
                 unidad_medida_id = request.POST.get('unidad_medida')
- 
+                visibilidad = request.POST.get('visibilidad', 'ambos')  # 'venta' | 'compra' | 'ambos'
+
+                if visibilidad not in ('venta', 'compra', 'ambos'):
+                    raise ValueError("Selecciona dónde estará visible el producto.")
                 if not nombre:
                     raise ValueError("El nombre del producto es obligatorio.")
                 if not unidad_medida_id:
@@ -1119,6 +1181,8 @@ def crear_producto_terminado(request):
                     category_id=request.POST.get('categoria') or None,
                     unidades_por_caja=int(request.POST.get('unidades_por_caja', 0) or 0),
                     tara_por_caja=safe_decimal(request.POST.get('tara_por_caja')),
+                    visible_venta=visibilidad in ('venta', 'ambos'),
+                    visible_compra=visibilidad in ('compra', 'ambos'),
                 )
  
                 tiene_variantes = request.POST.get('tiene_variantes') == 'on'
@@ -1148,6 +1212,7 @@ def crear_producto_terminado(request):
                     )
  
                 messages.success(request, f'✅ Producto "{nombre}" creado correctamente.')
+                return redirect('producto_list')  # Redirige a la misma página para crear otro producto  
  
         except ValueError as e:
             messages.error(request, f'❌ {e}')
@@ -1156,7 +1221,10 @@ def crear_producto_terminado(request):
         except Exception as e:
             messages.error(request, f'❌ Error al crear el producto: {e}')
  
-    return redirect('producto_list')
+    return render(request, 'inventario/crear_producto.html', {
+        'unidades_medida': UnidadMedida.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa),
+        'categorias': Category.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa),
+    })
  
 @login_required
 @permiso_requerido('producto_list', 'editar')

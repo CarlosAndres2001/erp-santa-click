@@ -284,6 +284,8 @@ class Producto(models.Model):
     tara_por_caja = models.DecimalField(max_digits=6, decimal_places=2, default=0)  # ej: 2.00 kg
     is_active = models.BooleanField(default=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
+    visible_venta = models.BooleanField(default=True)
+    visible_compra = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     class Meta:
