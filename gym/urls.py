@@ -78,7 +78,8 @@ urlpatterns = [
     # =======================
     path('productos-terminados/', views.producto_list, name='producto_list'),
     path('productos-terminados/crear/', views.crear_producto_terminado, name='crear_producto_terminado'),
-    path('productos-terminados/editar/', views.producto_terminado_edit, name='producto_terminado_edit'),
+    #path('productos-terminados/editar/', views.producto_terminado_edit, name='producto_terminado_edit'),
+    path('productos/variante/<int:variante_id>/editar/', views.producto_variante_edit, name='producto_terminado_edit'),
     path('productos-terminados/eliminar/', views.producto_terminado_delete, name='producto_terminado_delete'),
     path('productos-terminados/importar/', views.importar_productos_terminados, name='importar_productos_terminados'),
     path('productos-terminados/importar/confirmar/', views.importar_productos_terminados_confirmar, name='importar_productos_terminados_confirmar'),

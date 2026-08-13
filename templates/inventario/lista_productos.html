@@ -5,863 +5,249 @@
 
 <div class="container-fluid mt-4 px-4">
 
-    <!-- ========================================================= -->
     <!-- ENCABEZADO -->
-    <!-- ========================================================= -->
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-
         <div>
             <h2 class="fw-bold mb-1">
                 <i class="bi bi-bag-check-fill me-2 text-primary"></i>
                 Productos Terminados
             </h2>
-
-            <div class="text-muted small">
-                Gestión y administración de productos terminados
-            </div>
+            <div class="ee-muted">Gestión y administración de productos terminados</div>
         </div>
-
-        <div>
-            <a href="{% url 'crear_producto_terminado' %}"
-               class="btn btn-primary shadow-sm">
-                <i class="bi bi-plus-lg me-1"></i>
-                Nuevo Producto
-            </a>
-        </div>
-
+        <a href="{% url 'crear_producto_terminado' %}" class="btn btn-primary shadow-sm">
+            <i class="bi bi-plus-lg me-1"></i> Nuevo Producto
+        </a>
     </div>
 
-
-    <!-- ========================================================= -->
-    <!-- PANEL DE FILTROS / BUSCADOR -->
-    <!-- ========================================================= -->
+    <!-- BUSCADOR -->
     <div class="card border-0 shadow-sm mb-4">
-
         <div class="card-body">
-
-            <form method="get"
-                  action=""
-                  id="formBusqueda">
-
+            <form method="get" id="formBusqueda">
                 <div class="row g-3 align-items-end">
-
-                    <!-- BUSCADOR -->
                     <div class="col-lg-6 col-md-8">
-
-                        <label for="inputBusqueda"
-                               class="form-label fw-semibold">
-
-                            <i class="bi bi-search me-1"></i>
-                            Buscar producto
-
+                        <label for="inputBusqueda" class="form-label fw-semibold">
+                            <i class="bi bi-search me-1"></i> Buscar producto
                         </label>
-
                         <div class="input-group">
-
                             <span class="input-group-text bg-white">
                                 <i class="bi bi-search text-muted"></i>
                             </span>
-
-                            <input
-                                type="text"
-                                name="q"
-                                id="inputBusqueda"
-                                class="form-control"
-                                placeholder="Buscar por nombre, SKU, código de barras o categoría..."
-                                value="{{ busqueda|default:'' }}"
-                                autocomplete="off"
-                            >
-
+                            <input type="text" name="q" id="inputBusqueda" class="form-control"
+                                   placeholder="Buscar por nombre, variante, SKU, código de barras o categoría..."
+                                   value="{{ busqueda|default:'' }}" autocomplete="off">
                             {% if busqueda %}
-                                <a href="{% url 'producto_list' %}"
-                                   class="btn btn-outline-secondary"
-                                   title="Limpiar búsqueda">
-
+                                <a href="{% url 'producto_list' %}" class="btn btn-outline-secondary" title="Limpiar búsqueda">
                                     <i class="bi bi-x-lg"></i>
-
                                 </a>
                             {% endif %}
-
                         </div>
-
                     </div>
-
-
-                    <!-- BOTÓN BUSCAR -->
                     <div class="col-lg-auto col-md-4">
-
-                        <button type="submit"
-                                class="btn btn-dark w-100">
-
-                            <i class="bi bi-search me-1"></i>
-                            Buscar
-
+                        <button type="submit" class="btn btn-dark w-100">
+                            <i class="bi bi-search me-1"></i> Buscar
                         </button>
-
                     </div>
-
-
-                    <!-- EXPORTAR -->
                     <div class="col-lg-auto ms-lg-auto">
-
-                        <button type="button"
-                                id="btnExportarExcel"
-                                class="btn btn-outline-success w-100">
-
-                            <i class="bi bi-file-earmark-excel me-1"></i>
-                            Exportar Excel
-
+                        <button type="button" id="btnExportarExcel" class="btn btn-outline-success w-100">
+                            <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel
                         </button>
-
                     </div>
-
                 </div>
-
             </form>
-
         </div>
-
     </div>
 
-
-    <!-- ========================================================= -->
-    <!-- INFORMACIÓN DE RESULTADOS -->
-    <!-- ========================================================= -->
+    <!-- INFO RESULTADOS -->
     <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-
-        <div class="text-muted small">
-
+        <div class="ee-muted small">
             {% if paginator.count > 0 %}
-
-                Mostrando
-                <strong>
-                    {{ page_obj.start_index }}
-                </strong>
-                -
-                <strong>
-                    {{ page_obj.end_index }}
-                </strong>
-
-                de
-                <strong>
-                    {{ paginator.count }}
-                </strong>
-
-                productos
-
+                Mostrando <strong>{{ page_obj.start_index }}</strong>-<strong>{{ page_obj.end_index }}</strong>
+                de <strong>{{ paginator.count }}</strong> variantes/productos
             {% else %}
-
                 No existen productos para mostrar.
-
             {% endif %}
-
             {% if busqueda %}
-
-                <span class="ms-2">
-                    · Búsqueda:
-                    <strong>"{{ busqueda }}"</strong>
-                </span>
-
+                <span class="ms-2">· Búsqueda: <strong>"{{ busqueda }}"</strong></span>
             {% endif %}
-
         </div>
-
-
-        <div class="text-muted small">
-
+        <div class="ee-muted small">
             <i class="bi bi-layers me-1"></i>
-
-            {{ paginator.num_pages }}
-            {% if paginator.num_pages == 1 %}
-                página
-            {% else %}
-                páginas
-            {% endif %}
-
+            {{ paginator.num_pages }} {% if paginator.num_pages == 1 %}página{% else %}páginas{% endif %}
         </div>
-
     </div>
 
-
-    <!-- ========================================================= -->
     <!-- TABLA -->
-    <!-- ========================================================= -->
     <div class="card border-0 shadow-sm">
-
         <div class="card-body p-0">
-
             <div class="table-responsive">
-
-                <table
-                    id="tablaProductos"
-                    class="table table-hover align-middle mb-0">
-
+                <table class="table table-hover align-middle mb-0">
                     <thead class="table-dark">
-
                         <tr>
-
-                            <th class="px-3">
-                                <i class="bi bi-upc-scan me-1"></i>
-                                Código
-                            </th>
-
-                            <th>
-                                <i class="bi bi-box-fill me-1"></i>
-                                Producto
-                            </th>
-
-                            <th>
-                                <i class="bi bi-tags me-1"></i>
-                                Categoría
-                            </th>
-
-                            <th>
-                                <i class="bi bi-rulers me-1"></i>
-                                Unidad
-                            </th>
-
-                            <th class="text-center">
-                                <i class="bi bi-diagram-3-fill me-1"></i>
-                                Variantes
-                            </th>
-
-                            <th class="text-center px-3">
-                                <i class="bi bi-gear-fill me-1"></i>
-                                Acciones
-                            </th>
-
+                            <th class="px-3"><i class="bi bi-upc-scan me-1"></i> SKU</th>
+                            <th><i class="bi bi-box-fill me-1"></i> Producto</th>
+                            <th><i class="bi bi-tags me-1"></i> Categoría</th>
+                            <th class="text-end"><i class="bi bi-currency-dollar me-1"></i> Precio</th>
+                            <th class="text-center"><i class="bi bi-eye me-1"></i> Visible en</th>
+                            <th class="text-center px-3"><i class="bi bi-gear-fill me-1"></i> Acciones</th>
                         </tr>
-
                     </thead>
-
-
                     <tbody>
-
-                        {% for p in productos %}
-
+                        {% for v in variantes %}
                         <tr>
-
-                            <!-- CÓDIGO -->
                             <td class="px-3">
-
-                                {% with variante=p.variantes.all|first %}
-
-                                    {% if variante and variante.sku %}
-
-                                        <span class="font-monospace text-primary fw-semibold">
-                                            {{ variante.sku }}
-                                        </span>
-
-                                    {% else %}
-
-                                        <span class="text-muted">
-                                            —
-                                        </span>
-
-                                    {% endif %}
-
-                                {% endwith %}
-
+                                <span class="font-monospace text-primary fw-semibold">{{ v.sku }}</span>
                             </td>
-
-
-                            <!-- PRODUCTO -->
                             <td>
-
-                                <div class="fw-semibold">
-                                    {{ p.nombre }}
-                                </div>
-
-                                <div class="small text-muted">
-                                    ID #{{ p.id }}
-                                </div>
-
-                            </td>
-
-
-                            <!-- CATEGORÍA -->
-                            <td>
-
-                                {% if p.category %}
-
-                                    <span class="badge bg-light text-dark border">
-                                        <i class="bi bi-tag me-1"></i>
-                                        {{ p.category.name }}
-                                    </span>
-
-                                {% else %}
-
-                                    <span class="text-muted">
-                                        —
-                                    </span>
-
-                                {% endif %}
-
-                            </td>
-
-
-                            <!-- UNIDAD -->
-                            <td>
-
-                                {% if p.unidad_medida %}
-
-                                    {{ p.unidad_medida.abreviatura|default:p.unidad_medida.nombre }}
-
-                                {% else %}
-
-                                    <span class="text-muted">
-                                        —
-                                    </span>
-
-                                {% endif %}
-
-                            </td>
-
-
-                            <!-- VARIANTES -->
-                            <td class="text-center">
-
-                                {% with cantidad=p.variantes.all|length %}
-
-                                    {% if cantidad > 0 %}
-
-                                        <span class="badge rounded-pill bg-info text-dark px-3">
-                                            {{ cantidad }}
-                                        </span>
-
-                                    {% else %}
-
-                                        <span class="badge rounded-pill bg-secondary px-3">
-                                            0
-                                        </span>
-
-                                    {% endif %}
-
-                                {% endwith %}
-
-                            </td>
-
-
-                            <!-- ACCIONES -->
-                            <td class="text-center px-3">
-
-                                <div class="btn-group"
-                                     role="group">
-
-                                    <button
-                                        type="button"
-                                        class="btn btn-sm btn-outline-warning"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#editProductoModal-{{ p.id }}"
-                                        title="Editar producto">
-
-                                        <i class="bi bi-pencil-fill"></i>
-
-                                    </button>
-
-
-                                    <button
-                                        type="button"
-                                        class="btn btn-sm btn-outline-danger"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#deleteProductoModal"
-                                        data-id="{{ p.id }}"
-                                        data-nombre="{{ p.nombre|escapejs }}"
-                                        title="Eliminar producto">
-
-                                        <i class="bi bi-trash-fill"></i>
-
-                                    </button>
-
-                                </div>
-
-                            </td>
-
-                        </tr>
-
-                        {% empty %}
-
-                        <tr>
-
-                            <td colspan="6"
-                                class="text-center py-5">
-
-                                <div class="text-muted">
-
-                                    <i class="bi bi-inbox display-5 d-block mb-3"></i>
-
-                                    <h5 class="mb-1">
-                                        No se encontraron productos
-                                    </h5>
-
-                                    <div class="small">
-
-                                        {% if busqueda %}
-
-                                            No existen productos que coincidan
-                                            con "{{ busqueda }}".
-
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="foto-thumb">
+                                        {% if v.foto_display %}
+                                            <img src="{{ v.foto_display }}" alt="{{ v.producto.nombre }}">
                                         {% else %}
-
-                                            No hay productos terminados registrados.
-
+                                            <i class="bi bi-image"></i>
                                         {% endif %}
-
                                     </div>
-
+                                    <div>
+                                        <div class="fw-semibold">{{ v.producto.nombre }}</div>
+                                        {% if v.nombre_variante != "Único" %}
+                                            <div class="small ee-muted">{{ v.nombre_variante }}</div>
+                                        {% endif %}
+                                    </div>
                                 </div>
-
                             </td>
-
+                            <td>
+                                {% if v.producto.category %}
+                                    <span class="badge bg-light text-dark border">
+                                        <i class="bi bi-tag me-1"></i>{{ v.producto.category.name }}
+                                    </span>
+                                {% else %}
+                                    <span class="ee-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end fw-semibold">
+                                {{ v.precio_referencial|default:"0.00" }}
+                            </td>
+                            <td class="text-center">
+                                {% if v.producto.visible_venta and v.producto.visible_compra %}
+                                    <span class="badge bg-primary">Ambos</span>
+                                {% elif v.producto.visible_venta %}
+                                    <span class="badge bg-info text-dark">Ventas</span>
+                                {% elif v.producto.visible_compra %}
+                                    <span class="badge bg-warning text-dark">Compras</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Ninguno</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center px-3">
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'producto_terminado_edit' v.id %}"
+                                       class="btn btn-sm btn-outline-warning" title="Editar variante">
+                                        <i class="bi bi-pencil-fill"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                            data-bs-toggle="modal" data-bs-target="#deleteVarianteModal"
+                                            data-id="{{ v.id }}"
+                                            data-nombre="{{ v.producto.nombre|escapejs }} — {{ v.nombre_variante|escapejs }}"
+                                            title="Eliminar variante">
+                                        <i class="bi bi-trash-fill"></i>
+                                    </button>
+                                </div>
+                            </td>
                         </tr>
-
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5">
+                                <div class="ee-muted">
+                                    <i class="bi bi-inbox display-5 d-block mb-3"></i>
+                                    <h5 class="mb-1">No se encontraron productos</h5>
+                                    <div class="small">
+                                        {% if busqueda %}
+                                            No existen productos que coincidan con "{{ busqueda }}".
+                                        {% else %}
+                                            No hay productos terminados registrados.
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
                         {% endfor %}
-
                     </tbody>
-
                 </table>
-
             </div>
-
         </div>
-
-
-        <!-- ===================================================== -->
-        <!-- PAGINACIÓN -->
-        <!-- ===================================================== -->
 
         {% if is_paginated %}
-
         <div class="card-footer bg-white border-top py-3">
-
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-
-                <!-- INFORMACIÓN -->
-                <div class="small text-muted">
-
-                    Página
-                    <strong>{{ page_obj.number }}</strong>
-                    de
-                    <strong>{{ paginator.num_pages }}</strong>
-
+                <div class="small ee-muted">
+                    Página <strong>{{ page_obj.number }}</strong> de <strong>{{ paginator.num_pages }}</strong>
                 </div>
-
-
-                <!-- PAGINADOR -->
                 <nav aria-label="Paginación de productos">
-
                     <ul class="pagination pagination-sm mb-0">
-
-
-                        <!-- PRIMERA -->
                         {% if page_obj.has_previous %}
-
                             <li class="page-item">
-
-                                <a class="page-link"
-                                   href="?page=1{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}"
-                                   title="Primera página">
-
+                                <a class="page-link" href="?page=1{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}">
                                     <i class="bi bi-chevron-double-left"></i>
-
                                 </a>
-
                             </li>
-
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}">
+                                    <i class="bi bi-chevron-left"></i> Anterior
+                                </a>
+                            </li>
                         {% else %}
-
-                            <li class="page-item disabled">
-
-                                <span class="page-link">
-                                    <i class="bi bi-chevron-double-left"></i>
-                                </span>
-
-                            </li>
-
+                            <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-double-left"></i></span></li>
+                            <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-left"></i> Anterior</span></li>
                         {% endif %}
 
-
-                        <!-- ANTERIOR -->
-                        {% if page_obj.has_previous %}
-
-                            <li class="page-item">
-
-                                <a class="page-link"
-                                   href="?page={{ page_obj.previous_page_number }}{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}">
-
-                                    <i class="bi bi-chevron-left"></i>
-                                    Anterior
-
-                                </a>
-
-                            </li>
-
-                        {% else %}
-
-                            <li class="page-item disabled">
-
-                                <span class="page-link">
-
-                                    <i class="bi bi-chevron-left"></i>
-                                    Anterior
-
-                                </span>
-
-                            </li>
-
-                        {% endif %}
-
-
-                        <!-- NÚMEROS -->
                         {% for num in paginator.page_range %}
-
                             {% if num == page_obj.number %}
-
-                                <li class="page-item active">
-
-                                    <span class="page-link">
-                                        {{ num }}
-                                    </span>
-
-                                </li>
-
-                            {% elif num >= page_obj.number|add:'-2'
-                                  and num <= page_obj.number|add:'2' %}
-
+                                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                            {% elif num >= page_obj.number|add:'-2' and num <= page_obj.number|add:'2' %}
                                 <li class="page-item">
-
-                                    <a class="page-link"
-                                       href="?page={{ num }}{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}">
-
-                                        {{ num }}
-
-                                    </a>
-
+                                    <a class="page-link" href="?page={{ num }}{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}">{{ num }}</a>
                                 </li>
-
                             {% endif %}
-
                         {% endfor %}
 
-
-                        <!-- SIGUIENTE -->
                         {% if page_obj.has_next %}
-
                             <li class="page-item">
-
-                                <a class="page-link"
-                                   href="?page={{ page_obj.next_page_number }}{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}">
-
-                                    Siguiente
-                                    <i class="bi bi-chevron-right"></i>
-
+                                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}">
+                                    Siguiente <i class="bi bi-chevron-right"></i>
                                 </a>
-
                             </li>
-
-                        {% else %}
-
-                            <li class="page-item disabled">
-
-                                <span class="page-link">
-
-                                    Siguiente
-                                    <i class="bi bi-chevron-right"></i>
-
-                                </span>
-
-                            </li>
-
-                        {% endif %}
-
-
-                        <!-- ÚLTIMA -->
-                        {% if page_obj.has_next %}
-
                             <li class="page-item">
-
-                                <a class="page-link"
-                                   href="?page={{ paginator.num_pages }}{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}"
-                                   title="Última página">
-
+                                <a class="page-link" href="?page={{ paginator.num_pages }}{% if busqueda %}&q={{ busqueda|urlencode }}{% endif %}">
                                     <i class="bi bi-chevron-double-right"></i>
-
                                 </a>
-
                             </li>
-
                         {% else %}
-
-                            <li class="page-item disabled">
-
-                                <span class="page-link">
-
-                                    <i class="bi bi-chevron-double-right"></i>
-
-                                </span>
-
-                            </li>
-
+                            <li class="page-item disabled"><span class="page-link">Siguiente <i class="bi bi-chevron-right"></i></span></li>
+                            <li class="page-item disabled"><span class="page-link"><i class="bi bi-chevron-double-right"></i></span></li>
                         {% endif %}
-
                     </ul>
-
                 </nav>
-
             </div>
-
         </div>
-
         {% endif %}
-
-    </div>
-
-</div>
-<!-- ===== PLANTILLA (oculta) DE FILA DE VARIANTE NUEVA ===== -->
-<template id="tpl-variante-nueva">
-    <tr class="fila-variante">
-        <td><input type="text" name="__PREFIX___nombre___IDX__" class="form-control form-control-sm" placeholder="Ej: Talla M"></td>
-        <td><input type="text" name="__PREFIX___sku___IDX__" class="form-control form-control-sm" placeholder="SKU"></td>
-        <td><input type="text" name="__PREFIX___codigo_barras___IDX__" class="form-control form-control-sm"></td>
-        <td><input type="number" step="0.01" name="__PREFIX___costo___IDX__" class="form-control form-control-sm" value="0"></td>
-        <td><input type="number" step="0.01" name="__PREFIX___precio___IDX__" class="form-control form-control-sm" value="0"></td>
-        <td><input type="file" name="__PREFIX___foto___IDX__" class="form-control form-control-sm"></td>
-        <td class="text-center"><input type="checkbox" name="__PREFIX___maneja_stock___IDX__" checked></td>
-        <td class="text-center">
-            <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()">
-                <i class="bi bi-x-lg"></i>
-            </button>
-        </td>
-    </tr>
-</template>
-
-<!-- ===== MODAL CREAR ===== -->
-<div class="modal fade" id="createProductoModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <form method="post" action="{% url 'crear_producto_terminado' %}" enctype="multipart/form-data">
-            {% csrf_token %}
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 class="modal-title"><i class="bi bi-plus-circle me-2"></i> Nuevo Producto Terminado</h3>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Nombre</label>
-                            <input name="nombre" class="form-control" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Categoría</label>
-                            <select name="categoria" class="form-select">
-                                <option value="">-- Sin categoría --</option>
-                                {% for c in categorias %}
-                                <option value="{{ c.id }}">{{ c.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Descripción</label>
-                            <textarea name="descripcion" class="form-control" rows="2"></textarea>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Unidad de medida</label>
-                            <select name="unidad_medida" class="form-select" required>
-                                <option value="">-- Seleccionar --</option>
-                                {% for u in unidades_medida %}
-                                <option value="{{ u.id }}">{{ u.nombre }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Unidades por caja</label>
-                            <input type="number" name="unidades_por_caja" class="form-control" value="0">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Tara por caja</label>
-                            <input type="number" step="0.01" name="tara_por_caja" class="form-control" value="0">
-                        </div>
-                    </div>
-
-                    <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" type="checkbox" id="create_tiene_variantes" name="tiene_variantes">
-                        <label class="form-check-label" for="create_tiene_variantes">
-                            <i class="bi bi-diagram-3-fill me-1"></i> Este producto tiene varias variantes (talla, color, sabor, etc.)
-                        </label>
-                    </div>
-
-                    <!-- BLOQUE: PRODUCTO ÚNICO -->
-                    <div id="bloque_unico" class="row g-3 border rounded p-3">
-                        <div class="col-md-4">
-                            <label class="form-label">SKU</label>
-                            <input name="sku_base" class="form-control">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Código de barras</label>
-                            <input name="codigo_barras_base" class="form-control">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Foto</label>
-                            <input type="file" name="foto_base" class="form-control">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Costo</label>
-                            <input type="number" step="0.01" name="costo_base" class="form-control" value="0">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Precio referencial</label>
-                            <input type="number" step="0.01" name="precio_base" class="form-control" value="0">
-                        </div>
-                        <div class="col-md-4 d-flex align-items-end">
-                            <div class="form-check">
-                                <input type="checkbox" name="maneja_stock_base" class="form-check-input" id="create_maneja_stock_base" checked>
-                                <label class="form-check-label" for="create_maneja_stock_base">Maneja stock</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- BLOQUE: VARIAS VARIANTES -->
-                    <div id="bloque_variantes" class="d-none">
-                        <table class="table table-sm table-bordered">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Nombre variante</th>
-                                    <th>SKU</th>
-                                    <th>Cód. barras</th>
-                                    <th>Costo</th>
-                                    <th>Precio</th>
-                                    <th>Foto</th>
-                                    <th>Stock</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="tbody_variantes_crear" data-next-index="0"></tbody>
-                        </table>
-                        <button type="button" class="btn btn-sm btn-outline-primary"
-                            onclick="agregarFilaVariante('tbody_variantes_crear', 'variante')">
-                            <i class="bi bi-plus-lg"></i> Agregar variante
-                        </button>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-success"><i class="bi bi-check-lg"></i> Crear</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
-                </div>
-            </div>
-        </form>
     </div>
 </div>
 
-<!-- ===== UN MODAL DE EDICIÓN POR CADA PRODUCTO ===== -->
-{% for p in productos %}
-<div class="modal fade" id="editProductoModal-{{ p.id }}" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <form method="post" action="{% url 'producto_terminado_edit' %}" enctype="multipart/form-data">
-            {% csrf_token %}
-            <input type="hidden" name="id" value="{{ p.id }}">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 class="modal-title"><i class="bi bi-pencil-square me-2"></i> Editar: {{ p.nombre }}</h3>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="row g-3 mb-3">
-                        <div class="col-md-6">
-                            <label class="form-label">Nombre</label>
-                            <input name="nombre" class="form-control" value="{{ p.nombre }}" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Categoría</label>
-                            <select name="categoria" class="form-select">
-                                <option value="">-- Sin categoría --</option>
-                                {% for c in categorias %}
-                                <option value="{{ c.id }}" {% if p.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Descripción</label>
-                            <textarea name="descripcion" class="form-control" rows="2">{{ p.descripcion }}</textarea>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Unidad de medida</label>
-                            <select name="unidad_medida" class="form-select" required>
-                                {% for u in unidades_medida %}
-                                <option value="{{ u.id }}" {% if p.unidad_medida_id == u.id %}selected{% endif %}>{{ u.nombre }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Unidades por caja</label>
-                            <input type="number" name="unidades_por_caja" class="form-control" value="{{ p.unidades_por_caja }}">
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label">Tara por caja</label>
-                            <input type="number" step="0.01" name="tara_por_caja" class="form-control" value="{{ p.tara_por_caja }}">
-                        </div>
-                    </div>
-
-                    <h5><i class="bi bi-diagram-3-fill me-1"></i> Variantes</h5>
-                    <table class="table table-sm table-bordered">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Nombre variante</th>
-                                <th>SKU</th>
-                                <th>Cód. barras</th>
-                                <th>Costo</th>
-                                <th>Precio</th>
-                                <th>Foto nueva</th>
-                                <th>Stock</th>
-                                <th>Eliminar</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for v in p.variantes.all %}
-                            {% if v.is_active %}
-                            <tr>
-                                <input type="hidden" name="variante_existente_id[]" value="{{ v.id }}">
-                                <td><input type="text" name="nombre_existente_{{ v.id }}" class="form-control form-control-sm" value="{{ v.nombre_variante }}"></td>
-                                <td><input type="text" name="sku_existente_{{ v.id }}" class="form-control form-control-sm" value="{{ v.sku }}"></td>
-                                <td><input type="text" name="codigo_barras_existente_{{ v.id }}" class="form-control form-control-sm" value="{{ v.codigo_barras|default:'' }}"></td>
-                                <td><input type="number" step="0.01" name="costo_existente_{{ v.id }}" class="form-control form-control-sm" value="{{ v.costo }}"></td>
-                                <td><input type="number" step="0.01" name="precio_existente_{{ v.id }}" class="form-control form-control-sm" value="{{ v.precio_referencial }}"></td>
-                                <td><input type="file" name="foto_existente_{{ v.id }}" class="form-control form-control-sm"></td>
-                                <td class="text-center"><input type="checkbox" name="maneja_stock_existente_{{ v.id }}" {% if v.maneja_stock %}checked{% endif %}></td>
-                                <td class="text-center"><input type="checkbox" name="eliminar_variante_{{ v.id }}"></td>
-                            </tr>
-                            {% endif %}
-                            {% endfor %}
-                        </tbody>
-                        <tbody id="tbody_variantes_nuevas_{{ p.id }}" data-next-index="0"></tbody>
-                    </table>
-                    <button type="button" class="btn btn-sm btn-outline-primary"
-                        onclick="agregarFilaVariante('tbody_variantes_nuevas_{{ p.id }}', 'nueva_variante_{{ p.id }}')">
-                        <i class="bi bi-plus-lg"></i> Agregar variante nueva
-                    </button>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-primary"><i class="bi bi-pencil-fill"></i> Actualizar</button>
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle"></i> Cancelar</button>
-                </div>
-            </div>
-        </form>
-    </div>
-</div>
-{% endfor %}
-
-<!-- ===== MODAL ELIMINAR ===== -->
-<div class="modal fade" id="deleteProductoModal" tabindex="-1">
+<!-- MODAL ELIMINAR -->
+<div class="modal fade" id="deleteVarianteModal" tabindex="-1">
     <div class="modal-dialog">
         <form method="post" action="{% url 'producto_terminado_delete' %}">
             {% csrf_token %}
             <input type="hidden" name="id" id="delete_id">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title text-danger"><i class="bi bi-trash-fill me-2"></i> Eliminar Producto</h5>
+                    <h5 class="modal-title text-danger"><i class="bi bi-trash-fill me-2"></i> Eliminar</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p>¿Deseas eliminar el producto <strong id="delete_nombre"></strong> y todas sus variantes?</p>
+                    <p>¿Deseas eliminar <strong id="delete_nombre"></strong>?</p>
+                    <p class="small ee-muted mb-0">
+                        Si esta era la única variante activa del producto, el producto completo se ocultará también.
+                    </p>
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-danger"><i class="bi bi-trash-fill"></i> Eliminar</button>
@@ -872,27 +258,20 @@
     </div>
 </div>
 
-<!-- ===== SCRIPTS ===== -->
+<style>
+    .ee-muted { color: var(--text-muted) !important; }
+    .foto-thumb {
+        width: 36px; height: 36px; border-radius: 6px; overflow: hidden;
+        background-color: var(--bg-dark); border: 1px solid var(--border);
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .foto-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .foto-thumb i { color: var(--text-muted) !important; font-size: 1rem; }
+</style>
+
 <script>
-function agregarFilaVariante(tbodyId, prefix) {
-    const tbody = document.getElementById(tbodyId);
-    const idx = parseInt(tbody.dataset.nextIndex || '0', 10);
-    const tpl = document.getElementById('tpl-variante-nueva').innerHTML;
-    const html = tpl.replaceAll('__PREFIX__', prefix).replaceAll('__IDX__', idx);
-    tbody.insertAdjacentHTML('beforeend', html);
-    tbody.dataset.nextIndex = idx + 1;
-}
-
 document.addEventListener('DOMContentLoaded', function () {
-    // Toggle único / variantes en el modal crear
-    const check = document.getElementById('create_tiene_variantes');
-    check.addEventListener('change', function () {
-        document.getElementById('bloque_unico').classList.toggle('d-none', this.checked);
-        document.getElementById('bloque_variantes').classList.toggle('d-none', !this.checked);
-    });
-
-    // Modal eliminar
-    const deleteModal = document.getElementById('deleteProductoModal');
+    const deleteModal = document.getElementById('deleteVarianteModal');
     deleteModal.addEventListener('show.bs.modal', function (event) {
         const b = event.relatedTarget;
         document.getElementById('delete_id').value = b.getAttribute('data-id');
@@ -900,5 +279,4 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
-
 {% endblock %}

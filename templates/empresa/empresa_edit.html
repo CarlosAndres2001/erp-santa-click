@@ -1,68 +1,205 @@
 {% extends 'base.html' %}
 {% load static %}
+{% block title %}Datos de la Empresa{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-6">
+<div class="container-fluid mt-2 px-2" style="max-width: 980px; margin: 0 auto;">
 
-            <!-- Card del formulario -->
-            <div class="card shadow-sm">
-                <div class="card-header bg-primary text-white d-flex align-items-center">
-                    <i class="bi bi-building me-2 fs-4"></i>
-                    <h5 class="mb-0">Editar Datos de la Empresa</h5>
-                </div>
+    <!-- ========================================================= -->
+    <!-- ENCABEZADO -->
+    <!-- ========================================================= -->
+    <div class="mb-3">
+        <h2 class="fw-bold mb-1">
+            <i class="bi bi-building me-2"></i>
+            Datos de la Empresa
+        </h2>
+        <div class="ee-muted">
+            Información general, estado del plan y configuración de tu cuenta
+        </div>
+    </div>
 
-                <div class="card-body">
-                    <form method="post" action="{% url 'empresa_edit' %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="id" value="{{ empresa.id }}">
+    <!-- ========================================================= -->
+    <!-- ESTADO DEL PLAN (ancho completo) -->
+    <!-- ========================================================= -->
+    {% if empresa.fk_plan_empresa %}
+        {% if empresa.plan_vigente %}
+            {% if empresa.dias_restantes <= 5 %}
+                <div class="card border-0 shadow-sm mb-3 plan-status plan-por-vencer">
+            {% else %}
+                <div class="card border-0 shadow-sm mb-3 plan-status plan-vigente">
+            {% endif %}
+        {% else %}
+            <div class="card border-0 shadow-sm mb-3 plan-status plan-vencido">
+        {% endif %}
 
-                        <!-- Nombre -->
-                        <div class="mb-3">
-                            <label for="nombre" class="form-label">Nombre de la Empresa</label>
-                            <input type="text" class="form-control" id="nombre" name="nombre" 
-                                value="{{ empresa.nombre }}" required>
-                        </div>
-
-                        <!-- Rubro -->
-                        <div class="mb-3">
-                            <label for="rubro" class="form-label">Rubro</label>
-                            <input type="text" class="form-control" id="rubro" name="rubro" 
-                                value="{{ empresa.rubro }}" required readonly>
-                        </div>
-
-                        <!-- Plan Empresa -->
-                        <div class="mb-3" hidden="True">
-                            <label for="fk_plan_empresa" class="form-label">Plan</label>
-                            <select class="form-select" id="fk_plan_empresa" name="fk_plan_empresa">
-                                <option value="">-- Selecciona un plan --</option>
-                                {% for plan in planes %}
-                                    <option value="{{ plan.id }}" 
-                                        {% if empresa.fk_plan_empresa_id == plan.id %}selected{% endif %}>
-                                        {{ plan.nombre }}
-                                    </option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <!-- Botones -->
-                        <div class="d-flex justify-content-between">
-                            <button type="submit" class="btn btn-success">
-                                <i class="bi bi-check-circle me-1"></i> Guardar Cambios
-                            </button>
-                            <a href="{% url 'empresa_list' %}" class="btn btn-secondary">
-                                <i class="bi bi-x-circle me-1"></i> Cancelar
-                            </a>
-                        </div>
-
-                    </form>
+        <div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div>
+                <div class="small text-uppercase opacity-75 mb-1" style="letter-spacing:.04em;">Plan actual</div>
+                <div class="fs-5 fw-bold">{{ empresa.fk_plan_empresa.nombre }}</div>
+                <div class="small mt-1">
+                    {% if empresa.plan_vigente %}
+                        <span class="badge bg-light text-dark bg-opacity-25">
+                            <i class="bi bi-check-circle-fill me-1"></i>Activo
+                        </span>
+                        Vence el {{ empresa.fecha_vencimiento_plan|date:"d/m/Y" }}
+                    {% else %}
+                        <span class="badge bg-light text-dark bg-opacity-25">
+                            <i class="bi bi-x-circle-fill me-1"></i>Vencido
+                        </span>
+                        Venció el {{ empresa.fecha_vencimiento_plan|date:"d/m/Y" }}
+                    {% endif %}
                 </div>
             </div>
 
+            <div class="text-end">
+                {% if empresa.plan_vigente %}
+                    <div class="fs-3 fw-bold lh-1">{{ empresa.dias_restantes }}</div>
+                    <div class="small opacity-75">día{{ empresa.dias_restantes|pluralize }} restante{{ empresa.dias_restantes|pluralize }}</div>
+                {% else %}
+                    <div class="fs-3"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                    <div class="small opacity-75">Contacta a soporte</div>
+                {% endif %}
+            </div>
+        </div>
+        </div>
+    {% else %}
+        <div class="card border-0 shadow-sm mb-3 plan-status plan-vencido">
+            <div class="card-body">
+                <div class="small text-uppercase opacity-75 mb-1">Plan actual</div>
+                <div class="fs-5 fw-bold">Sin plan asignado</div>
+                <span class="badge bg-light text-dark bg-opacity-25 mt-1">
+                    <i class="bi bi-x-circle-fill me-1"></i>Inactivo
+                </span>
+            </div>
+        </div>
+    {% endif %}
+
+    <!-- ========================================================= -->
+    <!-- FILA 2 COLUMNAS: Propietario | Información General -->
+    <!-- ========================================================= -->
+    <div class="row g-3 mb-3">
+
+        <!-- Propietario -->
+        <div class="col-md-6">
+            {% if propietario %}
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header">
+                    <i class="bi bi-person-badge me-1"></i> Propietario de la cuenta
+                </div>
+                <div class="card-body d-flex align-items-center gap-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0"
+                         style="width:44px; height:44px; background-color: var(--primary); color:#fff; font-size:16px;">
+                        {{ propietario.nombre|slice:":1"|upper }}
+                    </div>
+                    <div>
+                        <div class="fw-semibold">{{ propietario.nombre }} {{ propietario.apellido }}</div>
+                        <div class="ee-muted">{{ propietario.email }}</div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Información General -->
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header">
+                    <i class="bi bi-info-circle me-1"></i> Información General
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <label class="form-label mb-1">Rubro</label>
+                            <div class="fw-semibold">{{ empresa.rubro|default:"—" }}</div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label mb-1">Creación</label>
+                            <div class="fw-semibold">{{ empresa.fecha_creacion|date:"d/m/Y" }}</div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label mb-1">Inicio del plan</label>
+                            <div class="fw-semibold">{{ empresa.fecha_inicio_plan|date:"d/m/Y"|default:"—" }}</div>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label mb-1">Modificado</label>
+                            <div class="ee-muted">{{ empresa.fecha_modificacion|date:"d/m/Y H:i" }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- EDITAR DATOS (ancho completo, campos en 2 columnas) -->
+    <!-- ========================================================= -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header">
+            <i class="bi bi-pencil-square me-1"></i> Editar Datos
+        </div>
+        <div class="card-body">
+            <form method="post" action="{% url 'empresa_edit' %}">
+                {% csrf_token %}
+                <input type="hidden" name="id" value="{{ empresa.id }}">
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label for="nombre" class="form-label">Nombre de la Empresa</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre"
+                               value="{{ empresa.nombre }}" required>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="moneda" class="form-label">Moneda</label>
+                        <select class="form-select" id="moneda" name="moneda">
+                            {% for valor, etiqueta in empresa.MONEDA_CHOICES %}
+                                <option value="{{ valor }}" {% if empresa.moneda == valor %}selected{% endif %}>
+                                    {{ etiqueta }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="simbolo_moneda" class="form-label">Símbolo</label>
+                        <input type="text" class="form-control" id="simbolo_moneda" name="simbolo_moneda"
+                               value="{{ empresa.simbolo_moneda }}" maxlength="5">
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label for="pie_ticket" class="form-label">Pie de ticket</label>
+                    <input type="text" class="form-control" id="pie_ticket" name="pie_ticket"
+                           value="{{ empresa.pie_ticket|default:'' }}" maxlength="200"
+                           placeholder="Ej. ¡Gracias por su compra!">
+                </div>
+
+                <div class="d-flex justify-content-between gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-circle me-1"></i> Guardar Cambios
+                    </button>
+
+                </div>
+            </form>
         </div>
     </div>
+
 </div>
+
+<style>
+    /* Texto secundario que SÍ respeta tu tema (claro/oscuro),
+       a diferencia de .text-muted de Bootstrap que trae su propio gris fijo */
+    .ee-muted {
+        color: var(--text-muted) !important;
+        font-size: 0.85rem;
+    }
+
+    /* Tarjeta de estado del plan: usa tus variables, se adapta sola a claro/oscuro */
+    .plan-status { color: #fff; }
+    .plan-vigente    { background: linear-gradient(135deg, var(--primary), var(--primary-hover)); }
+    .plan-por-vencer { background: linear-gradient(135deg, #f59e0b, #b45309); }
+    .plan-vencido    { background: linear-gradient(135deg, #ef4444, #7f1d1d); }
+    
+</style>
 
 <!-- Mensajes flotantes -->
 <div id="message-container">
@@ -84,5 +221,4 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
-
 {% endblock %}

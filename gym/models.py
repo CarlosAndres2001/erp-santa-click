@@ -2,7 +2,7 @@ from datetime import timedelta, timezone
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.core.exceptions import ValidationError
-
+from django.utils import timezone
 #================
 # Modelo Rol
 #================
@@ -103,7 +103,53 @@ class Empresa(models.Model):
 
     def __str__(self):
         return self.nombre
+# ---------- Vigencia del plan ----------
 
+    @property
+    def fecha_vencimiento_plan(self):
+        """Fecha en que expira el plan actual, o None si no hay plan/fecha de inicio."""
+        if not self.fecha_inicio_plan or not self.fk_plan_empresa:
+            return None
+        return self.fecha_inicio_plan + timedelta(days=self.fk_plan_empresa.dias_duracion)
+
+    @property
+    def dias_restantes(self):
+        """Días que le quedan al plan. Negativo si ya venció. None si no aplica."""
+        vencimiento = self.fecha_vencimiento_plan
+        if not vencimiento:
+            return None
+        delta = vencimiento - timezone.now()
+        return delta.days
+
+    @property
+    def plan_vigente(self):
+        """
+        True si la empresa puede operar: tiene plan asignado, plan activo (estado=True),
+        empresa activa, y no se ha pasado la fecha de vencimiento.
+        """
+        if not self.estado:
+            return False
+        if not self.fk_plan_empresa or not self.fk_plan_empresa.estado:
+            return False
+        vencimiento = self.fecha_vencimiento_plan
+        if not vencimiento:
+            return False
+        return timezone.now() <= vencimiento
+
+    # ---------- Propietario ----------
+
+    @property
+    def propietario(self):
+        """
+        El usuario Administrador principal de la empresa (el que se creó
+        junto con la empresa en registro_empresa).
+        """
+        return (
+            Usuario.objects
+            .filter(sucursal__fk_empresa=self, rol__nombre='Administrador')
+            .order_by('id')
+            .first()
+        )
 #================
 # Modelo Sucursal
 #================
@@ -302,6 +348,7 @@ class ProductoVariante(models.Model):
     precio_referencial = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     costo = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     foto = models.ImageField(upload_to='variantes/', null=True, blank=True)
+    foto_url = models.URLField(max_length=500, blank=True, null=True)
     maneja_stock = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -312,6 +359,14 @@ class ProductoVariante(models.Model):
     class Meta:
         db_table = 'producto_variante' 
         
+    @property
+    def foto_display(self):
+        """URL a usar en templates, priorizando el archivo subido sobre el link externo."""
+        if self.foto:
+            return self.foto.url
+        if self.foto_url:
+            return self.foto_url
+        return None
 class DetallePack(models.Model):
     producto_padre = models.ForeignKey(ProductoVariante, on_delete=models.CASCADE, related_name='padre_packs')
     producto_variante = models.ForeignKey(ProductoVariante, on_delete=models.PROTECT, null=True, blank=True)

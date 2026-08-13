@@ -144,7 +144,7 @@ i.bi{color:#10b981!important;font-size:1.1rem}
 .card-body{background-color:var(--bg-card)!important;color:var(--text-main)!important;padding:.8rem!important}
 .card-body i{font-size:1.1rem}
 .card{background-color:var(--bg-card)!important;border:1px solid var(--border)!important;border-radius:var(--radius)!important}
-.card-header{background-color:var(--bg-sidebar)!important;border-bottom:1px solid var(--border)!important;padding:.5rem .8rem!important;font-size:.8rem}
+.card-header{background-color:var(--bg-sidebar)!important;color:var(--text-main)!important;border-bottom:1px solid var(--border)!important;padding:.5rem .8rem!important;font-size:.8rem}
 .card-header i{font-size:1rem}
 .card-title{font-size:.95rem;margin-bottom:.3rem}
 .card-title i{font-size:1.05rem}
@@ -563,4 +563,27 @@ body.light-mode .modal-backdrop {
         width: 100% !important;
         flex: none !important;
     }
+}
+/* ============================================
+   FIX: SELECT NATIVO RESPETA TEMA OSCURO/CLARO
+   ============================================ */
+:root{color-scheme:dark}
+body.light-mode{color-scheme:light}
+/* ============================================
+   RESPONSIVE MOBILE - EVITA CONTENIDO CORTADO ABAJO
+   ============================================ */
+@media(max-width:992px){
+    html,body{height:100%;overflow-y:auto!important}
+    .main-content{
+        height:calc(100dvh - var(--topbar-height))!important;
+        overflow-y:auto!important;
+        -webkit-overflow-scrolling:touch!important;
+        padding-bottom:calc(1.5rem + env(safe-area-inset-bottom))!important;
+    }
+}
+
+@media(max-width:576px){
+    .main-content{padding:.8rem .8rem calc(2rem + env(safe-area-inset-bottom)) .8rem!important}
+    .card .d-flex.justify-content-between{flex-direction:column!important;gap:.5rem!important}
+    .card .d-flex.justify-content-between .btn{width:100%!important}
 }

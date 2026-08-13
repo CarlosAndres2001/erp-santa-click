@@ -309,22 +309,32 @@ def registro_empresa(request):
 @permiso_requerido('empresa_edit', 'editar')
 def empresa_edit(request):
     try:
-        empresa = request.user.sucursal.fk_empresa  # empresa del usuario logueado
+        empresa = request.user.sucursal.fk_empresa
     except AttributeError:
         messages.error(request, 'No tienes empresa asignada.')
         return redirect('empresa_edit')
 
-    planes = PlanEmpresa.objects.filter(estado=True)
-
     if request.method == 'POST':
-        empresa.nombre = request.POST.get('nombre')
-        empresa.rubro = request.POST.get('rubro')
-        empresa.fk_plan_empresa_id = request.POST.get('fk_plan_empresa') or None
+        nombre = request.POST.get('nombre', '').strip()
+        if not nombre:
+            messages.error(request, 'El nombre de la empresa es obligatorio.')
+            return redirect('empresa_edit')
+
+        empresa.nombre = nombre
+        empresa.pie_ticket = request.POST.get('pie_ticket', '').strip()
+        empresa.moneda = request.POST.get('moneda', empresa.moneda)
+        empresa.simbolo_moneda = request.POST.get('simbolo_moneda', empresa.simbolo_moneda).strip() or empresa.simbolo_moneda
+        # rubro y plan quedan de solo lectura, no se editan desde aquí
         empresa.save()
+
         messages.success(request, 'Empresa actualizada correctamente.')
         return redirect('empresa_edit')
 
-    return render(request, 'empresa/empresa_edit.html', {'empresa': empresa, 'planes': planes})
+    contexto = {
+        'empresa': empresa,
+        'propietario': empresa.propietario,
+    }
+    return render(request, 'empresa/empresa_edit.html', contexto)
 
 @login_required
 @permiso_requerido('empresa_edit', 'eliminar')
@@ -1037,7 +1047,8 @@ def insumo_delete(request):
 #  PRODUCTO
 # ====================================================
 CODIGO_TERMINADO = 'PROD-TERM'
- 
+
+
 def obtener_indices_variantes(post, prefix):
     """
     Encuentra los índices de variante realmente enviados en el POST,
@@ -1047,7 +1058,21 @@ def obtener_indices_variantes(post, prefix):
     patron = re.compile(rf'^{re.escape(prefix)}_sku_(\d+)$')
     indices = [int(m.group(1)) for k in post.keys() if (m := patron.match(k))]
     return sorted(indices)
- 
+
+
+def resolver_foto_archivo_o_url(post, files, campo_archivo, campo_url):
+    """
+    Devuelve (archivo, url). Nunca ambos a la vez:
+    si el usuario mandó archivo, ese manda y la url se descarta.
+    Si solo mandó URL, no se descarga nada, solo se guarda el texto.
+    """
+    archivo = files.get(campo_archivo)
+    url = post.get(campo_url, '').strip() or None
+    if archivo:
+        url = None
+    return archivo, url
+
+
 def crear_variantes_desde_form(producto, post, files, prefix='variante'):
     """Crea N variantes nuevas a partir de campos indexados en el form."""
     creadas = []
@@ -1055,12 +1080,16 @@ def crear_variantes_desde_form(producto, post, files, prefix='variante'):
         sku = post.get(f'{prefix}_sku_{i}', '').strip()
         if not sku:
             continue  # fila vacía, se ignora
- 
+
         if ProductoVariante.objects.filter(sku=sku).exists():
             raise ValueError(f"El SKU '{sku}' ya está en uso (fila de variante {i + 1}).")
- 
+
         nombre_variante = post.get(f'{prefix}_nombre_{i}', '').strip() or f'Variante {i + 1}'
- 
+
+        archivo_foto, url_foto = resolver_foto_archivo_o_url(
+            post, files, f'{prefix}_foto_{i}', f'{prefix}_foto_url_{i}'
+        )
+
         variante = ProductoVariante.objects.create(
             producto=producto,
             nombre_variante=nombre_variante,
@@ -1069,89 +1098,55 @@ def crear_variantes_desde_form(producto, post, files, prefix='variante'):
             precio_referencial=safe_decimal(post.get(f'{prefix}_precio_{i}')),
             costo=safe_decimal(post.get(f'{prefix}_costo_{i}')),
             maneja_stock=post.get(f'{prefix}_maneja_stock_{i}') == 'on',
-            foto=files.get(f'{prefix}_foto_{i}'),
+            foto=archivo_foto,
+            foto_url=url_foto,
         )
         creadas.append(variante)
     return creadas
- 
+
 @login_required
 @permiso_requerido('producto_list', 'ver')
 def producto_list(request):
     empresa = request.user.sucursal.fk_empresa
-
-    # ==============================
-    # BUSCADOR
-    # ==============================
     busqueda = request.GET.get('q', '').strip()
 
-    productos_queryset = (
-        Producto.objects
+    variantes_queryset = (
+        ProductoVariante.objects
         .filter(
-            fk_tipo_producto__codigo=CODIGO_TERMINADO,
             is_active=True,
-            fk_empresa=empresa
+            producto__is_active=True,
+            producto__fk_tipo_producto__codigo=CODIGO_TERMINADO,
+            producto__fk_empresa=empresa,
         )
-        .select_related(
-            'unidad_medida',
-            'category'
-        )
-        .prefetch_related(
-            'variantes'
-        )
-        .order_by('nombre', 'id')
+        .select_related('producto', 'producto__unidad_medida', 'producto__category')
+        .order_by('producto__nombre', 'nombre_variante', 'id')
     )
 
-    # Aplicar búsqueda
     if busqueda:
-        productos_queryset = productos_queryset.filter(
-            Q(nombre__icontains=busqueda) |
-            Q(category__name__icontains=busqueda) |
-            Q(variantes__sku__icontains=busqueda) |
-            Q(variantes__codigo_barras__icontains=busqueda)
-        ).distinct()
+        variantes_queryset = variantes_queryset.filter(
+            Q(producto__nombre__icontains=busqueda) |
+            Q(nombre_variante__icontains=busqueda) |
+            Q(producto__category__name__icontains=busqueda) |
+            Q(sku__icontains=busqueda) |
+            Q(codigo_barras__icontains=busqueda)
+        )
 
-    # ==============================
-    # PAGINACIÓN
-    # ==============================
-    paginator = Paginator(productos_queryset, 100)
-
+    paginator = Paginator(variantes_queryset, 100)
     page_number = request.GET.get('page')
+    variantes = paginator.get_page(page_number)
 
-    productos = paginator.get_page(page_number)
-
-    # ==============================
-    # CONTEXTO
-    # ==============================
     context = {
-        'productos': productos,
-
-        'unidades_medida': UnidadMedida.objects.filter(
-            is_active=True,
-            fk_empresa=empresa
-        ),
-
-        'categorias': Category.objects.filter(
-            is_active=True,
-            fk_empresa=empresa
-        ),
-
+        'variantes': variantes,
+        'unidades_medida': UnidadMedida.objects.filter(is_active=True, fk_empresa=empresa),
+        'categorias': Category.objects.filter(is_active=True, fk_empresa=empresa),
         'titulo': 'Productos Terminados',
-
-        # Paginación
         'paginator': paginator,
-        'page_obj': productos,
-        'is_paginated': productos.has_other_pages(),
-
-        # Buscador
+        'page_obj': variantes,
+        'is_paginated': variantes.has_other_pages(),
         'busqueda': busqueda,
     }
+    return render(request, 'inventario/lista_productos.html', context)
 
-    return render(
-        request,
-        'inventario/lista_productos.html',
-        context
-    )
-    
 @login_required
 @permiso_requerido('producto_list', 'crear')
 def crear_producto_terminado(request):
@@ -1169,9 +1164,9 @@ def crear_producto_terminado(request):
                     raise ValueError("El nombre del producto es obligatorio.")
                 if not unidad_medida_id:
                     raise ValueError("La unidad de medida es obligatoria.")
- 
+
                 tipo_terminado = get_tipo_producto(CODIGO_TERMINADO)
- 
+
                 producto = Producto.objects.create(
                     nombre=nombre,
                     descripcion=request.POST.get('descripcion', ''),
@@ -1184,9 +1179,9 @@ def crear_producto_terminado(request):
                     visible_venta=visibilidad in ('venta', 'ambos'),
                     visible_compra=visibilidad in ('compra', 'ambos'),
                 )
- 
+
                 tiene_variantes = request.POST.get('tiene_variantes') == 'on'
- 
+
                 if tiene_variantes:
                     variantes_creadas = crear_variantes_desde_form(
                         producto, request.POST, request.FILES, prefix='variante'
@@ -1199,7 +1194,11 @@ def crear_producto_terminado(request):
                         raise ValueError("El SKU es obligatorio.")
                     if ProductoVariante.objects.filter(sku=sku).exists():
                         raise ValueError(f"El SKU '{sku}' ya está en uso.")
- 
+
+                    archivo_foto, url_foto = resolver_foto_archivo_o_url(
+                        request.POST, request.FILES, 'foto_base', 'foto_url_base'
+                    )
+
                     ProductoVariante.objects.create(
                         producto=producto,
                         nombre_variante="Único",
@@ -1208,123 +1207,142 @@ def crear_producto_terminado(request):
                         precio_referencial=safe_decimal(request.POST.get('precio_base')),
                         costo=safe_decimal(request.POST.get('costo_base')),
                         maneja_stock=request.POST.get('maneja_stock_base') == 'on',
-                        foto=request.FILES.get('foto_base'),
+                        foto=archivo_foto,
+                        foto_url=url_foto,
                     )
- 
+
                 messages.success(request, f'✅ Producto "{nombre}" creado correctamente.')
-                return redirect('producto_list')  # Redirige a la misma página para crear otro producto  
- 
+                return redirect('producto_list')
+
         except ValueError as e:
             messages.error(request, f'❌ {e}')
         except IntegrityError:
             messages.error(request, '❌ Ya existe un registro con ese SKU.')
         except Exception as e:
             messages.error(request, f'❌ Error al crear el producto: {e}')
- 
+
     return render(request, 'inventario/crear_producto.html', {
         'unidades_medida': UnidadMedida.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa),
         'categorias': Category.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa),
     })
- 
+
+
 @login_required
 @permiso_requerido('producto_list', 'editar')
-def producto_terminado_edit(request):
+def producto_variante_edit(request, variante_id):
+    empresa = request.user.sucursal.fk_empresa
+    variante = get_object_or_404(
+        ProductoVariante,
+        id=variante_id,
+        producto__fk_empresa=empresa,
+        producto__fk_tipo_producto__codigo=CODIGO_TERMINADO,
+    )
+    producto = variante.producto
+
     if request.method == 'POST':
         try:
             with transaction.atomic():
-                empresa = request.user.sucursal.fk_empresa
-                producto_id = request.POST.get('id')
-                producto = get_object_or_404(
-                    Producto, id=producto_id, fk_tipo_producto__codigo=CODIGO_TERMINADO, fk_empresa=empresa
-                )
- 
+                # ---- Datos del PRODUCTO PADRE (afectan a TODAS sus variantes) ----
                 nombre = request.POST.get('nombre', '').strip()
                 unidad_medida_id = request.POST.get('unidad_medida')
- 
+                visibilidad = request.POST.get('visibilidad', 'ambos')
+
                 if not nombre:
                     raise ValueError("El nombre del producto es obligatorio.")
                 if not unidad_medida_id:
                     raise ValueError("La unidad de medida es obligatoria.")
- 
+                if visibilidad not in ('venta', 'compra', 'ambos'):
+                    raise ValueError("Selecciona dónde estará visible el producto.")
+
                 producto.nombre = nombre
                 producto.descripcion = request.POST.get('descripcion', '')
                 producto.unidad_medida_id = unidad_medida_id
                 producto.category_id = request.POST.get('categoria') or None
                 producto.unidades_por_caja = int(request.POST.get('unidades_por_caja', 0) or 0)
                 producto.tara_por_caja = safe_decimal(request.POST.get('tara_por_caja'))
+                producto.visible_venta = visibilidad in ('venta', 'ambos')
+                producto.visible_compra = visibilidad in ('compra', 'ambos')
                 producto.save()
- 
-                # 1. Actualizar (o desactivar) las variantes que ya existían
-                variante_ids = request.POST.getlist('variante_existente_id[]')
-                for vid in variante_ids:
-                    variante = get_object_or_404(ProductoVariante, id=vid, producto=producto)
- 
-                    if request.POST.get(f'eliminar_variante_{vid}') == 'on':
-                        variante.is_active = False
-                        variante.save()
-                        continue
- 
-                    nuevo_sku = request.POST.get(f'sku_existente_{vid}', '').strip()
-                    if not nuevo_sku:
-                        raise ValueError(f"La variante '{variante.nombre_variante}' necesita un SKU.")
-                    if ProductoVariante.objects.filter(sku=nuevo_sku).exclude(id=variante.id).exists():
-                        raise ValueError(f"El SKU '{nuevo_sku}' ya está en uso.")
- 
-                    variante.nombre_variante = request.POST.get(
-                        f'nombre_existente_{vid}', variante.nombre_variante
-                    ).strip() or variante.nombre_variante
-                    variante.sku = nuevo_sku
-                    variante.codigo_barras = request.POST.get(f'codigo_barras_existente_{vid}') or None
-                    variante.precio_referencial = safe_decimal(request.POST.get(f'precio_existente_{vid}'))
-                    variante.costo = safe_decimal(request.POST.get(f'costo_existente_{vid}'))
-                    variante.maneja_stock = request.POST.get(f'maneja_stock_existente_{vid}') == 'on'
- 
-                    nueva_foto = request.FILES.get(f'foto_existente_{vid}')
-                    if nueva_foto:
-                        variante.foto = nueva_foto
- 
-                    variante.is_active = True
-                    variante.save()
- 
-                # 2. Crear variantes nuevas agregadas durante la edición
-                prefix_nuevas = f'nueva_variante_{producto.id}'
-                crear_variantes_desde_form(producto, request.POST, request.FILES, prefix=prefix_nuevas)
- 
-                # Si el producto se quedó sin ninguna variante activa, no lo dejamos así
-                if not producto.variantes.filter(is_active=True).exists():
-                    raise ValueError("El producto debe tener al menos una variante activa.")
- 
-                messages.success(request, f'✅ Producto "{nombre}" actualizado correctamente.')
- 
+
+                # ---- Datos PROPIOS de esta variante ----
+                nuevo_sku = request.POST.get('sku', '').strip()
+                if not nuevo_sku:
+                    raise ValueError("El SKU es obligatorio.")
+                if ProductoVariante.objects.filter(sku=nuevo_sku).exclude(id=variante.id).exists():
+                    raise ValueError(f"El SKU '{nuevo_sku}' ya está en uso.")
+
+                variante.nombre_variante = request.POST.get('nombre_variante', '').strip() or variante.nombre_variante
+                variante.sku = nuevo_sku
+                variante.codigo_barras = request.POST.get('codigo_barras') or None
+                variante.precio_referencial = safe_decimal(request.POST.get('precio'))
+                variante.costo = safe_decimal(request.POST.get('costo'))
+                variante.maneja_stock = request.POST.get('maneja_stock') == 'on'
+
+                archivo_foto, url_foto = resolver_foto_archivo_o_url(
+                    request.POST, request.FILES, 'foto', 'foto_url'
+                )
+                if archivo_foto:
+                    variante.foto = archivo_foto
+                    variante.foto_url = None
+                elif url_foto:
+                    variante.foto = None
+                    variante.foto_url = url_foto
+                # si no mandó ninguno, se respeta la foto actual
+
+                variante.save()
+
+                messages.success(request, f'✅ "{producto.nombre} — {variante.nombre_variante}" actualizado correctamente.')
+                return redirect('producto_list')
+
         except ValueError as e:
             messages.error(request, f'❌ {e}')
         except IntegrityError:
             messages.error(request, '❌ Ya existe un registro con ese SKU.')
         except Exception as e:
-            messages.error(request, f'❌ Error al actualizar el producto: {e}')
- 
-    return redirect('producto_list')
- 
+            messages.error(request, f'❌ Error al actualizar: {e}')
+
+    context = {
+        'variante': variante,
+        'producto': producto,
+        'unidades_medida': UnidadMedida.objects.filter(is_active=True, fk_empresa=empresa),
+        'categorias': Category.objects.filter(is_active=True, fk_empresa=empresa),
+        'hermanas_activas': producto.variantes.filter(is_active=True).exclude(id=variante.id).count(),
+        'visibilidad_actual': (
+            'ambos' if producto.visible_venta and producto.visible_compra
+            else ('venta' if producto.visible_venta else 'compra')
+        ),
+    }
+    return render(request, 'inventario/editar_variante.html', context)
+
 @login_required
 @permiso_requerido('producto_list', 'eliminar')
 def producto_terminado_delete(request):
     if request.method == 'POST':
         try:
             empresa = request.user.sucursal.fk_empresa
-            producto_id = request.POST.get('id')
-            producto = get_object_or_404(
-                Producto, id=producto_id, fk_tipo_producto__codigo=CODIGO_TERMINADO, fk_empresa=empresa
+            variante_id = request.POST.get('id')
+            variante = get_object_or_404(
+                ProductoVariante,
+                id=variante_id,
+                producto__fk_empresa=empresa,
+                producto__fk_tipo_producto__codigo=CODIGO_TERMINADO,
             )
-            nombre = producto.nombre
-            producto.is_active = False
-            producto.save()
-            producto.variantes.update(is_active=False)
-            messages.success(request, f'✅ Producto "{nombre}" eliminado correctamente.')
-        except Exception as e:
-            messages.error(request, f'❌ Error al eliminar el producto: {e}')
- 
-    return redirect('producto_list')
+            producto = variante.producto
+            nombre_mostrar = f'{producto.nombre} — {variante.nombre_variante}'
 
+            variante.is_active = False
+            variante.save()
+
+            # Si el producto se quedó sin ninguna variante activa, se apaga también
+            if not producto.variantes.filter(is_active=True).exists():
+                producto.is_active = False
+                producto.save()
+
+            messages.success(request, f'✅ "{nombre_mostrar}" eliminado correctamente.')
+        except Exception as e:
+            messages.error(request, f'❌ Error al eliminar: {e}')
+
+    return redirect('producto_list')
 # ============================================
 # API: OBTENER PRODUCTOS GENÉRICOS (EXACTO COMO PHP)
 # ============================================

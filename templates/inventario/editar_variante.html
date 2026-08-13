@@ -1,0 +1,284 @@
+{% extends "base.html" %}
+{% load static %}
+{% load l10n %}
+{% block title %}Editar Variante{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4 px-4" style="max-width: 980px; margin: 0 auto;">
+
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-pencil-square me-2"></i>
+                Editar Variante
+            </h2>
+            <div class="ee-muted">
+                {{ producto.nombre }}
+                {% if variante.nombre_variante != "Único" %} — {{ variante.nombre_variante }}{% endif %}
+            </div>
+        </div>
+        <a href="{% url 'producto_list' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Volver a la lista
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert-nexus alert-{{ message.tags }} mb-3">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <!-- ============================================= -->
+        <!-- ADVERTENCIA -->
+        <!-- ============================================= -->
+        {% if hermanas_activas > 0 %}
+        <div class="alert-nexus alert-warning mb-3 d-flex align-items-start gap-2">
+            <i class="bi bi-exclamation-triangle-fill mt-1"></i>
+            <div>
+                <strong>Este producto tiene {{ hermanas_activas }} variante{{ hermanas_activas|pluralize }} más.</strong>
+                Los campos de la sección "Datos del Producto" (nombre, categoría, unidad de medida, visibilidad)
+                son compartidos — si los cambias aquí, afectará también a esas otras variantes.
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ============================================= -->
+        <!-- DATOS DEL PRODUCTO (compartidos) -->
+        <!-- ============================================= -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header">
+                <i class="bi bi-box-seam-fill me-1"></i> Datos del Producto
+                <span class="badge bg-secondary ms-2">Compartido entre variantes</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label">Nombre del Producto *</label>
+                        <input type="text" class="form-control" name="nombre" value="{{ producto.nombre }}" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Categoría</label>
+                        <select class="form-select" name="categoria">
+                            <option value="">Selecciona una categoría...</option>
+                            {% for cat in categorias %}
+                                <option value="{{ cat.id }}" {% if producto.category_id == cat.id %}selected{% endif %}>
+                                    {{ cat.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Unidad de Medida *</label>
+                        <select class="form-select" name="unidad_medida" required>
+                            {% for u in unidades_medida %}
+                                <option value="{{ u.id }}" {% if producto.unidad_medida_id == u.id %}selected{% endif %}>
+                                    {{ u.nombre }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Descripción Breve</label>
+                        <textarea class="form-control" name="descripcion" rows="2">{{ producto.descripcion }}</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Unidades por Caja</label>
+                        <input type="number" class="form-control" name="unidades_por_caja" value="{{ producto.unidades_por_caja }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Tara por Caja</label>
+                        <input type="number" step="0.01" class="form-control" name="tara_por_caja" value="{{ producto.tara_por_caja }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Producto visible en *</label>
+                        <select class="form-select" name="visibilidad" required>
+                            <option value="ambos" {% if visibilidad_actual == "ambos" %}selected{% endif %}>Ventas y Compras (Ambos)</option>
+                            <option value="venta" {% if visibilidad_actual == "venta" %}selected{% endif %}>Solo Ventas</option>
+                            <option value="compra" {% if visibilidad_actual == "compra" %}selected{% endif %}>Solo Compras</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================= -->
+        <!-- DATOS DE ESTA VARIANTE -->
+        <!-- ============================================= -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header">
+                <i class="bi bi-diagram-3-fill me-1"></i> Datos de esta Variante
+                <span class="badge bg-primary ms-2">Solo afecta a {{ variante.nombre_variante }}</span>
+            </div>
+            <div class="card-body">
+                <div class="row g-4">
+                    <div class="col-lg-8">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Nombre de la Variante</label>
+                                <input type="text" class="form-control" name="nombre_variante" value="{{ variante.nombre_variante }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">SKU *</label>
+                                <input type="text" class="form-control" name="sku" value="{{ variante.sku }}" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Código de Barras</label>
+                                <input type="text" class="form-control" name="codigo_barras" value="{{ variante.codigo_barras|default:'' }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Precio</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" class="form-control" name="precio" value="{{ variante.precio_referencial|unlocalize }}">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label">Costo</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" class="form-control" name="costo" value="{{ variante.costo|unlocalize }}">
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" name="maneja_stock" id="maneja_stock"
+                                           {% if variante.maneja_stock %}checked{% endif %}>
+                                    <label class="form-check-label" for="maneja_stock">Esta variante maneja stock</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <label class="form-label d-block">Foto</label>
+                        <div class="foto-uploader">
+                            <div class="foto-preview">
+                                {% if variante.foto_display %}
+                                    <img src="{{ variante.foto_display }}" alt="Foto actual">
+                                {% else %}
+                                    <i class="bi bi-image"></i>
+                                {% endif %}
+                            </div>
+                            <div class="foto-tabs">
+                                <button type="button" class="foto-tab activa" data-modo="archivo">
+                                    <i class="bi bi-upload"></i> Archivo
+                                </button>
+                                <button type="button" class="foto-tab" data-modo="url">
+                                    <i class="bi bi-link-45deg"></i> URL
+                                </button>
+                            </div>
+                            <div class="foto-panel" data-panel="archivo">
+                                <input type="file" class="form-control form-control-sm foto-input-archivo" name="foto" accept="image/*">
+                            </div>
+                            <div class="foto-panel d-none" data-panel="url">
+                                <input type="text" class="form-control form-control-sm foto-input-url" name="foto_url"
+                                       placeholder="https://ejemplo.com/foto.jpg"
+                                       value="{% if variante.foto_url %}{{ variante.foto_url }}{% endif %}">
+                            </div>
+                            <p class="small ee-muted mt-2 mb-0">Deja ambos vacíos para conservar la foto actual.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mb-5">
+            <a href="{% url 'producto_list' %}" class="btn btn-secondary">
+                <i class="bi bi-x-circle me-1"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle me-1"></i> Guardar Cambios
+            </button>
+        </div>
+    </form>
+</div>
+
+<style>
+    .ee-muted { color: var(--text-muted) !important; }
+
+    .alert-nexus {
+        padding: .8rem 1rem;
+        border-radius: var(--radius);
+        font-size: .85rem;
+        background: var(--bg-card);
+        color: var(--text-main);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--primary);
+    }
+    .alert-nexus.alert-error { border-left-color: #ef4444; }
+    .alert-nexus.alert-success { border-left-color: var(--primary); }
+    .alert-nexus.alert-warning { border-left-color: #f59e0b; background: rgba(245, 158, 11, 0.08); }
+
+    .foto-uploader {
+        border: 1px dashed var(--border);
+        border-radius: var(--radius);
+        padding: 12px;
+        background-color: var(--bg-dark);
+    }
+    .foto-preview {
+        width: 100%; aspect-ratio: 1/1; max-height: 140px;
+        border-radius: var(--radius); background-color: var(--bg-card);
+        border: 1px solid var(--border); display: flex; align-items: center;
+        justify-content: center; overflow: hidden; margin-bottom: 10px;
+    }
+    .foto-preview i { font-size: 2rem; color: var(--text-muted) !important; }
+    .foto-preview img { width: 100%; height: 100%; object-fit: cover; }
+    .foto-tabs {
+        display: flex; gap: 4px; margin-bottom: 8px;
+        background-color: var(--bg-card); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 2px;
+    }
+    .foto-tab {
+        flex: 1; background: none; border: none; color: var(--text-muted);
+        padding: 5px 8px; border-radius: calc(var(--radius) - 2px); font-size: .72rem;
+        cursor: pointer; transition: var(--transition); display: flex;
+        align-items: center; justify-content: center; gap: 4px;
+    }
+    .foto-tab.activa { background-color: var(--primary); color: #fff; }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.foto-uploader').forEach(function (contenedor) {
+        const tabs = contenedor.querySelectorAll('.foto-tab');
+        const panelArchivo = contenedor.querySelector('[data-panel="archivo"]');
+        const panelUrl = contenedor.querySelector('[data-panel="url"]');
+        const inputArchivo = contenedor.querySelector('.foto-input-archivo');
+        const inputUrl = contenedor.querySelector('.foto-input-url');
+        const preview = contenedor.querySelector('.foto-preview');
+
+        function setPreview(src) {
+            preview.innerHTML = src ? `<img src="${src}" alt="Preview">` : '<i class="bi bi-image"></i>';
+        }
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('activa'));
+                tab.classList.add('activa');
+                const modo = tab.dataset.modo;
+                panelArchivo.classList.toggle('d-none', modo !== 'archivo');
+                panelUrl.classList.toggle('d-none', modo !== 'url');
+                if (modo === 'archivo') { inputUrl.value = ''; }
+                else { inputArchivo.value = ''; }
+            });
+        });
+
+        inputArchivo.addEventListener('change', () => {
+            const file = inputArchivo.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => setPreview(e.target.result);
+            reader.readAsDataURL(file);
+        });
+
+        inputUrl.addEventListener('input', () => {
+            const url = inputUrl.value.trim();
+            if (url) setPreview(url);
+        });
+    });
+});
+</script>
+{% endblock %}

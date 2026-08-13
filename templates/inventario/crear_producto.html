@@ -4,345 +4,29 @@
 {% block title %}Crear Producto{% endblock %}
 
 {% block content %}
-<style>
-    .np-card {
-        background-color: #1a1d23;
-        border: 1px solid #2d3139;
-        border-radius: 12px;
-        padding: 24px;
-        margin-bottom: 24px;
-    }
+<div class="container-fluid mt-4 px-4" style="max-width: 980px; margin: 0 auto;">
 
-    .np-card-header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 16px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid #2d3139;
-    }
-
-    .np-card-header .material-symbols-outlined { color: #4edea3; }
-
-    .np-card-header h3 {
-        font-size: 20px;
-        font-weight: 600;
-        margin: 0;
-        color: #dde4dd;
-    }
-
-    .np-hint {
-        color: #86948a;
-        font-size: 14px;
-        margin-bottom: 16px;
-    }
-
-    .np-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 24px;
-    }
-
-    .np-grid-3 {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 24px;
-    }
-
-    .np-col-span-2 { grid-column: span 2; }
-
-    @media (max-width: 720px) {
-        .np-grid, .np-grid-3 { grid-template-columns: 1fr; }
-        .np-col-span-2 { grid-column: span 1; }
-    }
-
-    .np-field { display: flex; flex-direction: column; gap: 8px; }
-
-    .np-field label {
-        font-size: 14px;
-        color: #dde4dd;
-        font-weight: 500;
-    }
-
-    .np-field input[type="text"],
-    .np-field input[type="number"],
-    .np-field input[type="file"],
-    .np-field textarea {
-        background-color: #0f1115;
-        border: 1px solid #2d3139;
-        color: #dde4dd;
-        border-radius: 8px;
-        padding: 8px 16px;
-        font-size: 16px;
-        width: 100%;
-        font-family: inherit;
-    }
-
-    .np-field input[type="file"] { padding: 6px 12px; font-size: 14px; }
-
-    .np-field textarea { resize: none; }
-
-    .np-field input:focus,
-    .np-field textarea:focus,
-    .np-select-wrap select:focus {
-        outline: none;
-        border-color: #10b981;
-        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
-    }
-
-    .np-text-right { text-align: right; }
-
-    /* Select bonito */
-    .np-select-wrap { position: relative; }
-
-    .np-select-wrap select {
-        appearance: none;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        width: 100%;
-        background-color: #0f1115;
-        border: 1px solid #2d3139;
-        color: #dde4dd;
-        border-radius: 8px;
-        padding: 10px 40px 10px 16px;
-        font-size: 16px;
-        cursor: pointer;
-        font-family: inherit;
-    }
-
-    .np-select-wrap::after {
-        content: "▾";
-        position: absolute;
-        right: 16px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #86948a;
-        pointer-events: none;
-        font-size: 14px;
-    }
-
-    /* Pills visibilidad */
-    .np-pills {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-    }
-
-    .np-pill {
-        cursor: pointer;
-        border: 1px solid #2d3139;
-        background-color: #0f1115;
-        color: #86948a;
-        border-radius: 8px;
-        padding: 10px 14px;
-        font-size: 13px;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        transition: all .15s ease;
-        user-select: none;
-    }
-
-    .np-pill.activa {
-        border-color: #10b981;
-        background-color: rgba(16, 185, 129, 0.12);
-        color: #4edea3;
-    }
-
-    /* Toggle switch */
-    .np-toggle-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding-bottom: 12px;
-        border-bottom: 1px solid #2d3139;
-        margin-bottom: 16px;
-    }
-
-    .np-toggle-label {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        cursor: pointer;
-        user-select: none;
-    }
-
-    .np-toggle-label .np-toggle-text {
-        font-size: 14px;
-        color: #86948a;
-    }
-
-    .np-switch {
-        position: relative;
-        width: 40px;
-        height: 24px;
-        background-color: #2d3139;
-        border-radius: 999px;
-        transition: background-color .15s ease;
-        flex-shrink: 0;
-    }
-
-    .np-switch::before {
-        content: "";
-        position: absolute;
-        left: 4px;
-        top: 4px;
-        width: 16px;
-        height: 16px;
-        background-color: #dde4dd;
-        border-radius: 50%;
-        transition: transform .15s ease;
-    }
-
-    .np-toggle-label input[type="checkbox"] { display: none; }
-    .np-toggle-label input[type="checkbox"]:checked + .np-switch { background-color: #10b981; }
-    .np-toggle-label input[type="checkbox"]:checked + .np-switch::before { transform: translateX(16px); }
-
-    .np-checkbox-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding-top: 24px;
-    }
-
-    .np-checkbox-row input[type="checkbox"] {
-        width: 16px;
-        height: 16px;
-        accent-color: #10b981;
-    }
-
-    .np-checkbox-row label { font-size: 14px; color: #dde4dd; margin: 0; }
-
-    /* Fila variante */
-    .np-fila-variante {
-        border: 1px solid #2d3139;
-        border-radius: 8px;
-        padding: 16px;
-        display: grid;
-        grid-template-columns: repeat(6, 1fr);
-        gap: 16px;
-        position: relative;
-        margin-bottom: 16px;
-    }
-
-    @media (max-width: 900px) {
-        .np-fila-variante { grid-template-columns: 1fr 1fr; }
-    }
-
-    .np-fila-variante .np-col-span-2 { grid-column: span 2; }
-
-    .np-fila-variante label {
-        font-size: 12px;
-        color: #86948a;
-        display: block;
-        margin-bottom: 4px;
-    }
-
-    .np-btn-eliminar-fila {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        background: none;
-        border: none;
-        color: #86948a;
-        cursor: pointer;
-        font-size: 18px;
-        line-height: 1;
-    }
-
-    .np-btn-eliminar-fila:hover { color: #ffb4ab; }
-
-    .np-btn-agregar-variante {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        background: none;
-        border: none;
-        color: #4edea3;
-        font-size: 14px;
-        cursor: pointer;
-        padding: 0;
-    }
-
-    .np-btn-agregar-variante:hover { opacity: .8; }
-
-    .np-hidden { display: none !important; }
-
-    .np-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: 16px;
-        padding-top: 8px;
-    }
-
-    .np-btn {
-        padding: 10px 32px;
-        border-radius: 8px;
-        font-size: 14px;
-        cursor: pointer;
-        text-decoration: none;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border: none;
-    }
-
-    .np-btn-cancel {
-        border: 1px solid #3c4a42;
-        color: #dde4dd;
-        background-color: transparent;
-    }
-
-    .np-btn-cancel:hover { background-color: #1a1d23; }
-
-    .np-btn-save {
-        background-color: #10b981;
-        color: #003824;
-        font-weight: 700;
-    }
-
-    .np-btn-save:hover { opacity: .9; }
-
-    .np-alert {
-        margin-bottom: 16px;
-        padding: 12px 16px;
-        border-radius: 8px;
-        font-size: 14px;
-    }
-
-    .np-alert-success {
-        background-color: rgba(78, 222, 163, 0.1);
-        color: #4edea3;
-        border: 1px solid rgba(78, 222, 163, 0.3);
-    }
-
-    .np-alert-error {
-        background-color: rgba(255, 180, 171, 0.1);
-        color: #ffb4ab;
-        border: 1px solid rgba(255, 180, 171, 0.3);
-    }
-
-    .np-alert-info {
-        background-color: #1a1d23;
-        color: #dde4dd;
-        border: 1px solid #2d3139;
-    }
-</style>
-<div style="max-width: 900px; margin: 0 auto; padding: 24px;">
-
-    <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:24px;">
+    <!-- ========================================================= -->
+    <!-- ENCABEZADO -->
+    <!-- ========================================================= -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <div>
-            <h2 style="font-size:28px; font-weight:600; margin:0; color:#dde4dd;">Crear Nuevo Producto</h2>
-            <p style="color:#86948a; margin-top:8px;">Añade un nuevo artículo terminado al catálogo.</p>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-box-seam-fill me-2"></i>
+                Crear Nuevo Producto
+            </h2>
+            <div class="ee-muted">
+                Añade un nuevo artículo terminado al catálogo
+            </div>
         </div>
-        <a href="{% url 'producto_list' %}" style="color:#86948a; text-decoration:none; font-size:14px;">
-            ← Volver a la lista
+        <a href="{% url 'producto_list' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Volver a la lista
         </a>
     </div>
 
     {% if messages %}
         {% for message in messages %}
-            <div class="np-alert {% if message.tags == 'success' %}np-alert-success{% elif message.tags == 'error' %}np-alert-error{% else %}np-alert-info{% endif %}">
+            <div class="alert-nexus alert-{{ message.tags }} mb-3">
                 {{ message }}
             </div>
         {% endfor %}
@@ -351,188 +35,414 @@
     <form method="post" enctype="multipart/form-data" id="formProducto">
         {% csrf_token %}
 
-        <!-- Información General -->
-        <section class="np-card">
-            <div class="np-card-header">
-                <span class="material-symbols-outlined">info</span>
-                <h3>Información General</h3>
+        <!-- ================================================= -->
+        <!-- INFORMACIÓN GENERAL -->
+        <!-- ================================================= -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-1"></i> Información General
             </div>
-            <div class="np-grid">
-                <div class="np-field np-col-span-2">
-                    <label for="nombre">Nombre del Producto *</label>
-                    <input type="text" id="nombre" name="nombre" placeholder="Ej. Harina Pan 1kg" required>
-                </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label for="nombre" class="form-label">Nombre del Producto *</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre"
+                               placeholder="Ej. Harina Pan 1kg" required>
+                    </div>
 
-                <div class="np-field">
-                    <label for="categoria">Categoría</label>
-                    <div class="np-select-wrap">
-                        <select id="categoria" name="categoria">
+                    <div class="col-md-6">
+                        <label for="categoria" class="form-label">Categoría</label>
+                        <select class="form-select" id="categoria" name="categoria">
                             <option value="">Selecciona una categoría...</option>
                             {% for cat in categorias %}
                                 <option value="{{ cat.id }}">{{ cat.name }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                </div>
 
-                <div class="np-field">
-                    <label for="unidad_medida">Unidad de Medida *</label>
-                    <div class="np-select-wrap">
-                        <select id="unidad_medida" name="unidad_medida" required>
+                    <div class="col-md-6">
+                        <label for="unidad_medida" class="form-label">Unidad de Medida *</label>
+                        <select class="form-select" id="unidad_medida" name="unidad_medida" required>
                             <option value="">Selecciona...</option>
                             {% for u in unidades_medida %}
                                 <option value="{{ u.id }}">{{ u.nombre }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                </div>
 
-                <div class="np-field np-col-span-2">
-                    <label for="descripcion">Descripción Breve</label>
-                    <textarea id="descripcion" name="descripcion" rows="2" placeholder="Detalles del producto..."></textarea>
-                </div>
+                    <div class="col-12">
+                        <label for="descripcion" class="form-label">Descripción Breve</label>
+                        <textarea class="form-control" id="descripcion" name="descripcion" rows="2"
+                                  placeholder="Detalles del producto..."></textarea>
+                    </div>
 
-                <div class="np-field">
-                    <label for="unidades_por_caja">Unidades por Caja</label>
-                    <input type="number" id="unidades_por_caja" name="unidades_por_caja" min="0" placeholder="0">
-                </div>
+                    <div class="col-md-6">
+                        <label for="unidades_por_caja" class="form-label">Unidades por Caja</label>
+                        <input type="number" class="form-control" id="unidades_por_caja"
+                               name="unidades_por_caja" min="0" placeholder="0">
+                    </div>
 
-                <div class="np-field">
-                    <label for="tara_por_caja">Tara por Caja</label>
-                    <input type="number" id="tara_por_caja" name="tara_por_caja" step="0.01" placeholder="0.00">
+                    <div class="col-md-6">
+                        <label for="tara_por_caja" class="form-label">Tara por Caja</label>
+                        <input type="number" step="0.01" class="form-control" id="tara_por_caja"
+                               name="tara_por_caja" placeholder="0.00">
+                    </div>
                 </div>
             </div>
-        </section>
+        </div>
 
-        <!-- Visibilidad -->
-        <section class="np-card">
-            <div class="np-card-header">
-                <span class="material-symbols-outlined">visibility</span>
-                <h3>Visibilidad</h3>
+        <!-- ================================================= -->
+        <!-- VISIBILIDAD -->
+        <!-- ================================================= -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header">
+                <i class="bi bi-eye me-1"></i> Visibilidad
             </div>
-            <p class="np-hint">
-                ¿Dónde debe aparecer este producto? Un insumo como la harina normalmente solo se ve en
-                <strong style="color:#dde4dd;">Compras</strong>, mientras un producto terminado como una
-                gaseosa se ve en <strong style="color:#dde4dd;">ambos</strong>.
-            </p>
+            <div class="card-body">
+                <p class="ee-muted mb-3">
+                    ¿Dónde debe aparecer este producto? Un insumo como la harina normalmente solo se ve en
+                    <strong>Compras</strong>, mientras un producto terminado como una gaseosa se ve en
+                    <strong>ambos</strong>.
+                </p>
 
-            <div class="np-grid" style="align-items:end;">
-                <div class="np-field">
-                    <label for="visibilidad">Producto visible en *</label>
-                    <div class="np-select-wrap">
-                        <select id="visibilidad" name="visibilidad" required>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-6">
+                        <label for="visibilidad" class="form-label">Producto visible en *</label>
+                        <select class="form-select" id="visibilidad" name="visibilidad" required>
                             <option value="ambos" selected>Ventas y Compras (Ambos)</option>
                             <option value="venta">Solo Ventas</option>
                             <option value="compra">Solo Compras</option>
                         </select>
                     </div>
-                </div>
 
-                <div class="np-pills" id="visibilidadPills">
-                    <span class="np-pill activa" data-valor="ambos">↔ Ambos</span>
-                    <span class="np-pill" data-valor="venta">🛒 Ventas</span>
-                    <span class="np-pill" data-valor="compra">📦 Compras</span>
+                    <div class="col-md-6">
+                        <div class="visibilidad-pills" id="visibilidadPills">
+                            <span class="pill activa" data-valor="ambos">
+                                <i class="bi bi-arrow-left-right"></i> Ambos
+                            </span>
+                            <span class="pill" data-valor="venta">
+                                <i class="bi bi-cart-check-fill"></i> Ventas
+                            </span>
+                            <span class="pill" data-valor="compra">
+                                <i class="bi bi-box-seam"></i> Compras
+                            </span>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </section>
+        </div>
 
-        <!-- Variantes -->
-        <section class="np-card">
-            <div class="np-toggle-row">
-                <div class="np-card-header" style="border:none; margin:0; padding:0;">
-                    <span class="material-symbols-outlined">style</span>
-                    <h3>Variantes</h3>
-                </div>
-                <label class="np-toggle-label">
-                    <span class="np-toggle-text">¿Tiene variantes?</span>
+        <!-- ================================================= -->
+        <!-- PRODUCTO / VARIANTES -->
+        <!-- ================================================= -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-diagram-3-fill me-1"></i> Producto y Variantes</span>
+                <label class="toggle-label">
+                    <span class="ee-muted small">¿Tiene variantes?</span>
                     <input type="checkbox" id="tiene_variantes" name="tiene_variantes">
-                    <span class="np-switch"></span>
+                    <span class="toggle-switch"></span>
                 </label>
             </div>
+            <div class="card-body">
 
-            <!-- Bloque SKU único -->
-            <div id="bloqueSinVariantes" class="np-grid-3">
-                <div class="np-field">
-                    <label>SKU *</label>
-                    <input type="text" name="sku_base" placeholder="EJ-12345">
+                <!-- Bloque SKU único -->
+                <div id="bloqueSinVariantes" class="row g-4">
+
+                    <!-- Columna izquierda: datos -->
+                    <div class="col-lg-8">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">SKU *</label>
+                                <input type="text" class="form-control" name="sku_base" placeholder="EJ-12345">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Código de Barras</label>
+                                <input type="text" class="form-control" name="codigo_barras_base">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Precio</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" class="form-control" name="precio_base" placeholder="0.00">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Costo</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" step="0.01" class="form-control" name="costo_base" placeholder="0.00">
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" name="maneja_stock_base" id="maneja_stock_base">
+                                    <label class="form-check-label" for="maneja_stock_base">Este producto maneja stock</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Columna derecha: foto -->
+                    <div class="col-lg-4">
+                        <label class="form-label d-block">Foto del producto</label>
+                        <div class="foto-uploader" data-prefix="base">
+                            <div class="foto-preview">
+                                <i class="bi bi-image"></i>
+                            </div>
+                            <div class="foto-tabs">
+                                <button type="button" class="foto-tab activa" data-modo="archivo">
+                                    <i class="bi bi-upload"></i> Archivo
+                                </button>
+                                <button type="button" class="foto-tab" data-modo="url">
+                                    <i class="bi bi-link-45deg"></i> URL
+                                </button>
+                            </div>
+                            <div class="foto-panel" data-panel="archivo">
+                                <input type="file" class="form-control form-control-sm foto-input-archivo"
+                                       name="foto_base" accept="image/*">
+                            </div>
+                            <div class="foto-panel d-none" data-panel="url">
+                                <input type="text" class="form-control form-control-sm foto-input-url"
+                                       name="foto_url_base" placeholder="https://ejemplo.com/foto.jpg">
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="np-field">
-                    <label>Código de Barras</label>
-                    <input type="text" name="codigo_barras_base">
-                </div>
-                <div class="np-field">
-                    <label>Precio</label>
-                    <input type="number" step="0.01" name="precio_base" class="np-text-right" placeholder="0.00">
-                </div>
-                <div class="np-field">
-                    <label>Costo</label>
-                    <input type="number" step="0.01" name="costo_base" class="np-text-right" placeholder="0.00">
-                </div>
-                <div class="np-field">
-                    <label>Foto</label>
-                    <input type="file" name="foto_base" accept="image/*">
-                </div>
-                <div class="np-checkbox-row">
-                    <input type="checkbox" name="maneja_stock_base" id="maneja_stock_base">
-                    <label for="maneja_stock_base">Maneja stock</label>
+
+                <!-- Bloque con variantes -->
+                <div id="bloqueVariantes" class="d-none">
+                    <div id="filasVariantes"></div>
+                    <button type="button" id="btnAgregarVariante" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-plus-lg"></i> Agregar variante
+                    </button>
                 </div>
             </div>
+        </div>
 
-            <!-- Bloque con variantes -->
-            <div id="bloqueVariantes" class="np-hidden">
-                <div id="filasVariantes"></div>
-                <button type="button" id="btnAgregarVariante" class="np-btn-agregar-variante">
-                    + Agregar variante
-                </button>
-            </div>
-        </section>
-
-        <div class="np-actions">
-            <a href="{% url 'producto_list' %}" class="np-btn np-btn-cancel">Cancelar</a>
-            <button type="submit" class="np-btn np-btn-save">Guardar Producto</button>
+        <!-- ================================================= -->
+        <!-- ACCIONES -->
+        <!-- ================================================= -->
+        <div class="d-flex justify-content-end gap-2 mb-5">
+            <a href="{% url 'producto_list' %}" class="btn btn-secondary">
+                <i class="bi bi-x-circle me-1"></i> Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle me-1"></i> Guardar Producto
+            </button>
         </div>
     </form>
 </div>
 
-<!-- Template de fila de variante -->
+<!-- Template de fila de variante (tarjeta, no tabla, para que quepa la foto) -->
 <template id="templateFilaVariante">
-    <div class="np-fila-variante">
-        <div class="np-col-span-2">
-            <label>Nombre variante</label>
-            <input type="text" data-field="nombre" placeholder="Ej. Rojo / M">
+    <div class="fila-variante-card">
+        <button type="button" class="btn-eliminar-fila">
+            <i class="bi bi-x-lg"></i>
+        </button>
+        <div class="row g-3">
+            <div class="col-lg-8">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Nombre variante</label>
+                        <input type="text" class="form-control form-control-sm" data-field="nombre" placeholder="Ej. Rojo / M">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">SKU *</label>
+                        <input type="text" class="form-control form-control-sm" data-field="sku" placeholder="EJ-001">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Código de barras</label>
+                        <input type="text" class="form-control form-control-sm" data-field="codigo_barras">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Precio</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" data-field="precio" placeholder="0.00">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Costo</label>
+                        <input type="number" step="0.01" class="form-control form-control-sm" data-field="costo" placeholder="0.00">
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check">
+                            <input type="checkbox" data-field="maneja_stock" class="form-check-input" checked>
+                            <label class="form-check-label">Maneja stock</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <label class="form-label d-block">Foto</label>
+                <div class="foto-uploader foto-uploader-sm" data-prefix="variante">
+                    <div class="foto-preview">
+                        <i class="bi bi-image"></i>
+                    </div>
+                    <div class="foto-tabs">
+                        <button type="button" class="foto-tab activa" data-modo="archivo">
+                            <i class="bi bi-upload"></i>
+                        </button>
+                        <button type="button" class="foto-tab" data-modo="url">
+                            <i class="bi bi-link-45deg"></i>
+                        </button>
+                    </div>
+                    <div class="foto-panel" data-panel="archivo">
+                        <input type="file" class="form-control form-control-sm foto-input-archivo" data-field="foto" accept="image/*">
+                    </div>
+                    <div class="foto-panel d-none" data-panel="url">
+                        <input type="text" class="form-control form-control-sm foto-input-url" data-field="foto_url" placeholder="https://...">
+                    </div>
+                </div>
+            </div>
         </div>
-        <div>
-            <label>SKU *</label>
-            <input type="text" data-field="sku" placeholder="EJ-001">
-        </div>
-        <div>
-            <label>Código de barras</label>
-            <input type="text" data-field="codigo_barras">
-        </div>
-        <div>
-            <label>Precio</label>
-            <input type="number" step="0.01" data-field="precio" class="np-text-right" placeholder="0.00">
-        </div>
-        <div>
-            <label>Costo</label>
-            <input type="number" step="0.01" data-field="costo" class="np-text-right" placeholder="0.00">
-        </div>
-        <div class="np-col-span-2">
-            <label>Foto</label>
-            <input type="file" data-field="foto" accept="image/*">
-        </div>
-        <div style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" data-field="maneja_stock">
-            <label style="margin:0;">Maneja stock</label>
-        </div>
-        <button type="button" class="np-btn-eliminar-fila">✕</button>
     </div>
 </template>
 
+<style>
+    .ee-muted { color: var(--text-muted) !important; }
+
+    .alert-nexus {
+        padding: .6rem 1rem;
+        border-radius: var(--radius);
+        font-size: .85rem;
+        background: var(--bg-card);
+        color: var(--text-main);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--primary);
+    }
+    .alert-nexus.alert-error { border-left-color: #ef4444; }
+    .alert-nexus.alert-success { border-left-color: var(--primary); }
+    .alert-nexus.alert-warning { border-left-color: #f59e0b; }
+
+    /* Pills de visibilidad */
+    .visibilidad-pills { display: flex; gap: 8px; }
+
+    .pill {
+        cursor: pointer;
+        border: 1px solid var(--border);
+        background-color: var(--bg-dark);
+        color: var(--text-muted);
+        border-radius: var(--radius);
+        padding: .4rem .8rem;
+        font-size: .8rem;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: var(--transition);
+        user-select: none;
+        flex: 1;
+        justify-content: center;
+    }
+    .pill i { font-size: .9rem; }
+    .pill.activa { border-color: var(--primary); background-color: rgba(16, 185, 129, 0.12); color: var(--primary); }
+
+    /* Toggle switch */
+    .toggle-label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+    .toggle-switch { position: relative; width: 36px; height: 20px; background-color: var(--border); border-radius: 999px; transition: var(--transition); flex-shrink: 0; }
+    .toggle-switch::before { content: ""; position: absolute; left: 3px; top: 3px; width: 14px; height: 14px; background-color: #fff; border-radius: 50%; transition: var(--transition); }
+    .toggle-label input[type="checkbox"] { display: none; }
+    .toggle-label input[type="checkbox"]:checked + .toggle-switch { background-color: var(--primary); }
+    .toggle-label input[type="checkbox"]:checked + .toggle-switch::before { transform: translateX(16px); }
+
+    /* ===== Uploader de fotos (archivo o URL) ===== */
+    .foto-uploader {
+        border: 1px dashed var(--border);
+        border-radius: var(--radius);
+        padding: 12px;
+        background-color: var(--bg-dark);
+    }
+
+    .foto-preview {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        max-height: 140px;
+        border-radius: var(--radius);
+        background-color: var(--bg-card);
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        margin-bottom: 10px;
+    }
+
+    .foto-preview i {
+        font-size: 2rem;
+        color: var(--text-muted) !important;
+    }
+
+    .foto-preview img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .foto-tabs {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 8px;
+        background-color: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 2px;
+    }
+
+    .foto-tab {
+        flex: 1;
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        padding: 5px 8px;
+        border-radius: calc(var(--radius) - 2px);
+        font-size: .72rem;
+        cursor: pointer;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+    }
+
+    .foto-tab.activa {
+        background-color: var(--primary);
+        color: #fff;
+    }
+
+    .foto-uploader-sm .foto-preview { max-height: 110px; }
+
+    /* Fila de variante como tarjeta */
+    .fila-variante-card {
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 16px;
+        margin-bottom: 16px;
+        position: relative;
+        background-color: var(--bg-dark);
+    }
+
+    .btn-eliminar-fila {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: .9rem;
+        z-index: 2;
+    }
+
+    .btn-eliminar-fila:hover { color: #ef4444; }
+
+    @media (max-width: 576px) {
+        .visibilidad-pills { flex-direction: column; }
+    }
+</style>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    // ---- Pills de visibilidad ----
     const selectVisibilidad = document.getElementById('visibilidad');
-    const pills = document.querySelectorAll('.np-pill');
+    const pills = document.querySelectorAll('.pill');
 
     function actualizarPills(valor) {
         pills.forEach(p => p.classList.toggle('activa', p.dataset.valor === valor));
@@ -546,6 +456,58 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    // ---- Uploader de fotos: archivo / URL + preview ----
+    function inicializarFotoUploader(contenedor) {
+        const tabs = contenedor.querySelectorAll('.foto-tab');
+        const panelArchivo = contenedor.querySelector('[data-panel="archivo"]');
+        const panelUrl = contenedor.querySelector('[data-panel="url"]');
+        const inputArchivo = contenedor.querySelector('.foto-input-archivo');
+        const inputUrl = contenedor.querySelector('.foto-input-url');
+        const preview = contenedor.querySelector('.foto-preview');
+
+        function setPreview(src) {
+            if (!src) {
+                preview.innerHTML = '<i class="bi bi-image"></i>';
+                return;
+            }
+            preview.innerHTML = `<img src="${src}" alt="Preview">`;
+        }
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                tabs.forEach(t => t.classList.remove('activa'));
+                tab.classList.add('activa');
+                const modo = tab.dataset.modo;
+                panelArchivo.classList.toggle('d-none', modo !== 'archivo');
+                panelUrl.classList.toggle('d-none', modo !== 'url');
+
+                if (modo === 'archivo') {
+                    inputUrl.value = '';
+                    setPreview(null);
+                } else {
+                    inputArchivo.value = '';
+                    setPreview(null);
+                }
+            });
+        });
+
+        inputArchivo.addEventListener('change', () => {
+            const file = inputArchivo.files[0];
+            if (!file) { setPreview(null); return; }
+            const reader = new FileReader();
+            reader.onload = e => setPreview(e.target.result);
+            reader.readAsDataURL(file);
+        });
+
+        inputUrl.addEventListener('input', () => {
+            const url = inputUrl.value.trim();
+            setPreview(url || null);
+        });
+    }
+
+    document.querySelectorAll('.foto-uploader').forEach(inicializarFotoUploader);
+
+    // ---- Toggle único / variantes ----
     const chkVariantes = document.getElementById('tiene_variantes');
     const bloqueSin = document.getElementById('bloqueSinVariantes');
     const bloqueCon = document.getElementById('bloqueVariantes');
@@ -557,23 +519,26 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function agregarFilaVariante() {
         const nodo = template.content.cloneNode(true);
-        const fila = nodo.querySelector('.np-fila-variante');
+        const fila = nodo.querySelector('.fila-variante-card');
         const idx = contadorVariante++;
 
         fila.querySelectorAll('[data-field]').forEach(input => {
             input.name = `variante_${input.dataset.field}_${idx}`;
         });
 
-        fila.querySelector('.np-btn-eliminar-fila').addEventListener('click', () => fila.remove());
+        fila.querySelector('.btn-eliminar-fila').addEventListener('click', () => fila.remove());
         filasVariantes.appendChild(fila);
+
+        // Inicializar el uploader de foto de esta nueva fila
+        inicializarFotoUploader(fila.querySelector('.foto-uploader'));
     }
 
     btnAgregar.addEventListener('click', agregarFilaVariante);
 
     chkVariantes.addEventListener('change', function () {
         const activo = this.checked;
-        bloqueSin.classList.toggle('np-hidden', activo);
-        bloqueCon.classList.toggle('np-hidden', !activo);
+        bloqueSin.classList.toggle('d-none', activo);
+        bloqueCon.classList.toggle('d-none', !activo);
         bloqueSin.querySelectorAll('input, select').forEach(el => el.disabled = activo);
 
         if (activo && filasVariantes.children.length === 0) {
