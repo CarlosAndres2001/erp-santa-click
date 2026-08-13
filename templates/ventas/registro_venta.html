@@ -745,59 +745,6 @@
         });
 
         // ===================== ACTUALIZAR CARRITO =====================
-        /*function actualizarCarrito() {
-            const contenedor = document.getElementById('detalle-venta');
-            total = carrito.reduce((sum, item) => sum + item.subtotal, 0);
-
-            // Badge contador
-            const cartCount = document.getElementById('cart-count');
-            const totalItems = carrito.reduce((sum, i) => sum + i.cantidad, 0);
-            if (cartCount) cartCount.textContent = totalItems;
-
-            if (carrito.length === 0) {
-                contenedor.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon"><i class="fas fa-shopping-cart"></i></div>
-                        <p class="empty-title">Carrito vacío</p>
-                        <p class="empty-sub">Seleccioná un producto para agregar</p>
-                    </div>`;
-                document.getElementById('total-venta').textContent = 'Bs 0.00';
-                return;
-            }
-
-            let html = '';
-            carrito.forEach((item, index) => {
-                html += `
-                <div class="detalle-item" data-index="${index}">
-                    <div class="di-info">
-                        <div class="di-nombre">
-                            ${item.nombre}
-                            ${item.tipo === 'pack' ? '<span class="di-badge-pack">PACK</span>' : ''}
-                        </div>
-                        <div class="di-precio">Bs ${item.precio.toFixed(2)} c/u</div>
-                    </div>
-                    <div class="di-controls">
-                        <button class="qty-btn decrementar" data-index="${index}">
-                            <i class="fas fa-minus"></i>
-                        </button>
-                        <span class="qty-val">${item.cantidad}</span>
-                        <button class="qty-btn incrementar" data-index="${index}">
-                            <i class="fas fa-plus"></i>
-                        </button>
-                    </div>
-                    <div class="di-subtotal">Bs ${item.subtotal.toFixed(2)}</div>
-                </div>`;
-            });
-            contenedor.innerHTML = html;
-            document.getElementById('total-venta').textContent = `Bs ${total.toFixed(2)}`;
-
-            document.querySelectorAll('.incrementar').forEach(btn => {
-                btn.addEventListener('click', e => { e.stopPropagation(); cambiarCantidad(parseInt(btn.dataset.index), 1); });
-            });
-            document.querySelectorAll('.decrementar').forEach(btn => {
-                btn.addEventListener('click', e => { e.stopPropagation(); cambiarCantidad(parseInt(btn.dataset.index), -1); });
-            });
-        }*/
         function actualizarCarrito() {
             const contenedor = document.getElementById('detalle-venta');
             total = carrito.reduce((sum, item) => sum + item.subtotal, 0);
@@ -852,7 +799,12 @@
                         <button class="qty-btn decrementar" data-index="${index}">
                             <i class="fas fa-minus"></i>
                         </button>
-                        <span class="qty-val">${item.cantidad}</span>
+                        <input type="number" class="qty-input" 
+                            data-index="${index}"
+                            value="${item.cantidad}" 
+                            min="1" 
+                            step="1"
+                            style="width:50px;text-align:center;border:1px solid #e2e8f0;border-radius:6px;padding:4px 2px;font-size:14px<;">
                         <button class="qty-btn incrementar" data-index="${index}">
                             <i class="fas fa-plus"></i>
                         </button>
@@ -870,7 +822,75 @@
             document.querySelectorAll('.decrementar').forEach(btn => {
                 btn.addEventListener('click', e => { e.stopPropagation(); cambiarCantidad(parseInt(btn.dataset.index), -1); });
             });
-
+            // Evento para input de cantidad editable
+            /*document.querySelectorAll('.qty-input').forEach(input => {
+                input.addEventListener('change', function() {
+                    const index = parseInt(this.dataset.index);
+                    let nuevaCantidad = parseInt(this.value) || 1;
+                    
+                    if (nuevaCantidad < 1) {
+                        nuevaCantidad = 1;
+                        this.value = 1;
+                    }
+                    
+                    const item = carrito[index];
+                    if (!item) return;
+                    
+                    item.cantidad = nuevaCantidad;
+                    item.subtotal = item.cantidad * item.precio;
+                    actualizarCarrito();
+                });
+                
+                // Permitir solo números
+                input.addEventListener('keypress', function(e) {
+                    if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Tab') {
+                        e.preventDefault();
+                    }
+                });
+            });*/
+            // Evento para input de cantidad (validando stock)
+            document.querySelectorAll('.qty-input').forEach(input => {
+                input.addEventListener('change', function() {
+                    const index = parseInt(this.dataset.index);
+                    let nuevaCantidad = parseInt(this.value) || 1;
+                    
+                    // Validar mínimo
+                    if (nuevaCantidad < 1) {
+                        nuevaCantidad = 1;
+                        this.value = 1;
+                    }
+                    
+                    const item = carrito[index];
+                    if (!item) return;
+                    
+                    // === VALIDAR STOCK SI ES PRODUCTO ===
+                    if (item.tipo === 'producto') {
+                        const card = document.querySelector(`.producto-card[data-id="${item.id}"][data-tipo="producto"]`);
+                        if (card && card.dataset.manejaStock === 'true') {
+                            const stockSpan = card.querySelector('.stock-cantidad');
+                            const stockActual = stockSpan ? (parseInt(stockSpan.textContent) || 0) : 9999;
+                            
+                            if (nuevaCantidad > stockActual) {
+                                mostrarMensaje(`❌ Stock insuficiente para "${item.nombre}". Disponible: ${stockActual}`, 'warning');
+                                this.value = item.cantidad; // Volver a la cantidad anterior
+                                return;
+                            }
+                        }
+                    }
+                    
+                    // Actualizar cantidad
+                    item.cantidad = nuevaCantidad;
+                    item.subtotal = item.cantidad * item.precio;
+                    actualizarCarrito();
+                });
+                
+                // Solo permitir números
+                input.addEventListener('keypress', function(e) {
+                    if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Tab') {
+                        e.preventDefault();
+                    }
+                });
+            });
             // Evento eliminar producto
             document.querySelectorAll('.btn-eliminar-item').forEach(btn => {
                 btn.addEventListener('click', function(e) {

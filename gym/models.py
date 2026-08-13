@@ -367,6 +367,7 @@ class ProductoVariante(models.Model):
         if self.foto_url:
             return self.foto_url
         return None
+    
 class DetallePack(models.Model):
     producto_padre = models.ForeignKey(ProductoVariante, on_delete=models.CASCADE, related_name='padre_packs')
     producto_variante = models.ForeignKey(ProductoVariante, on_delete=models.PROTECT, null=True, blank=True)

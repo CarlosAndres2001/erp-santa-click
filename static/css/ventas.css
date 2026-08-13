@@ -386,3 +386,54 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-base);color:var(--text
     border-radius: 12px;
     padding: 16px;
 }
+/* =====================================================
+   INPUT DE CANTIDAD EDITABLE - ESTILOS
+   ===================================================== */
+.di-controls .qty-input {
+    width: 50px;
+    height: 26px;
+    text-align: center;
+    background: var(--bg-input);
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0 4px;
+    transition: var(--transition);
+    outline: none;
+}
+
+.di-controls .qty-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    background: var(--bg-card);
+}
+
+.di-controls .qty-input:hover {
+    border-color: var(--border-light);
+}
+
+/* Ocultar flechas del input number en navegadores */
+.di-controls .qty-input::-webkit-inner-spin-button,
+.di-controls .qty-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.di-controls .qty-input[type="number"] {
+    -moz-appearance: textfield;
+}
+
+/* Ajuste para modo claro */
+[data-theme="light"] .di-controls .qty-input,
+.theme-light .di-controls .qty-input {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #e2e8f0;
+}
+
+[data-theme="light"] .di-controls .qty-input:focus {
+    background: #ffffff;
+    border-color: var(--primary);
+}

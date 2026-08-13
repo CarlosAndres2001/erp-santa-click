@@ -3615,15 +3615,17 @@ def crear_venta(request):
 
     variantes = ProductoVariante.objects.filter(
         is_active=True,
-        producto__fk_empresa=sucursal.fk_empresa
+        producto__fk_empresa=sucursal.fk_empresa,
+        producto__visible_venta=True 
     ).select_related('producto', 'producto__category')
 
     packs_ids = list(set(
         DetallePack.objects.filter(
-            producto_padre__producto__fk_empresa=sucursal.fk_empresa
+            producto_padre__producto__fk_empresa=sucursal.fk_empresa,
+            producto_padre__producto__visible_venta=True 
         ).values_list('producto_padre__producto_id', flat=True).distinct()
     ))
-    packs = Producto.objects.filter(id__in=packs_ids, is_active=True) if packs_ids else Producto.objects.none()
+    packs = Producto.objects.filter(id__in=packs_ids, is_active=True,visible_venta=True ) if packs_ids else Producto.objects.none()
 
     canal_default = canal_qs.first()
 
