@@ -199,9 +199,7 @@
                     <span class="total-value" id="total-venta">Bs 0.00</span>
                 </div>
                 <div class="footer-btns">
-                    <button class="btn-accion btn-guardar" id="btn-guardar">
-                        <i class="fas fa-save"></i> Guardar
-                    </button>
+
                     <button class="btn-accion btn-cobrar" id="btn-cobrar">
                         <i class="fas fa-money-bill-wave"></i> Cobrar
                     </button>
@@ -986,10 +984,6 @@
                 return;
             }
             abrirModalPago();
-        });
-
-        document.getElementById('btn-guardar').addEventListener('click', () => {
-            document.getElementById('btn-cobrar').click();
         });
 
         // ── Estado del modal de pago ──────────────────────────────
