@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+
+<div class="container-fluid py-4">
+    <div class="card">
+        <div class="card-header">
+            <h4><i class="fas fa-boxes"></i> Reporte de Kardex por Producto</h4>
+        </div>
+        <div class="card-body">
+            
+            <!-- Filtros -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <label class="form-label">Producto</label>
+                    <select class="form-select" id="select-producto">
+                        <option value="">Seleccionar producto...</option>
+                        <!-- Cargar productos desde API o backend -->
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Fecha Inicio</label>
+                    <input type="date" class="form-control" id="fecha-inicio" value="{{ fecha_inicio }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Fecha Fin</label>
+                    <input type="date" class="form-control" id="fecha-fin" value="{{ fecha_fin }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" id="btn-consultar">
+                        <i class="fas fa-search"></i> Consultar
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Resumen -->
+            <div class="row mb-4" id="resumen-kardex" style="display:none;">
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <h6>Total Entradas</h6>
+                            <h4 id="total-entradas">0.00</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-danger text-white">
+                        <div class="card-body">
+                            <h6>Total Salidas</h6>
+                            <h4 id="total-salidas">0.00</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h6>Stock Actual</h6>
+                            <h4 id="stock-actual">0.00</h4>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h6>Producto</h6>
+                            <h6 id="nombre-producto" style="font-size:14px;">-</h6>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tabla -->
+            <div class="table-responsive">
+                <table class="table table-striped table-hover" id="tabla-kardex">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tipo</th>
+                            <th class="text-end">Cantidad</th>
+                            <th class="text-end">Precio Unit.</th>
+                            <th class="text-end">Total</th>
+                            <th>Referencia</th>
+                            <th>Almacén</th>
+                            <th class="text-end">Stock Acum.</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbody-kardex">
+                        <tr>
+                            <td colspan="8" class="text-center text-muted">
+                                Seleccione un producto y consulte
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Cargar productos
+    fetch('/api/productos-venta/')
+        .then(r => r.json())
+        .then(data => {
+            const select = document.getElementById('select-producto');
+            data.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `${p.nombre} - ${p.sku}`;
+                select.appendChild(opt);
+            });
+        });
+    
+    // Consultar
+    document.getElementById('btn-consultar').addEventListener('click', function() {
+        const productoId = document.getElementById('select-producto').value;
+        const fechaInicio = document.getElementById('fecha-inicio').value;
+        const fechaFin = document.getElementById('fecha-fin').value;
+        
+        if (!productoId) {
+            alert('Seleccione un producto');
+            return;
+        }
+        
+        const url = `/api/reporte-kardex/?producto_id=${productoId}&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
+        
+        fetch(url)
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+                
+                // Mostrar resumen
+                document.getElementById('resumen-kardex').style.display = 'flex';
+                document.getElementById('total-entradas').textContent = data.total_entradas.toFixed(2);
+                document.getElementById('total-salidas').textContent = data.total_salidas.toFixed(2);
+                document.getElementById('stock-actual').textContent = data.stock_actual.toFixed(2);
+                document.getElementById('nombre-producto').textContent = data.producto.nombre;
+                
+                // Llenar tabla
+                const tbody = document.getElementById('tbody-kardex');
+                if (data.data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="text-center">No hay movimientos</td></tr>`;
+                    return;
+                }
+                
+                let html = '';
+                data.data.forEach(item => {
+                    const tipoColor = item.tipo === 'entrada' ? 'success' : (item.tipo === 'salida' ? 'danger' : 'warning');
+                    html += `
+                        <tr>
+                            <td>${item.fecha}</td>
+                            <td><span class="badge bg-${tipoColor}">${item.tipo}</span></td>
+                            <td class="text-end">${item.cantidad.toFixed(2)}</td>
+                            <td class="text-end">${item.precio_unitario.toFixed(2)}</td>
+                            <td class="text-end">${item.total.toFixed(2)}</td>
+                            <td>${item.referencia}</td>
+                            <td>${item.almacen}</td>
+                            <td class="text-end"><strong>${item.stock_acumulado.toFixed(2)}</strong></td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+            })
+            .catch(err => {
+                alert('Error al consultar: ' + err.message);
+            });
+    });
+});
+</script>
+
+{% endblock %}

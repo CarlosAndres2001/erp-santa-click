@@ -31,6 +31,9 @@ from django.views.decorators.http import require_http_methods
 from django.http import StreamingHttpResponse
 import time
 from gym.decorators import permiso_requerido
+from openpyxl.styles import Font, Alignment, PatternFill
+from django.http import HttpResponse
+
 
 # ====================================================
 #  ROL
@@ -866,6 +869,88 @@ def categoria_delete(request):
 
     return redirect('categoria_list')
 
+# ====================================================
+# KARDEX
+# ====================================================
+
+@login_required
+def reporte_kardex(request):
+    """Vista del reporte de kardex por producto"""
+    context = {
+        'fecha_inicio': datetime.now().replace(day=1).strftime('%Y-%m-%d'),
+        'fecha_fin': datetime.now().strftime('%Y-%m-%d'),
+    }
+    return render(request, 'inventario/kardex.html', context)
+
+@login_required
+def api_reporte_kardex(request):
+    """API para obtener datos del kardex por producto"""
+    try:
+        producto_variante_id = request.GET.get('producto_id')
+        fecha_inicio = request.GET.get('fecha_inicio')
+        fecha_fin = request.GET.get('fecha_fin')
+        
+        if not producto_variante_id:
+            return JsonResponse({'error': 'Debe seleccionar un producto'}, status=400)
+        
+        # Filtrar por producto
+        kardex = Kardex.objects.filter(
+            producto_variante_id=producto_variante_id,
+            sucursal=request.user.sucursal
+        )
+        
+        # Filtrar por fechas
+        if fecha_inicio:
+            kardex = kardex.filter(created_at__date__gte=fecha_inicio)
+        if fecha_fin:
+            kardex = kardex.filter(created_at__date__lte=fecha_fin)
+        
+        # Ordenar por fecha
+        kardex = kardex.order_by('created_at')
+        
+        # Calcular stock acumulado
+        stock_acumulado = Decimal('0')
+        data = []
+        
+        for item in kardex:
+            if item.tipo_movimiento == 'entrada':
+                stock_acumulado += item.cantidad
+            elif item.tipo_movimiento == 'salida':
+                stock_acumulado -= item.cantidad
+            else:
+                # Si es otro tipo, sumar normalmente
+                stock_acumulado += item.cantidad
+            
+            data.append({
+                'id': item.id,
+                'fecha': item.created_at.strftime('%d/%m/%Y %H:%M'),
+                'tipo': item.tipo_movimiento,
+                'cantidad': float(item.cantidad),
+                'precio_unitario': float(item.precio_unitario),
+                'total': float(item.total),
+                'referencia': item.referencia,
+                'stock_acumulado': float(stock_acumulado),
+                'almacen': item.almacen.nombre,
+            })
+        
+        producto = ProductoVariante.objects.get(id=producto_variante_id)
+        
+        return JsonResponse({
+            'ok': True,
+            'producto': {
+                'id': producto.id,
+                'nombre': str(producto),
+                'sku': producto.sku,
+            },
+            'data': data,
+            'total_entradas': float(kardex.filter(tipo_movimiento='entrada').aggregate(total=DjangoSum('cantidad'))['total'] or 0),
+            'total_salidas': float(kardex.filter(tipo_movimiento='salida').aggregate(total=DjangoSum('cantidad'))['total'] or 0),
+            'stock_actual': float(stock_acumulado),
+        })
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    
 # ====================================================
 #  PRODUCTO INSUMOS
 # ====================================================
@@ -3883,6 +3968,229 @@ def venta_delete(request):
  
     return redirect('venta_list')
 
+@login_required
+def api_productos_venta(request):
+    """API para obtener productos para el select"""
+    productos = ProductoVariante.objects.filter(
+        is_active=True,
+        producto__fk_empresa=request.user.sucursal.fk_empresa
+    ).select_related('producto')
+    
+    data = []
+    for p in productos:
+        data.append({
+            'id': p.id,
+            'nombre': f"{p.producto.nombre} - {p.nombre_variante}",
+            'sku': p.sku,
+        })
+    
+    return JsonResponse(data, safe=False)
+
+@login_required
+def reporte_ventas(request):
+    """Vista del reporte de ventas detalladas"""
+    context = {
+        'fecha_inicio': datetime.now().replace(day=1).strftime('%Y-%m-%d'),
+        'fecha_fin': datetime.now().strftime('%Y-%m-%d'),
+    }
+    return render(request, 'ventas/reporte_ventas_detalle.html', context)
+
+@login_required
+def api_reporte_ventas(request):
+    """API para obtener datos de ventas detalladas"""
+    try:
+        fecha_inicio = request.GET.get('fecha_inicio')
+        fecha_fin = request.GET.get('fecha_fin')
+        canal_id = request.GET.get('canal')
+        metodo_pago_id = request.GET.get('metodo_pago')
+        estado = request.GET.get('estado')
+        
+        # Filtrar ventas
+        ventas = Venta.objects.filter(
+            is_active=True,
+            sucursal=request.user.sucursal
+        )
+        
+        if fecha_inicio:
+            ventas = ventas.filter(fecha__date__gte=fecha_inicio)
+        if fecha_fin:
+            ventas = ventas.filter(fecha__date__lte=fecha_fin)
+        if canal_id:
+            ventas = ventas.filter(canal_id=canal_id)
+        if estado:
+            ventas = ventas.filter(estado_venta=estado)
+        
+        # Ordenar por fecha
+        ventas = ventas.order_by('-fecha')
+        
+        data = []
+        for venta in ventas:
+            # Obtener pagos
+            pagos = []
+            for pago in venta.pagos.all():
+                pagos.append({
+                    'metodo': pago.metodo_pago.nombre,
+                    'monto': float(pago.monto),
+                    'referencia': pago.referencia_pago or '-',
+                })
+            
+            # Obtener detalles de productos
+            productos = []
+            for detalle in venta.detalles.filter(is_active=True):
+                if detalle.producto_variante:
+                    nombre = detalle.nombre_producto or str(detalle.producto_variante)
+                elif detalle.producto_padre:
+                    nombre = detalle.nombre_producto or detalle.producto_padre.nombre
+                else:
+                    nombre = detalle.nombre_producto or 'Producto'
+                
+                productos.append({
+                    'nombre': nombre,
+                    'cantidad': float(detalle.cantidad),
+                    'precio': float(detalle.precio),
+                    'subtotal': float(detalle.subtotal),
+                    'descuento': float(detalle.descuento),
+                })
+            
+            # Obtener nombre del usuario (CORREGIDO - sin paréntesis)
+            nombre_completo = f"{venta.usuario.nombre} {venta.usuario.apellido}".strip()
+            if nombre_completo:
+                usuario_nombre = nombre_completo
+            else:
+                usuario_nombre = venta.usuario.username  # ← SIN paréntesis
+            
+            # Obtener nombre del cliente
+            if venta.cliente:
+                cliente_nombre = f"{venta.cliente.nombre} {venta.cliente.apellido}".strip()
+                if not cliente_nombre:
+                    cliente_nombre = venta.cliente.nombre or 'Cliente'
+            else:
+                cliente_nombre = 'General'
+            
+            data.append({
+                'id': venta.id,
+                'fecha': venta.fecha.strftime('%d/%m/%Y %H:%M'),
+                'cliente': cliente_nombre,
+                'canal': venta.canal.nombre,
+                'almacen': venta.almacen.nombre,
+                'total': float(venta.total),
+                'descuento': float(venta.descuento),
+                'costo_envio': float(venta.costo_envio),
+                'estado': venta.estado_venta,
+                'pagos': pagos,
+                'productos': productos,
+                'usuario': usuario_nombre,
+            })
+        
+        # Resumen
+        total_ventas = ventas.count()
+        total_monto = ventas.aggregate(total=DjangoSum('total'))['total'] or 0
+        
+        return JsonResponse({
+            'ok': True,
+            'data': data,
+            'resumen': {
+                'total_ventas': total_ventas,
+                'total_monto': float(total_monto),
+                'promedio': float(total_monto / total_ventas) if total_ventas > 0 else 0,
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
+    
+@login_required
+def exportar_ventas_excel(request):
+    """Exportar reporte de ventas a Excel"""
+    try:
+        fecha_inicio = request.GET.get('fecha_inicio')
+        fecha_fin = request.GET.get('fecha_fin')
+        
+        ventas = Venta.objects.filter(
+            is_active=True,
+            sucursal=request.user.sucursal
+        )
+        
+        if fecha_inicio:
+            ventas = ventas.filter(fecha__date__gte=fecha_inicio)
+        if fecha_fin:
+            ventas = ventas.filter(fecha__date__lte=fecha_fin)
+        
+        ventas = ventas.order_by('-fecha')
+        
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Ventas'
+        
+        # Estilos
+        header_font = Font(bold=True, color='FFFFFF')
+        header_fill = PatternFill(start_color='1a73e8', end_color='1a73e8', fill_type='solid')
+        center_alignment = Alignment(horizontal='center')
+        
+        # Encabezados
+        headers = ['ID', 'Fecha', 'Cliente', 'Canal', 'Almacén', 'Total', 'Descuento', 'Costo Envío', 'Estado', 'Usuario']
+        ws.append(headers)
+        
+        for col in range(1, len(headers) + 1):
+            cell = ws.cell(row=1, column=col)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = center_alignment
+        
+        # Datos
+        for venta in ventas:
+            # Obtener nombre del usuario (CORREGIDO)
+            nombre_completo = f"{venta.usuario.nombre} {venta.usuario.apellido}".strip()
+            if nombre_completo:
+                usuario_nombre = nombre_completo
+            else:
+                usuario_nombre = venta.usuario.username  # ← SIN paréntesis
+            
+            # Obtener nombre del cliente
+            if venta.cliente:
+                cliente_nombre = f"{venta.cliente.nombre} {venta.cliente.apellido}".strip()
+                if not cliente_nombre:
+                    cliente_nombre = venta.cliente.nombre or 'General'
+            else:
+                cliente_nombre = 'General'
+            
+            ws.append([
+                venta.id,
+                venta.fecha.strftime('%d/%m/%Y %H:%M'),
+                cliente_nombre,
+                venta.canal.nombre,
+                venta.almacen.nombre,
+                float(venta.total),
+                float(venta.descuento),
+                float(venta.costo_envio),
+                venta.estado_venta,
+                usuario_nombre,
+            ])
+        
+        # Ajustar columnas
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 30)
+            ws.column_dimensions[column].width = adjusted_width
+        
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=ventas_{datetime.now().strftime("%Y%m%d")}.xlsx'
+        wb.save(response)
+        return response
+        
+    except Exception as e:
+        return HttpResponse(f'Error al exportar: {str(e)}', status=500)
 
 # ====================================================
 #  TRASPASO (MAESTRO-DETALLE)
@@ -3999,7 +4307,9 @@ def traspaso_delete(request):
         messages.success(request, 'Traspaso desactivado correctamente.')
     return redirect('traspaso_list')
 
-
+# ====================================================
+#  INGRESO MONETARIO
+# ====================================================
 def validar_anulacion(registro):
     """
     Devuelve (True, None) si se puede anular, o (False, "motivo") si no.
@@ -4029,9 +4339,6 @@ def validar_anulacion(registro):
 
     return True, None
 
-# ====================================================
-#  INGRESO MONETARIO
-# ====================================================
 @login_required
 @permiso_requerido('reporte_ingresos', 'ver')
 def reporte_ingresos(request):

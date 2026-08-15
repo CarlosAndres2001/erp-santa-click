@@ -428,54 +428,6 @@
     </div>
 </div>
 
-<!-- ── MODAL CERRAR CAJA ──────────────────────────────────── -->
-<div class="modal fade" id="modalCerrarCaja" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-caja-nueva">
-        <div class="modal-content">
-            <div class="mcaja-header mcaja-header--blue">
-                <div class="mcaja-title">
-                    <div class="mcaja-icon"><i class="fas fa-lock"></i></div>
-                    <div>
-                        <h5>Cerrar Caja</h5>
-                        <p>Cuadre y cierre del turno activo</p>
-                    </div>
-                </div>
-                <button type="button" class="mcaja-close" data-bs-dismiss="modal"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="mcaja-body">
-                <div class="mcaja-field">
-                    <label class="mcaja-label">Efectivo esperado en caja</label>
-                    <input type="text" id="total_efectivo_esperado" class="mcaja-input" readonly style="background:#f1f5f9;font-weight:700;color:#1e293b;">
-                    <small style="font-size:.72rem;color:#94a3b8;">Calculado automáticamente del turno</small>
-                </div>
-                <div style="display:flex;gap:10px;">
-                    <div class="mcaja-field" style="flex:1;">
-                        <label class="mcaja-label">Efectivo real contado (Bs.)</label>
-                        <input type="number" id="monto_efectivo" class="mcaja-input" step="0.01" placeholder="0.00" required>
-                    </div>
-                    <div class="mcaja-field" style="flex:1;">
-                        <label class="mcaja-label">QR / Transferencias (Bs.)</label>
-                        <input type="number" id="monto_qr" class="mcaja-input" step="0.01" placeholder="0.00">
-                    </div>
-                </div>
-                <div class="mcaja-field">
-                    <label class="mcaja-label">Observaciones</label>
-                    <textarea id="observaciones_cierre" class="mcaja-textarea" rows="2" placeholder="Notas del cierre…"></textarea>
-                </div>
-                <div class="diferencia-badge diferencia-badge--ok" id="diferencia-info">
-                    <span><i class="fas fa-balance-scale me-2"></i>Diferencia de caja</span>
-                    <strong id="diferencia_valor">Bs 0.00 <span id="diferencia_mensaje"></span></strong>
-                </div>
-            </div>
-            <div class="mcaja-footer">
-                <button type="button" class="mcaja-btn-cancel" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="mcaja-btn-ok mcaja-btn-ok--blue" id="btnConfirmarCierre">
-                    <i class="fas fa-lock me-1"></i>Cerrar Caja
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
 <!-- ── MODAL CLIENTES ─────────────────────────────────────────── -->
 <div class="modal fade" id="modalClientes" tabindex="-1" aria-labelledby="modalClientesLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg" style="max-width: 600px;">
@@ -1078,34 +1030,66 @@
         }
 
         function actualizarResumenPago() {
-            const cobrar  = totalACobrarModal();
-            const pagado  = totalPagoDistribuido();
-            const falta   = cobrar - pagado;
-            const pct     = cobrar > 0 ? Math.min((pagado / cobrar) * 100, 100) : 0;
+            const cobrar = totalACobrarModal();
+            
+            // Si solamente hay un método de pago, actualizar automáticamente
+            // el monto distribuido al nuevo total a cobrar.
+            const filas = document.querySelectorAll('.fila-pago-nueva');
 
-            document.getElementById('pago-subtotal').textContent   = `Bs ${total.toFixed(2)}`;
-            document.getElementById('pago-total-final').textContent = `Bs ${cobrar.toFixed(2)}`;
+            if (filas.length === 1) {
+                const montoInput = filas[0].querySelector('.fp-monto-inp');
 
-            const descuento = parseFloat(document.getElementById('pago-descuento').value) || 0;
-            document.getElementById('chip-descuento-val').textContent = `- Bs ${descuento.toFixed(2)}`;
+                if (montoInput) {
+                    montoInput.value = cobrar > 0 ? cobrar.toFixed(2) : '';
+                }
+            }
 
-            document.getElementById('lbl-total-pagado-nuevo').textContent = `Bs ${pagado.toFixed(2)}`;
+            const pagado = totalPagoDistribuido();
+            const falta = cobrar - pagado;
+            const pct = cobrar > 0 ? Math.min((pagado / cobrar) * 100, 100) : 0;
+
+            document.getElementById('pago-subtotal').textContent =
+                `Bs ${total.toFixed(2)}`;
+
+            document.getElementById('pago-total-final').textContent =
+                `Bs ${cobrar.toFixed(2)}`;
+
+            const descuento =
+                parseFloat(document.getElementById('pago-descuento').value) || 0;
+
+            document.getElementById('chip-descuento-val').textContent =
+                `- Bs ${descuento.toFixed(2)}`;
+
+            document.getElementById('lbl-total-pagado-nuevo').textContent =
+                `Bs ${pagado.toFixed(2)}`;
+
             const faltaEl = document.getElementById('lbl-falta-nuevo');
-            faltaEl.textContent = falta > 0.009 ? `Bs ${falta.toFixed(2)}` : `✓ Cubierto`;
-            faltaEl.style.color = falta > 0.009 ? '#ef4444' : '#16a34a';
+
+            faltaEl.textContent =
+                falta > 0.009
+                    ? `Bs ${falta.toFixed(2)}`
+                    : `✓ Cubierto`;
+
+            faltaEl.style.color =
+                falta > 0.009
+                    ? '#ef4444'
+                    : '#16a34a';
 
             const barra = document.getElementById('barra-progreso-pago');
+
             barra.style.width = pct + '%';
-            barra.style.background = pct >= 100 ? '#22c55e' : '#f59e0b';
+
+            barra.style.background =
+                pct >= 100
+                    ? '#22c55e'
+                    : '#f59e0b';
 
             const btn = document.getElementById('btn-confirmar-venta');
-            if (btn) btn.disabled = falta > 0.009;
 
-            // Vuelto por monto recibido del cliente
-            //actualizarVuelto();
+            if (btn) {
+                btn.disabled = falta > 0.009;
+            }
         }
-
-
 
         function abrirModalPago() {
             // Reset visual
@@ -1384,17 +1368,25 @@
         let timeoutBuscadorClientes = null;
 
         // Abrir modal al hacer click en el select de cliente
+        document.getElementById('cliente-venta')?.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+        });
+
         document.getElementById('cliente-venta')?.addEventListener('click', function(e) {
             e.preventDefault();
+            e.stopPropagation();
+
             const modal = new bootstrap.Modal(document.getElementById('modalClientes'));
             modal.show();
-            // Limpiar búsqueda al abrir
+
             document.getElementById('buscador-clientes').value = '';
+
             document.getElementById('resultados-clientes').innerHTML = `
                 <div class="text-center py-4 text-muted" style="color: var(--text-muted);">
                     <i class="fas fa-search" style="font-size: 28px; display: block; margin-bottom: 10px;"></i>
                     Escribe para buscar clientes
                 </div>`;
+
             document.getElementById('form-nuevo-cliente-modal').style.display = 'none';
         });
 
@@ -1592,7 +1584,6 @@
      });
 </script>
 <script>
-
 const METODOS_PAGO = [
 
 {% for m in metodos_pago %}
@@ -1611,116 +1602,6 @@ const METODOS_PAGO_HTML =
         </option>
     `).join('');
 
-</script>
-<script>
-// ===================== CIERRE DE CAJA =====================
-const modalCerrarCaja = document.getElementById('modalCerrarCaja');
-let totalEfectivoEsperado = 0;
-
-// Función para cargar el total esperado de efectivo
-async function cargarTotalEfectivoEsperado() {
-    try {
-        const response = await fetch('/api/total-efectivo-esperado/');
-        const data = await response.json();
-        if (data.ok) {
-            totalEfectivoEsperado = data.total;
-            const input = document.getElementById('total_efectivo_esperado');
-            if (input) input.value = `Bs ${totalEfectivoEsperado.toFixed(2)}`;
-        }
-    } catch (error) {
-        console.error('Error cargando total esperado:', error);
-    }
-}
-
-// Calcular diferencia en tiempo real
-function calcularDiferencia() {
-    const montoEfectivo = parseFloat(document.getElementById('monto_efectivo')?.value || 0);
-    const diferencia = montoEfectivo - totalEfectivoEsperado;
-    const diferenciaSpan = document.getElementById('diferencia_valor');
-    const diferenciaMsg  = document.getElementById('diferencia_mensaje');
-    const badge          = document.getElementById('diferencia-info');
-
-    if (diferenciaSpan) {
-        diferenciaSpan.textContent = `Bs ${diferencia.toFixed(2)} `;
-    }
-    if (diferenciaMsg) {
-        if (diferencia === 0)      diferenciaMsg.textContent = '✓ Cuadra perfecto';
-        else if (diferencia > 0)   diferenciaMsg.textContent = '⚠ Hay sobrante';
-        else                       diferenciaMsg.textContent = '⚠ Hay faltante';
-    }
-    if (badge) {
-        badge.className = 'diferencia-badge ' + (
-            diferencia === 0 ? 'diferencia-badge--ok' :
-            diferencia > 0   ? 'diferencia-badge--over' :
-                               'diferencia-badge--under'
-        );
-    }
-}
-
-// Eventos para calcular diferencia en tiempo real
-document.getElementById('monto_efectivo')?.addEventListener('input', calcularDiferencia);
-
-// Confirmar cierre
-document.getElementById('btnConfirmarCierre')?.addEventListener('click', async function() {
-    const montoEfectivo = document.getElementById('monto_efectivo').value;
-    const montoQr = document.getElementById('monto_qr').value;
-    const observaciones = document.getElementById('observaciones_cierre').value;
-    
-    if (!montoEfectivo) {
-        alert('Debes ingresar el monto efectivo real en caja');
-        return;
-    }
-    
-    this.disabled = true;
-    this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Cerrando...';
-    
-    try {
-        const response = await fetch("{% url 'cerrar_caja' %}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
-            },
-            body: JSON.stringify({
-                monto_efectivo: parseFloat(montoEfectivo),
-                monto_qr: parseFloat(montoQr || 0),
-                total_efectivo_esperado: totalEfectivoEsperado,
-                observaciones: observaciones
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.ok) {
-            // Cerrar modal
-            const modal = bootstrap.Modal.getInstance(document.getElementById('modalCerrarCaja'));
-            if (modal) modal.hide();
-            
-            // Mostrar mensaje
-            mostrarMensaje('✅ Caja cerrada correctamente', 'success');
-            
-            // Redirigir al comprobante
-            window.location.href = `/caja/comprobante/${data.caja_turno_id}/`;
-        } else {
-            alert('Error: ' + data.error);
-            this.disabled = false;
-            this.innerHTML = 'Cerrar Caja';
-        }
-    } catch (error) {
-        console.error('Error:', error);
-        alert('Error al cerrar la caja');
-        this.disabled = false;
-        this.innerHTML = 'Cerrar Caja';
-    }
-});
-
-// Al abrir el modal, cargar el total esperado
-document.getElementById('modalCerrarCaja')?.addEventListener('show.bs.modal', function() {
-    cargarTotalEfectivoEsperado();
-    document.getElementById('monto_efectivo').value = '';
-    document.getElementById('monto_qr').value = '';
-    document.getElementById('observaciones_cierre').value = '';
-});
 </script>
 
 <!-- ===== BARRA FIJA INFERIOR (solo mobile/tablet) ===== -->

@@ -89,6 +89,8 @@ urlpatterns = [
     path('api/productos-genericos/', views.obtener_productos_genericos, name='obtener_productos_genericos'),
     path('api/productos-definidos/', views.obtener_productos_definidos, name='obtener_productos_definidos'),
     
+    path('reportes/kardex/', views.reporte_kardex, name='reporte_kardex'),
+    path('api/reporte-kardex/', views.api_reporte_kardex, name='api_reporte_kardex'),
     #=======================
     # INSUMO
     #=======================
@@ -190,7 +192,10 @@ urlpatterns = [
     path('api/actualizar-estado-cocina/', views.actualizar_estado_cocina, name='actualizar_estado_cocina'),
     path('api/kanban-pedidos-json/', views.kanban_pedidos_json, name='kanban_pedidos_json'),
     path('sse-pedidos/<int:sucursal_id>/', views.sse_nuevos_pedidos, name='sse_nuevos_pedidos'),
-    
+    path('api/productos-venta/', views.api_productos_venta, name='api_productos_venta'),
+    path('reportes/ventas/', views.reporte_ventas, name='reporte_ventas'),
+    path('api/reporte-ventas/', views.api_reporte_ventas, name='api_reporte_ventas'),
+    path('api/exportar-ventas/', views.exportar_ventas_excel, name='exportar_ventas_excel'),
     # ====================================================
     # TRASPASO (MAESTRO-DETALLE)
     # ====================================================
