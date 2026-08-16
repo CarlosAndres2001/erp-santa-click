@@ -4192,6 +4192,273 @@ def exportar_ventas_excel(request):
     except Exception as e:
         return HttpResponse(f'Error al exportar: {str(e)}', status=500)
 
+@login_required
+def reporte_detalles_venta(request):
+    """Vista del reporte de detalles de venta"""
+    context = {
+        'fecha_inicio': datetime.now().replace(day=1).strftime('%Y-%m-%d'),
+        'fecha_fin': datetime.now().strftime('%Y-%m-%d'),
+    }
+    return render(request, 'inventario/detalles_venta.html', context)
+
+
+@login_required
+def api_reporte_detalles_venta(request):
+    """API para obtener todos los detalles de venta"""
+    try:
+        fecha_inicio = request.GET.get('fecha_inicio')
+        fecha_fin = request.GET.get('fecha_fin')
+        producto_id = request.GET.get('producto')
+        canal_id = request.GET.get('canal')
+        
+        # Filtrar detalles de venta
+        detalles = DetalleVenta.objects.filter(
+            is_active=True,
+            venta__is_active=True,
+            venta__sucursal=request.user.sucursal
+        ).select_related(
+            'venta',
+            'venta__cliente',
+            'venta__canal',
+            'venta__almacen',
+            'venta__usuario',
+            'producto_variante',
+            'producto_variante__producto',
+            'producto_padre'
+        )
+        
+        # Filtrar por fechas
+        if fecha_inicio:
+            detalles = detalles.filter(venta__fecha__date__gte=fecha_inicio)
+        if fecha_fin:
+            detalles = detalles.filter(venta__fecha__date__lte=fecha_fin)
+        
+        # Filtrar por producto
+        if producto_id:
+            detalles = detalles.filter(
+                Q(producto_variante_id=producto_id) | Q(producto_padre_id=producto_id)
+            )
+        
+        # Filtrar por canal
+        if canal_id:
+            detalles = detalles.filter(venta__canal_id=canal_id)
+        
+        # Ordenar por fecha de venta
+        detalles = detalles.order_by('-venta__fecha')
+        
+        data = []
+        for detalle in detalles:
+            venta = detalle.venta
+            
+            # Obtener nombre del producto
+            if detalle.producto_variante:
+                nombre_producto = detalle.nombre_producto or str(detalle.producto_variante)
+                sku = detalle.producto_variante.sku
+            elif detalle.producto_padre:
+                nombre_producto = detalle.nombre_producto or detalle.producto_padre.nombre
+                sku = 'PACK'
+            else:
+                nombre_producto = detalle.nombre_producto or 'Producto'
+                sku = '-'
+            
+            # Obtener nombre del cliente
+            if venta.cliente:
+                cliente_nombre = f"{venta.cliente.nombre} {venta.cliente.apellido}".strip()
+                if not cliente_nombre:
+                    cliente_nombre = venta.cliente.nombre or 'General'
+            else:
+                cliente_nombre = 'General'
+            
+            # Obtener nombre del usuario
+            nombre_completo = f"{venta.usuario.nombre} {venta.usuario.apellido}".strip()
+            if nombre_completo:
+                usuario_nombre = nombre_completo
+            else:
+                usuario_nombre = venta.usuario.username
+            
+            data.append({
+                'id': detalle.id,
+                'venta_id': venta.id,
+                'fecha': venta.fecha.strftime('%d/%m/%Y %H:%M'),
+                'producto': nombre_producto,
+                'sku': sku,
+                'cantidad': float(detalle.cantidad),
+                'precio': float(detalle.precio),
+                'subtotal': float(detalle.subtotal),
+                'descuento': float(detalle.descuento),
+                'total_venta': float(venta.total),
+                'cliente': cliente_nombre,
+                'canal': venta.canal.nombre,
+                'almacen': venta.almacen.nombre,
+                'usuario': usuario_nombre,
+                'estado': venta.estado_venta,
+            })
+        
+        # Resumen
+        total_detalles = len(data)
+        total_monto = sum(d['subtotal'] for d in data)
+        total_cantidad = sum(d['cantidad'] for d in data)
+        
+        return JsonResponse({
+            'ok': True,
+            'data': data,
+            'resumen': {
+                'total_detalles': total_detalles,
+                'total_monto': total_monto,
+                'total_cantidad': total_cantidad,
+                'promedio': total_monto / total_detalles if total_detalles > 0 else 0,
+            }
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+def exportar_detalles_venta_excel(request):
+    """Exportar detalles de venta a Excel"""
+    try:
+        fecha_inicio = request.GET.get('fecha_inicio')
+        fecha_fin = request.GET.get('fecha_fin')
+        producto_id = request.GET.get('producto')
+        canal_id = request.GET.get('canal')
+        
+        # Filtrar detalles
+        detalles = DetalleVenta.objects.filter(
+            is_active=True,
+            venta__is_active=True,
+            venta__sucursal=request.user.sucursal
+        ).select_related(
+            'venta',
+            'venta__cliente',
+            'venta__canal',
+            'venta__almacen',
+            'venta__usuario',
+            'producto_variante',
+            'producto_variante__producto',
+            'producto_padre'
+        )
+        
+        if fecha_inicio:
+            detalles = detalles.filter(venta__fecha__date__gte=fecha_inicio)
+        if fecha_fin:
+            detalles = detalles.filter(venta__fecha__date__lte=fecha_fin)
+        if producto_id:
+            detalles = detalles.filter(
+                Q(producto_variante_id=producto_id) | Q(producto_padre_id=producto_id)
+            )
+        if canal_id:
+            detalles = detalles.filter(venta__canal_id=canal_id)
+        
+        detalles = detalles.order_by('-venta__fecha')
+        
+        # Crear libro
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Detalles Ventas'
+        
+        # Estilos
+        header_font = Font(bold=True, color='FFFFFF')
+        header_fill = PatternFill(start_color='1a73e8', end_color='1a73e8', fill_type='solid')
+        center_alignment = Alignment(horizontal='center')
+        number_format = '0.00'
+        
+        # Encabezados
+        headers = [
+            'ID Detalle', 'ID Venta', 'Fecha', 'Producto', 'SKU', 
+            'Cantidad', 'Precio Unit.', 'Subtotal', 'Descuento',
+            'Total Venta', 'Cliente', 'Canal', 'Almacén', 'Usuario', 'Estado'
+        ]
+        ws.append(headers)
+        
+        # Aplicar estilos a encabezados
+        for col in range(1, len(headers) + 1):
+            cell = ws.cell(row=1, column=col)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = center_alignment
+        
+        # Datos
+        for detalle in detalles:
+            venta = detalle.venta
+            
+            # Obtener nombre del producto
+            if detalle.producto_variante:
+                nombre_producto = detalle.nombre_producto or str(detalle.producto_variante)
+                sku = detalle.producto_variante.sku
+            elif detalle.producto_padre:
+                nombre_producto = detalle.nombre_producto or detalle.producto_padre.nombre
+                sku = 'PACK'
+            else:
+                nombre_producto = detalle.nombre_producto or 'Producto'
+                sku = '-'
+            
+            # Obtener nombre del cliente
+            if venta.cliente:
+                cliente_nombre = f"{venta.cliente.nombre} {venta.cliente.apellido}".strip()
+                if not cliente_nombre:
+                    cliente_nombre = venta.cliente.nombre or 'General'
+            else:
+                cliente_nombre = 'General'
+            
+            # Obtener nombre del usuario
+            nombre_completo = f"{venta.usuario.nombre} {venta.usuario.apellido}".strip()
+            if nombre_completo:
+                usuario_nombre = nombre_completo
+            else:
+                usuario_nombre = venta.usuario.username
+            
+            ws.append([
+                detalle.id,
+                venta.id,
+                venta.fecha.strftime('%d/%m/%Y %H:%M'),
+                nombre_producto,
+                sku,
+                float(detalle.cantidad),
+                float(detalle.precio),
+                float(detalle.subtotal),
+                float(detalle.descuento),
+                float(venta.total),
+                cliente_nombre,
+                venta.canal.nombre,
+                venta.almacen.nombre,
+                usuario_nombre,
+                venta.estado_venta,
+            ])
+        
+        # Ajustar columnas
+        for col in ws.columns:
+            max_length = 0
+            column = col[0].column_letter
+            for cell in col:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 30)
+            ws.column_dimensions[column].width = adjusted_width
+        
+        # Aplicar formato de números
+        for row in ws.iter_rows(min_row=2, max_row=ws.max_row):
+            for cell in row:
+                if isinstance(cell.value, (int, float)):
+                    cell.number_format = number_format
+        
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=detalles_ventas_{datetime.now().strftime("%Y%m%d")}.xlsx'
+        wb.save(response)
+        return response
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return HttpResponse(f'Error al exportar: {str(e)}', status=500)
+    
 # ====================================================
 #  TRASPASO (MAESTRO-DETALLE)
 # ====================================================
