@@ -11,12 +11,20 @@
             
             <!-- Filtros -->
             <div class="row mb-4">
+                <!-- Ahora: Input con autocompletado -->
                 <div class="col-md-4">
                     <label class="form-label">Producto</label>
-                    <select class="form-select" id="select-producto">
-                        <option value="">Seleccionar producto...</option>
-                        <!-- Cargar productos desde API o backend -->
-                    </select>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="buscador-producto" 
+                            placeholder="Buscar por nombre o SKU...">
+                        <input type="hidden" id="producto-id" value="">
+                        <button class="btn btn-outline-secondary" id="btn-limpiar-producto" type="button">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div id="resultados-productos" class="list-group mt-1" style="max-height: 200px; overflow-y: auto; display: none;">
+                        <!-- Resultados dinámicos -->
+                    </div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Fecha Inicio</label>
@@ -169,6 +177,108 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert('Error al consultar: ' + err.message);
             });
     });
+});
+// ===================== BUSCADOR DE PRODUCTOS (KARDEX) =====================
+const buscadorProducto = document.getElementById('buscador-producto');
+const productoIdInput = document.getElementById('producto-id');
+const resultadosContainer = document.getElementById('resultados-productos');
+const btnLimpiar = document.getElementById('btn-limpiar-producto');
+let timeoutBuscador = null;
+
+// Buscar productos mientras escribe
+buscadorProducto?.addEventListener('input', function() {
+    clearTimeout(timeoutBuscador);
+    const termino = this.value.trim();
+    
+    if (termino.length < 2) {
+        resultadosContainer.style.display = 'none';
+        return;
+    }
+    
+    timeoutBuscador = setTimeout(() => {
+        fetch(`/api/buscar-productos/?q=${encodeURIComponent(termino)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.error) {
+                    console.error(data.error);
+                    return;
+                }
+                
+                if (data.results.length === 0) {
+                    resultadosContainer.innerHTML = `
+                        <div class="list-group-item text-muted text-center">
+                            <i class="fas fa-search"></i> No se encontraron productos
+                        </div>
+                    `;
+                    resultadosContainer.style.display = 'block';
+                    return;
+                }
+                
+                let html = '';
+                data.results.forEach(p => {
+                    html += `
+                        <button class="list-group-item list-group-item-action producto-resultado" 
+                                data-id="${p.id}" data-nombre="${p.nombre}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>${p.nombre}</strong>
+                                    <br>
+                                    <small class="text-muted">SKU: ${p.sku}</small>
+                                </div>
+                                <span class="badge bg-secondary">${p.stock || 0}</span>
+                            </div>
+                        </button>
+                    `;
+                });
+                resultadosContainer.innerHTML = html;
+                resultadosContainer.style.display = 'block';
+                
+                // Evento para seleccionar producto
+                document.querySelectorAll('.producto-resultado').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const id = this.dataset.id;
+                        const nombre = this.dataset.nombre;
+                        
+                        buscadorProducto.value = nombre;
+                        productoIdInput.value = id;
+                        resultadosContainer.style.display = 'none';
+                        
+                        // Consultar automáticamente
+                        document.getElementById('btn-consultar')?.click();
+                    });
+                });
+            })
+            .catch(err => {
+                console.error('Error:', err);
+            });
+    }, 300); // ← 300ms de delay
+});
+
+// Ocultar resultados al perder foco
+buscadorProducto?.addEventListener('blur', function() {
+    setTimeout(() => {
+        resultadosContainer.style.display = 'none';
+    }, 200);
+});
+
+// Limpiar selección
+btnLimpiar?.addEventListener('click', function() {
+    buscadorProducto.value = '';
+    productoIdInput.value = '';
+    resultadosContainer.style.display = 'none';
+    document.getElementById('btn-consultar')?.click();
+});
+
+// Al presionar Enter, buscar
+buscadorProducto?.addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        // Seleccionar el primer resultado si existe
+        const primerResultado = document.querySelector('.producto-resultado');
+        if (primerResultado) {
+            primerResultado.click();
+        }
+    }
 });
 </script>
 

@@ -950,11 +950,45 @@ def api_reporte_kardex(request):
         
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
-    
+   
+@login_required
+def api_buscar_productos(request):
+    """API para buscar productos por nombre o SKU (autocompletado)"""
+    try:
+        termino = request.GET.get('q', '').strip()
+        if len(termino) < 2:
+            return JsonResponse({'results': []})
+        
+        # Buscar en ProductoVariante
+        productos = ProductoVariante.objects.filter(
+            is_active=True,
+            producto__fk_empresa=request.user.sucursal.fk_empresa
+        ).select_related('producto')
+        
+        # Filtrar por nombre o SKU
+        productos = productos.filter(
+            Q(producto__nombre__icontains=termino) |
+            Q(nombre_variante__icontains=termino) |
+            Q(sku__icontains=termino)
+        )[:15]  # ← LÍMITE DE 15 RESULTADOS
+        
+        results = []
+        for p in productos:
+            results.append({
+                'id': p.id,
+                'nombre': f"{p.producto.nombre} - {p.nombre_variante}",
+                'sku': p.sku,
+                'stock': 0  # Opcional: mostrar stock actual
+            })
+        
+        return JsonResponse({'results': results})
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500) 
+
 # ====================================================
 #  PRODUCTO INSUMOS
 # ====================================================
-
 
 def safe_decimal(value, default='0'):
     try:
@@ -3990,7 +4024,7 @@ def api_productos_venta(request):
 def reporte_ventas(request):
     """Vista del reporte de ventas detalladas"""
     context = {
-        'fecha_inicio': datetime.now().replace(day=1).strftime('%Y-%m-%d'),
+        'fecha_inicio': datetime.now().strftime('%Y-%m-%d'),
         'fecha_fin': datetime.now().strftime('%Y-%m-%d'),
     }
     return render(request, 'ventas/reporte_ventas_detalle.html', context)
@@ -4196,7 +4230,7 @@ def exportar_ventas_excel(request):
 def reporte_detalles_venta(request):
     """Vista del reporte de detalles de venta"""
     context = {
-        'fecha_inicio': datetime.now().replace(day=1).strftime('%Y-%m-%d'),
+        'fecha_inicio': datetime.now().strftime('%Y-%m-%d'),
         'fecha_fin': datetime.now().strftime('%Y-%m-%d'),
     }
     return render(request, 'inventario/detalles_venta.html', context)

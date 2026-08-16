@@ -91,6 +91,7 @@ urlpatterns = [
     
     path('reportes/kardex/', views.reporte_kardex, name='reporte_kardex'),
     path('api/reporte-kardex/', views.api_reporte_kardex, name='api_reporte_kardex'),
+    path('api/buscar-productos/', views.api_buscar_productos, name='api_buscar_productos'),
     #=======================
     # INSUMO
     #=======================
@@ -199,6 +200,7 @@ urlpatterns = [
     path('inventario/detalles-venta/', views.reporte_detalles_venta, name='reporte_detalles_venta'),
     path('api/reporte-detalles-venta/', views.api_reporte_detalles_venta, name='api_reporte_detalles_venta'),
     path('api/exportar-detalles-venta/', views.exportar_detalles_venta_excel, name='exportar_detalles_venta_excel'),
+    
     # ====================================================
     # TRASPASO (MAESTRO-DETALLE)
     # ====================================================
