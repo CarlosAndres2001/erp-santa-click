@@ -3006,6 +3006,32 @@ def proveedor_delete(request):
 #  COMPRA (MAESTRO-DETALLE)
 # ====================================================
 
+def validar_anulacion_por_tiempo(registro, campo_fecha='created_at', horas_limite=None):
+    """
+    Devuelve (True, None) si se puede anular, o (False, "motivo") si no.
+    campo_fecha: nombre del campo datetime del modelo a usar como referencia
+                 (ej. 'created_at', 'fecha').
+    """
+    if not registro.is_active:
+        return False, "Este registro ya fue anulado anteriormente."
+
+    if horas_limite is None:
+        horas_limite = getattr(settings, "HORAS_LIMITE_ANULACION_MOVIMIENTO", 24)
+
+    referencia = getattr(registro, campo_fecha, None)
+    if not referencia:
+        return True, None  # sin fecha de referencia, no bloqueamos
+
+    limite = referencia + timedelta(hours=horas_limite)
+
+    if timezone.now() > limite:
+        return False, (
+            f"No se puede anular: han pasado más de {horas_limite} horas "
+            f"desde el registro."
+        )
+
+    return True, None
+
 def safe_decimal(value):
     if value is None or value == '':
         return Decimal('0.0')
@@ -3024,7 +3050,7 @@ def lista_compras(request):
     usuario_id = request.GET.get('usuario_id')
     estado_compra = request.GET.get('estado_compra')
 
-    compras = Compra.objects.filter(is_active=True, sucursal=request.user.sucursal).order_by('-fecha').prefetch_related('detallecompra_set')
+    compras = Compra.objects.filter( sucursal=request.user.sucursal).order_by('-fecha').prefetch_related('detallecompra_set')
 
     # FILTROS
     if fecha_desde:
@@ -3056,7 +3082,15 @@ def lista_compras(request):
     sucursales = Sucursal.objects.filter(estado=True, fk_empresa=request.user.sucursal.fk_empresa)
     usuarios = Usuario.objects.filter(is_active=True, sucursal=request.user.sucursal.fk_empresa.id)
     proveedores = Proveedor.objects.filter(is_active=True, empresa=request.user.sucursal.fk_empresa)
-
+    
+    compras = list(compras)
+    for c in compras:
+        if c.is_active:
+            puede, _ = validar_anulacion_por_tiempo(c, campo_fecha='fecha')
+            c.puede_anular = puede
+        else:
+            c.puede_anular = False
+            
     return render(request, 'inventario/lista_compras.html', {
         'compras': compras,
         'sucursales': sucursales,
@@ -3069,7 +3103,6 @@ def lista_compras(request):
         'proveedor_id': proveedor_id or '',
         'estado_compra': estado_compra or '',
     })
-
 
 @login_required
 def almacenes_por_sucursal(request):
@@ -3104,7 +3137,7 @@ def buscar_variantes(request):
  
     variantes = (
         ProductoVariante.objects
-        .filter(is_active=True, producto__fk_empresa=empresa)
+        .filter(is_active=True, maneja_stock=True, producto__fk_empresa=empresa, producto__visible_compra=True)
         .filter(
             Q(producto__nombre__icontains=termino) |
             Q(nombre_variante__icontains=termino) |
@@ -3248,22 +3281,80 @@ def crear_compra(request):
 @permiso_requerido('compra_list', 'eliminar')
 def eliminar_compra(request):
     if request.method == 'POST':
-        compra_id = request.POST.get('id')
-        motivo = request.POST.get('motivo', '').strip()
-        compra = get_object_or_404(Compra, id=compra_id)
-        compra.is_active = False
-        compra.motivo_anulacion = motivo
-        compra.save()
+        try:
+            with transaction.atomic():
+                compra_id = request.POST.get('id')
+                motivo = request.POST.get('motivo', '').strip()
 
-        # Detalles inactivos
-        compra.detallecompra_set.update(is_active=False)
-        messages.success(request, f'Compra #{compra.id} eliminada correctamente.')
-        return redirect('lista_compras')
+                compra = get_object_or_404(
+                    Compra, id=compra_id, sucursal=request.user.sucursal
+                )
+
+                if not motivo:
+                    messages.error(request, '❌ Debes indicar el motivo de anulación.')
+                    return redirect('lista_compras')
+
+                puede_anular, error = validar_anulacion_por_tiempo(compra, campo_fecha='fecha')
+                if not puede_anular:
+                    messages.error(request, f'❌ {error}')
+                    return redirect('lista_compras')
+
+                detalles_activos = compra.detallecompra_set.filter(is_active=True)
+
+                # ---- Revertir stock y Kardex por cada línea ----
+                for detalle in detalles_activos.select_related('producto_variante'):
+                    variante = detalle.producto_variante
+
+                    if variante.maneja_stock:
+                        try:
+                            stock = Stock.objects.get(
+                                almacen=compra.almacen,
+                                producto_variante=variante
+                            )
+                        except Stock.DoesNotExist:
+                            stock = None
+
+                        if stock:
+                            # Restamos la cantidad que había entrado con esta compra.
+                            # El costo_unitario_promedio NO se recalcula hacia atrás
+                            # (revertir un CPP con exactitud requeriría guardar el
+                            # promedio previo a cada movimiento) — se deja el promedio
+                            # actual y solo se ajusta la cantidad y el valor total.
+                            stock.cantidad_actual -= detalle.cantidad
+                            if stock.cantidad_actual < 0:
+                                stock.cantidad_actual = 0
+                            stock.valor_total = stock.cantidad_actual * stock.costo_unitario_promedio
+                            stock.save()
+
+                        # Kardex de reversión, para dejar trazabilidad del ajuste
+                        Kardex.objects.create(
+                            producto_variante=variante,
+                            sucursal=compra.sucursal,
+                            almacen=compra.almacen,
+                            tipo_movimiento='salida',
+                            cantidad=detalle.cantidad,
+                            precio_unitario=detalle.precio,
+                            total=detalle.subtotal,
+                            referencia=f'Anulación Compra #{compra.id}'
+                        )
+
+                # ---- Anular compra y detalles ----
+                compra.is_active = False
+                compra.motivo_anulacion = motivo
+                compra.save()
+                detalles_activos.update(is_active=False)
+
+                messages.success(request, f'✅ Compra #{compra.id} anulada y stock revertido correctamente.')
+
+        except Exception as e:
+            messages.error(request, f'❌ Error al anular la compra: {e}')
+
+    return redirect('compra_list')
 
 @login_required
 @permiso_requerido('compra_list', 'ver')
 def comprobante_compra(request, compra_id):
-    compra = get_object_or_404(Compra.objects.prefetch_related('detallecompra_set__producto_variante', 'sucursal', 'usuario', 'proveedor'), id=compra_id, is_active=True)
+    compra = get_object_or_404(Compra.objects.prefetch_related('detallecompra_set__producto_variante', 'sucursal', 'usuario', 'proveedor'), id=compra_id)
     empresa_nombre = request.user.sucursal.fk_empresa.nombre
     return render(request, 'inventario/comprobante_compra.html', {'compra': compra, 'empresa_nombre': empresa_nombre})
 
@@ -3273,7 +3364,7 @@ def comprobante_compra(request, compra_id):
 
 @login_required
 def ticket_cliente(request, venta_id):
-    venta = get_object_or_404(Venta, pk=venta_id, is_active=True)
+    venta = get_object_or_404(Venta, pk=venta_id)
     sucursal = venta.sucursal
     empresa = sucursal.fk_empresa
     
@@ -3286,7 +3377,7 @@ def ticket_cliente(request, venta_id):
     
     for detalle in detalles:
         if detalle.producto_padre:
-            detalle.componentes_list = detalle.componentes.filter(is_active=True)
+            detalle.componentes_list = detalle.componentes
     
     pagos = venta.pagos.select_related('metodo_pago').all()
     totalfinal = venta.total + venta.costo_envio
@@ -3303,6 +3394,7 @@ def ticket_cliente(request, venta_id):
         'totalfinal': totalfinal
     }
     return render(request, 'ventas/ticket_cliente.html', context)
+
 @login_required
 def ticket_cocina(request, venta_id):
     """

@@ -1,215 +1,266 @@
 {% extends 'base.html' %}
 {% load static %}
+{% block title %}Compras{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container-fluid mt-4 px-4">
 
-    <h2 ><i class="bi bi-bag-check me-2 text-primary"></i>Reporte de Compras</h2>
-    <!-- FILTROS -->
-    <form method="get" class="row g-3 mb-4">
-        <div class="col-md-2">
-            <label for="fecha_desde" class="form-label" style="color: #007bff;">Desde:</label>
-            <input type="date" name="fecha_desde" id="fecha_desde" class="form-control" value="{{ fecha_desde }}">
+    <!-- ========================================================= -->
+    <!-- ENCABEZADO -->
+    <!-- ========================================================= -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-bag-check-fill me-2"></i>
+                Reporte de Compras
+            </h2>
+            <div class="ee-muted">
+                Historial y control de compras a proveedores
+            </div>
         </div>
-        <div class="col-md-2">
-            <label for="fecha_hasta" class="form-label" style="color: #007bff;">Hasta:</label>
-            <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control" value="{{ fecha_hasta }}">
-        </div>
-        <div class="col-md-2">
-            <label for="sucursal_id" class="form-label" style="color: #007bff;">Sucursal:</label>
-            <select name="sucursal_id" id="sucursal_id" class="form-select">
-                <option value="">Todas</option>
-                {% for s in sucursales %}
-                    <option value="{{ s.id }}" {% if s.id|stringformat:"s" == sucursal_id %}selected{% endif %}>{{ s.nombre }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-2">
-            <label for="proveedor_id" class="form-label" style="color: #007bff;">Proveedor:</label>
-            <select name="proveedor_id" id="proveedor_id" class="form-select">
-                <option value="">Todos</option>
-                {% for p in proveedores %}
-                    <option value="{{ p.id }}" {% if p.id|stringformat:"s" == proveedor_id %}selected{% endif %}>{{ p.nombre }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-2">
-            <label for="usuario_id" class="form-label" style="color: #007bff;">Usuario:</label>
-            <select name="usuario_id" id="usuario_id" class="form-select">
-                <option value="">Todos</option>
-                {% for u in usuarios %}
-                    <option value="{{ u.id }}" {% if u.id|stringformat:"s" == usuario_id %}selected{% endif %}>{{ u.nombre }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-2">
-            <label for="estado_compra" class="form-label" style="color: #007bff;">Estado:</label>
-            <select name="estado_compra" id="estado_compra" class="form-select">
-                <option value="">Todos</option>
-                <option value="1" {% if estado_compra == '1' %}selected{% endif %}>Activa</option>
-                <option value="0" {% if estado_compra == '0' %}selected{% endif %}>Anulada</option>
-            </select>
-        </div>
-        <div class="col-md-12 text-end">
-            <button type="submit" class="btn btn-primary mt-2"><i class="bi bi-funnel-fill"></i> Filtrar</button>
-            <a href="{% url 'compra_create' %}" class="btn btn-success mt-2"><i class="bi bi-plus-lg"></i> Nueva Compra</a>
-        </div>
-    </form>
-
-    <!-- TABLA DE COMPRAS -->
-    <div class="table-responsive">
-        <table id="tablaCompras" class="table table-hover table-bordered align-middle shadow-sm">
-            <thead class="table-light">
-                <tr>
-                    <th>#</th>
-                    <th>Fecha</th>
-                    <th>Proveedor</th>
-                    <th>Sucursal</th>
-                    <th>Usuario</th>
-                    <th>Total (Bs)</th>
-                    <th>Estado</th>
-                    <th class="text-center">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for c in compras %}
-                <tr>
-                    <td>{{ c.id }}</td>
-                    <td>{{ c.fecha|date:"d M Y H:i" }}</td>
-                    <td>{{ c.proveedor.nombre|default:"-" }}</td>
-                    <td>{{ c.sucursal.nombre|default:"-" }}</td>
-                    <td>{{ c.usuario.nombre }}</td>
-                    <td class="text-end">{{ c.total|floatformat:2 }}</td>
-                    <td>
-                        {% if c.is_active %}
-                            <span class="badge bg-success">Activa</span>
-                        {% else %}
-                            <span class="badge bg-danger">Anulada</span>
-                        {% endif %}
-                    </td>
-                    <td class="text-center">
-                        {% if c.is_active %}
-                            <a href="{% url 'comprobante_compra' c.id %}" target="_blank" class="btn btn-sm btn-primary" title="Reimprimir">
-                                <i class="bi bi-printer-fill"></i>
-                            </a>
-                            <button class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#anularModal" data-id="{{ c.id }}">
-                                <i class="bi bi-x-circle"></i>
-                            </button>
-                        {% else %}
-                            <a href="{% url 'comprobante_compra' c.id %}" target="_blank" class="btn btn-sm btn-secondary" title="Ver Comprobante">
-                                <i class="bi bi-eye-fill"></i>
-                            </a>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% empty %}
-                <tr>
-                    <td colspan="8" class="text-center text-muted">No se encontraron compras.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <a href="{% url 'compra_create' %}" class="btn btn-primary shadow-sm">
+            <i class="bi bi-plus-lg me-1"></i> Nueva Compra
+        </a>
     </div>
 
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert-nexus alert-{{ message.tags }} mb-3">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- ========================================================= -->
+    <!-- FILTROS -->
+    <!-- ========================================================= -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header">
+            <i class="bi bi-funnel me-1"></i> Filtros
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label for="fecha_desde" class="form-label">Desde</label>
+                    <input type="date" name="fecha_desde" id="fecha_desde" class="form-control" value="{{ fecha_desde }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="fecha_hasta" class="form-label">Hasta</label>
+                    <input type="date" name="fecha_hasta" id="fecha_hasta" class="form-control" value="{{ fecha_hasta }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="sucursal_id" class="form-label">Sucursal</label>
+                    <select name="sucursal_id" id="sucursal_id" class="form-select">
+                        <option value="">Todas</option>
+                        {% for s in sucursales %}
+                            <option value="{{ s.id }}" {% if s.id|stringformat:"s" == sucursal_id %}selected{% endif %}>{{ s.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="proveedor_id" class="form-label">Proveedor</label>
+                    <select name="proveedor_id" id="proveedor_id" class="form-select">
+                        <option value="">Todos</option>
+                        {% for p in proveedores %}
+                            <option value="{{ p.id }}" {% if p.id|stringformat:"s" == proveedor_id %}selected{% endif %}>{{ p.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="usuario_id" class="form-label">Usuario</label>
+                    <select name="usuario_id" id="usuario_id" class="form-select">
+                        <option value="">Todos</option>
+                        {% for u in usuarios %}
+                            <option value="{{ u.id }}" {% if u.id|stringformat:"s" == usuario_id %}selected{% endif %}>{{ u.nombre }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="estado_compra" class="form-label">Estado</label>
+                    <select name="estado_compra" id="estado_compra" class="form-select">
+                        <option value="">Todos</option>
+                        <option value="1" {% if estado_compra == '1' %}selected{% endif %}>Activa</option>
+                        <option value="0" {% if estado_compra == '0' %}selected{% endif %}>Anulada</option>
+                    </select>
+                </div>
+                <div class="col-12 d-flex justify-content-end gap-2">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-funnel-fill me-1"></i> Filtrar
+                    </button>
+                    <button type="button" id="btnExportarExcel" class="btn btn-outline-success">
+                        <i class="bi bi-file-earmark-excel me-1"></i> Exportar Excel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- INFO RESULTADOS -->
+    <!-- ========================================================= -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+        <div class="ee-muted small">
+            <strong>{{ compras|length }}</strong> compra{{ compras|length|pluralize }} encontrada{{ compras|length|pluralize }}
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- TABLA -->
+    <!-- ========================================================= -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table id="tablaCompras" class="table table-hover align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th class="px-3">#</th>
+                            <th><i class="bi bi-calendar3 me-1"></i> Fecha</th>
+                            <th><i class="bi bi-truck me-1"></i> Proveedor</th>
+                            <th><i class="bi bi-geo-alt me-1"></i> Sucursal</th>
+                            <th><i class="bi bi-person me-1"></i> Usuario</th>
+                            <th class="text-end"><i class="bi bi-currency-dollar me-1"></i> Total</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-center px-3">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in compras %}
+                        <tr>
+                            <td class="px-3 font-monospace text-primary fw-semibold">#{{ c.id }}</td>
+                            <td>{{ c.fecha|date:"d M Y H:i" }}</td>
+                            <td>{{ c.proveedor.nombre|default:"—" }}</td>
+                            <td>{{ c.sucursal.nombre|default:"—" }}</td>
+                            <td>{{ c.usuario.nombre }}</td>
+                            <td class="text-end fw-semibold">Bs. {{ c.total|floatformat:2 }}</td>
+                            <td class="text-center">
+                                {% if c.is_active %}
+                                    <span class="badge bg-primary">
+                                        <i class="bi bi-check-circle-fill me-1"></i>Activa
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-danger">
+                                        <i class="bi bi-x-circle-fill me-1"></i>Anulada
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center px-3">
+                                <div class="btn-group" role="group">
+                                    <a href="{% url 'comprobante_compra' c.id %}" target="_blank"
+                                       class="btn btn-sm {% if c.is_active %}btn-outline-primary{% else %}btn-outline-secondary{% endif %}"
+                                       title="{% if c.is_active %}Reimprimir{% else %}Ver comprobante{% endif %}">
+                                        <i class="bi bi-{% if c.is_active %}printer-fill{% else %}eye-fill{% endif %}"></i>
+                                    </a>
+
+                                    {% if c.is_active %}
+                                        {% if c.puede_anular %}
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                    data-bs-toggle="modal" data-bs-target="#anularModal"
+                                                    data-id="{{ c.id }}" title="Anular compra">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
+                                        {% else %}
+                                            <button class="btn btn-sm btn-secondary" disabled
+                                                    title="Ya pasó el tiempo límite para anular">
+                                                <i class="bi bi-lock-fill"></i>
+                                            </button>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center py-5">
+                                <div class="ee-muted">
+                                    <i class="bi bi-inbox display-5 d-block mb-3"></i>
+                                    <h5 class="mb-1">No se encontraron compras</h5>
+                                    <div class="small">Ajusta los filtros o registra una nueva compra.</div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 
-<!-- MODAL PARA ANULAR COMPRA -->
+<!-- ========================================================= -->
+<!-- MODAL ANULAR -->
+<!-- ========================================================= -->
 <div class="modal fade" id="anularModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <form method="post" action="{% url 'compra_delete' %}">
             {% csrf_token %}
             <input type="hidden" name="id" id="modalCompraId">
             <div class="modal-content">
-                <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title">Anular Compra</h5>
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-x-circle-fill me-2"></i>Anular Compra</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body">
-                    <label for="motivo" class="form-label">Motivo de anulación:</label>
-                    <textarea name="motivo" id="motivo" class="form-control" rows="3" required></textarea>
+                <div class="modal-body text-start">
+                    <p class="ee-muted small mb-3">
+                        Al anular esta compra se revertirá el stock que ingresó y quedará marcada como anulada.
+                    </p>
+                    <label for="motivo" class="form-label">Motivo de anulación *</label>
+                    <textarea name="motivo" id="motivo" class="form-control" rows="3" required
+                              placeholder="Explica por qué se anula esta compra..."></textarea>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-danger">Anular Compra</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle me-1"></i> Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash3-fill me-1"></i> Anular Compra
+                    </button>
                 </div>
             </div>
         </form>
     </div>
 </div>
 
-<!-- DATATABLES -->
-<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-<link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.colVis.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
-
-<script>
-    $(document).ready(function() {
-        $('#tablaCompras').DataTable({
-            dom: '<"d-flex justify-content-between mb-3"Bf>rtip',
-            buttons: [
-                {
-                    extend: 'excelHtml5',
-                    className: 'btn btn-success btn-sm',
-                    text: '<i class="bi bi-file-earmark-excel"></i> Excel'
-                    filename: 'Compras_{{ now|date:"Ymd_His" }}'
-                },
-                {
-                    extend: 'csvHtml5',
-                    className: 'btn btn-info btn-sm text-white',
-                    text: '<i class="bi bi-file-earmark-spreadsheet"></i> CSV'
-                    filename: 'Compras_{{ now|date:"Ymd_His" }}'
-                },  
-                {
-                    extend: 'pdfHtml5',
-                    className: 'btn btn-danger btn-sm',
-                    text: '<i class="bi bi-file-earmark-pdf"></i> PDF'
-                    filename: 'Compras_{{ now|date:"Ymd_His" }}'
-                },
-                {
-                    extend: 'print',
-                    className: 'btn btn-secondary btn-sm',
-                    text: '<i class="bi bi-printer"></i> Imprimir'
-                    filename: 'Compras_{{ now|date:"Ymd_His" }}'
-                },
-                {
-                    extend: 'colvis',
-                    className: 'btn btn-warning btn-sm',
-                    text: '<i class="bi bi-eye"></i> Columnas'
-                }
-            ],
-            order: [[0, 'desc']],
-            pageLength: 10,
-        });
-    });
-
-    var anularModal = document.getElementById('anularModal')
-    anularModal.addEventListener('show.bs.modal', function (event) {
-        var button = event.relatedTarget
-        var compraId = button.getAttribute('data-id')
-        document.getElementById('modalCompraId').value = compraId
-    })
-</script>
-
 <style>
-    /* Mejorar apariencia */
-    .dataTables_wrapper .dt-buttons {
-        margin-bottom: 10px;
+    .ee-muted { color: var(--text-muted) !important; }
+
+    .alert-nexus {
+        padding: .6rem 1rem;
+        border-radius: var(--radius);
+        font-size: .85rem;
+        background: var(--bg-card);
+        color: var(--text-main);
+        border: 1px solid var(--border);
+        border-left: 3px solid var(--primary);
     }
-    #tablaCompras tbody tr:hover {
-        background-color: #f1f7ff;
-    }
-    .table thead th {
-        background-color: #e9ecef;
-        border-bottom: 2px solid #adb5bd;
-    }
+    .alert-nexus.alert-error { border-left-color: #ef4444; }
+    .alert-nexus.alert-success { border-left-color: var(--primary); }
+    .alert-nexus.alert-warning { border-left-color: #f59e0b; }
 </style>
 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const anularModal = document.getElementById('anularModal');
+    anularModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const compraId = button.getAttribute('data-id');
+        document.getElementById('modalCompraId').value = compraId;
+    });
+
+    // Exportar a Excel simple (misma tabla visible, sin librerías externas)
+    document.getElementById('btnExportarExcel').addEventListener('click', function () {
+        const tabla = document.getElementById('tablaCompras');
+        let csv = [];
+        tabla.querySelectorAll('tr').forEach(fila => {
+            const cols = fila.querySelectorAll('th, td');
+            const filaCsv = Array.from(cols)
+                .slice(0, -1) // sin la columna de acciones
+                .map(col => `"${col.innerText.trim().replace(/"/g, '""')}"`);
+            csv.push(filaCsv.join(','));
+        });
+        const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `Compras_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+    });
+});
+</script>
 {% endblock %}

@@ -105,181 +105,183 @@
     </div>
 </div>
 
+
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Cargar productos
-    fetch('/api/productos-venta/')
-        .then(r => r.json())
-        .then(data => {
-            const select = document.getElementById('select-producto');
-            data.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.id;
-                opt.textContent = `${p.nombre} - ${p.sku}`;
-                select.appendChild(opt);
-            });
-        });
-    
-    // Consultar
-    document.getElementById('btn-consultar').addEventListener('click', function() {
-        const productoId = document.getElementById('select-producto').value;
-        const fechaInicio = document.getElementById('fecha-inicio').value;
-        const fechaFin = document.getElementById('fecha-fin').value;
-        
-        if (!productoId) {
-            alert('Seleccione un producto');
-            return;
-        }
-        
-        const url = `/api/reporte-kardex/?producto_id=${productoId}&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
-        
-        fetch(url)
-            .then(r => r.json())
-            .then(data => {
-                if (data.error) {
-                    alert(data.error);
-                    return;
-                }
-                
-                // Mostrar resumen
-                document.getElementById('resumen-kardex').style.display = 'flex';
-                document.getElementById('total-entradas').textContent = data.total_entradas.toFixed(2);
-                document.getElementById('total-salidas').textContent = data.total_salidas.toFixed(2);
-                document.getElementById('stock-actual').textContent = data.stock_actual.toFixed(2);
-                document.getElementById('nombre-producto').textContent = data.producto.nombre;
-                
-                // Llenar tabla
-                const tbody = document.getElementById('tbody-kardex');
-                if (data.data.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="8" class="text-center">No hay movimientos</td></tr>`;
-                    return;
-                }
-                
-                let html = '';
-                data.data.forEach(item => {
-                    const tipoColor = item.tipo === 'entrada' ? 'success' : (item.tipo === 'salida' ? 'danger' : 'warning');
-                    html += `
-                        <tr>
-                            <td>${item.fecha}</td>
-                            <td><span class="badge bg-${tipoColor}">${item.tipo}</span></td>
-                            <td class="text-end">${item.cantidad.toFixed(2)}</td>
-                            <td class="text-end">${item.precio_unitario.toFixed(2)}</td>
-                            <td class="text-end">${item.total.toFixed(2)}</td>
-                            <td>${item.referencia}</td>
-                            <td>${item.almacen}</td>
-                            <td class="text-end"><strong>${item.stock_acumulado.toFixed(2)}</strong></td>
-                        </tr>
-                    `;
-                });
-                tbody.innerHTML = html;
-            })
-            .catch(err => {
-                alert('Error al consultar: ' + err.message);
-            });
-    });
-});
-// ===================== BUSCADOR DE PRODUCTOS (KARDEX) =====================
-const buscadorProducto = document.getElementById('buscador-producto');
-const productoIdInput = document.getElementById('producto-id');
-const resultadosContainer = document.getElementById('resultados-productos');
-const btnLimpiar = document.getElementById('btn-limpiar-producto');
-let timeoutBuscador = null;
 
-// Buscar productos mientras escribe
-buscadorProducto?.addEventListener('input', function() {
-    clearTimeout(timeoutBuscador);
-    const termino = this.value.trim();
-    
-    if (termino.length < 2) {
-        resultadosContainer.style.display = 'none';
-        return;
-    }
-    
-    timeoutBuscador = setTimeout(() => {
-        fetch(`/api/buscar-productos/?q=${encodeURIComponent(termino)}`)
-            .then(r => r.json())
-            .then(data => {
-                if (data.error) {
-                    console.error(data.error);
-                    return;
-                }
-                
-                if (data.results.length === 0) {
-                    resultadosContainer.innerHTML = `
-                        <div class="list-group-item text-muted text-center">
-                            <i class="fas fa-search"></i> No se encontraron productos
-                        </div>
-                    `;
-                    resultadosContainer.style.display = 'block';
-                    return;
-                }
-                
-                let html = '';
-                data.results.forEach(p => {
-                    html += `
-                        <button class="list-group-item list-group-item-action producto-resultado" 
-                                data-id="${p.id}" data-nombre="${p.nombre}">
-                            <div class="d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong>${p.nombre}</strong>
-                                    <br>
-                                    <small class="text-muted">SKU: ${p.sku}</small>
+    // ===================== BUSCADOR DE PRODUCTOS =====================
+    const buscadorProducto = document.getElementById('buscador-producto');
+    const productoIdInput = document.getElementById('producto-id');
+    const resultadosContainer = document.getElementById('resultados-productos');
+    const btnLimpiar = document.getElementById('btn-limpiar-producto');
+    let timeoutBuscador = null;
+
+    // Buscar productos mientras escribe
+    if (buscadorProducto) {
+        buscadorProducto.addEventListener('input', function() {
+            clearTimeout(timeoutBuscador);
+            const termino = this.value.trim();
+            
+            if (termino.length < 2) {
+                resultadosContainer.style.display = 'none';
+                return;
+            }
+            
+            timeoutBuscador = setTimeout(() => {
+                fetch(`/api/buscar-productos/?q=${encodeURIComponent(termino)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.error) {
+                            console.error(data.error);
+                            return;
+                        }
+                        
+                        if (!data.results || data.results.length === 0) {
+                            resultadosContainer.innerHTML = `
+                                <div class="list-group-item text-muted text-center">
+                                    <i class="fas fa-search"></i> No se encontraron productos
                                 </div>
-                                <span class="badge bg-secondary">${p.stock || 0}</span>
-                            </div>
-                        </button>
-                    `;
-                });
-                resultadosContainer.innerHTML = html;
-                resultadosContainer.style.display = 'block';
-                
-                // Evento para seleccionar producto
-                document.querySelectorAll('.producto-resultado').forEach(btn => {
-                    btn.addEventListener('click', function() {
-                        const id = this.dataset.id;
-                        const nombre = this.dataset.nombre;
+                            `;
+                            resultadosContainer.style.display = 'block';
+                            return;
+                        }
                         
-                        buscadorProducto.value = nombre;
-                        productoIdInput.value = id;
-                        resultadosContainer.style.display = 'none';
+                        let html = '';
+                        data.results.forEach(p => {
+                            html += `
+                                <button class="list-group-item list-group-item-action producto-resultado" 
+                                        data-id="${p.id}" data-nombre="${p.nombre}">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <strong>${p.nombre}</strong>
+                                            <br>
+                                            <small class="text-muted">SKU: ${p.sku}</small>
+                                        </div>
+                                        <span class="badge bg-secondary">${p.stock || 0}</span>
+                                    </div>
+                                </button>
+                            `;
+                        });
+                        resultadosContainer.innerHTML = html;
+                        resultadosContainer.style.display = 'block';
                         
-                        // Consultar automáticamente
-                        document.getElementById('btn-consultar')?.click();
+                        // Evento para seleccionar producto
+                        document.querySelectorAll('.producto-resultado').forEach(btn => {
+                            btn.addEventListener('click', function() {
+                                const id = this.dataset.id;
+                                const nombre = this.dataset.nombre;
+                                
+                                buscadorProducto.value = nombre;
+                                productoIdInput.value = id;
+                                resultadosContainer.style.display = 'none';
+                            });
+                        });
+                    })
+                    .catch(err => {
+                        console.error('Error:', err);
                     });
-                });
-            })
-            .catch(err => {
-                console.error('Error:', err);
-            });
-    }, 300); // ← 300ms de delay
-});
+            }, 300);
+        });
 
-// Ocultar resultados al perder foco
-buscadorProducto?.addEventListener('blur', function() {
-    setTimeout(() => {
-        resultadosContainer.style.display = 'none';
-    }, 200);
-});
+        // Ocultar resultados al perder foco
+        buscadorProducto.addEventListener('blur', function() {
+            setTimeout(() => {
+                resultadosContainer.style.display = 'none';
+            }, 200);
+        });
 
-// Limpiar selección
-btnLimpiar?.addEventListener('click', function() {
-    buscadorProducto.value = '';
-    productoIdInput.value = '';
-    resultadosContainer.style.display = 'none';
-    document.getElementById('btn-consultar')?.click();
-});
-
-// Al presionar Enter, buscar
-buscadorProducto?.addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        e.preventDefault();
-        // Seleccionar el primer resultado si existe
-        const primerResultado = document.querySelector('.producto-resultado');
-        if (primerResultado) {
-            primerResultado.click();
-        }
+        // Al presionar Enter, buscar
+        buscadorProducto.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const primerResultado = document.querySelector('.producto-resultado');
+                if (primerResultado) {
+                    primerResultado.click();
+                }
+            }
+        });
     }
+
+    // Limpiar selección
+    if (btnLimpiar) {
+        btnLimpiar.addEventListener('click', function() {
+            buscadorProducto.value = '';
+            productoIdInput.value = '';
+            resultadosContainer.style.display = 'none';
+        });
+    }
+
+    // ===================== CONSULTAR KARDEX =====================
+    const btnConsultar = document.getElementById('btn-consultar');
+    
+    if (btnConsultar) {
+        btnConsultar.addEventListener('click', function() {
+            const productoId = productoIdInput.value;  // ← USAR EL HIDDEN
+            const fechaInicio = document.getElementById('fecha-inicio').value;
+            const fechaFin = document.getElementById('fecha-fin').value;
+            
+            if (!productoId) {
+                alert('Seleccione un producto');
+                return;
+            }
+            
+            const url = `/api/reporte-kardex/?producto_id=${productoId}&fecha_inicio=${fechaInicio}&fecha_fin=${fechaFin}`;
+            
+            // Mostrar loading
+            const tbody = document.getElementById('tbody-kardex');
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center">
+                        <i class="fas fa-spinner fa-spin"></i> Cargando...
+                    </td>
+                </tr>
+            `;
+            
+            fetch(url)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) {
+                        alert(data.error);
+                        return;
+                    }
+                    
+                    // Mostrar resumen
+                    document.getElementById('resumen-kardex').style.display = 'flex';
+                    document.getElementById('total-entradas').textContent = data.total_entradas.toFixed(2);
+                    document.getElementById('total-salidas').textContent = data.total_salidas.toFixed(2);
+                    document.getElementById('stock-actual').textContent = data.stock_actual.toFixed(2);
+                    document.getElementById('nombre-producto').textContent = data.producto.nombre;
+                    
+                    // Llenar tabla
+                    if (data.data.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="8" class="text-center">No hay movimientos</td></tr>`;
+                        return;
+                    }
+                    
+                    let html = '';
+                    data.data.forEach(item => {
+                        const tipoColor = item.tipo === 'entrada' ? 'success' : (item.tipo === 'salida' ? 'danger' : 'warning');
+                        html += `
+                            <tr>
+                                <td>${item.fecha}</td>
+                                <td><span class="badge bg-${tipoColor}">${item.tipo}</span></td>
+                                <td class="text-end">${item.cantidad.toFixed(2)}</td>
+                                <td class="text-end">${item.precio_unitario.toFixed(2)}</td>
+                                <td class="text-end">${item.total.toFixed(2)}</td>
+                                <td>${item.referencia}</td>
+                                <td>${item.almacen}</td>
+                                <td class="text-end"><strong>${item.stock_acumulado.toFixed(2)}</strong></td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = html;
+                })
+                .catch(err => {
+                    alert('Error al consultar: ' + err.message);
+                });
+        });
+    }
+
 });
 </script>
-
 {% endblock %}

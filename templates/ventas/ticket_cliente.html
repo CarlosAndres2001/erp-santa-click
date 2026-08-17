@@ -74,6 +74,16 @@
         {% if sucursal.direccion %}
         <div class="direccion">{{ sucursal.direccion }}</div>
         {% endif %}
+
+        <!-- ⚠️ AGREGAR ESTO SOLO -->
+        {% if not venta.is_active %}
+        <div style="background:#dc2626;color:#fff;padding:6px 10px;margin:4px 0;font-size:18px;font-weight:bold;text-transform:uppercase;letter-spacing:2px;border:2px solid #991b1b;">
+            ⚠️ ANULADO
+        </div>
+        <div style="font-size:10px;color:#dc2626;font-weight:bold;margin-bottom:4px;">
+            Motivo: {{ venta.motivo_anulacion|default:"Sin motivo registrado" }}
+        </div>
+        {% endif %}
         <div class="badge">COMPROBANTE VENTA</div>
         <div class="venta-info">
             <span>N°: #{{ venta.id|stringformat:"06d" }}</span>
