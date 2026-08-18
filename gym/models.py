@@ -327,7 +327,7 @@ class Producto(models.Model):
     fk_tipo_producto = models.ForeignKey(TipoProducto, on_delete=models.PROTECT, null=True)
     unidad_medida = models.ForeignKey(UnidadMedida, on_delete=models.PROTECT)
     unidades_por_caja = models.PositiveIntegerField(default=0)  # ej: 12
-    tara_por_caja = models.DecimalField(max_digits=6, decimal_places=2, default=0)  # ej: 2.00 kg
+    tara_por_caja = models.DecimalField(max_digits=6, decimal_places=2, default=0)  
     is_active = models.BooleanField(default=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products')
     visible_venta = models.BooleanField(default=True)
@@ -849,7 +849,9 @@ class DetalleVenta(models.Model):
 class PagoVenta(models.Model):
     venta = models.ForeignKey(Venta, on_delete=models.CASCADE, related_name='pagos')
     metodo_pago = models.ForeignKey(MetodoPago, on_delete=models.PROTECT)
-    monto = models.DecimalField(max_digits=10, decimal_places=2)
+    monto_recibido = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    monto_aplicado = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    vuelto = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     referencia_pago = models.CharField(max_length=100, blank=True, null=True)
     fecha_pago = models.DateTimeField(auto_now_add=True)
 

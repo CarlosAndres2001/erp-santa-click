@@ -437,3 +437,34 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg-base);color:var(--text
     background: #ffffff;
     border-color: var(--primary);
 }
+/* VUELTO */
+.vuelto-box {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.2);
+    border-radius: 8px;
+    padding: 6px 10px;
+    margin-bottom: 8px;
+}
+.vuelto-box.vuelto--negativo {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+.vuelto-box .vuelto-lbl {
+    font-size: 0.7rem;
+    color: #22c55e;
+    font-weight: 600;
+}
+.vuelto-box.vuelto--negativo .vuelto-lbl {
+    color: #ef4444;
+}
+.vuelto-box .vuelto-num {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #22c55e;
+}
+.vuelto-box.vuelto--negativo .vuelto-num {
+    color: #ef4444;
+}

@@ -3381,7 +3381,19 @@ def ticket_cliente(request, venta_id):
     
     pagos = venta.pagos.select_related('metodo_pago').all()
     totalfinal = venta.total + venta.costo_envio
-    total_pagado = sum(p.monto for p in pagos)
+    #totalfinal = venta.total  # ✅ YA INCLUYE EL COSTO DE ENVÍO
+    
+    # ============================================================
+    # ✅ CÁLCULOS CORRECTOS
+    # ============================================================
+    total_recibido = sum(p.monto_recibido for p in pagos)
+    
+    # ✅ EL VUELTO ES: total_recibido - totalfinal
+    total_vuelto = total_recibido - totalfinal
+    
+    # ✅ Si el vuelto es negativo, significa que falta dinero
+    if total_vuelto < 0:
+        total_vuelto = 0  # No mostrar vuelto negativo
     
     context = {
         'venta': venta,
@@ -3390,7 +3402,8 @@ def ticket_cliente(request, venta_id):
         'detalles': detalles,
         'subtotal': subtotal,
         'pagos': pagos,
-        'total_pagado': total_pagado,
+        'total_recibido': total_recibido,
+        'total_vuelto': total_vuelto,  # ✅ VUELTO TOTAL CORRECTO
         'totalfinal': totalfinal
     }
     return render(request, 'ventas/ticket_cliente.html', context)
@@ -3605,7 +3618,7 @@ def api_precios_canal(request):
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=500)
 
-@login_required
+"""@login_required
 @permiso_requerido('abrir_caja', 'crear')
 def crear_venta(request):
     usuario = request.user
@@ -3870,7 +3883,724 @@ def crear_venta(request):
     }
 
     return render(request, 'ventas/registro_venta.html', context)
+"""
+@login_required
+@permiso_requerido('abrir_caja', 'crear')
+def crear_venta(request):
+    usuario = request.user
+    sucursal = usuario.sucursal
 
+    # ============================================================
+    # POST - CREAR VENTA
+    # ============================================================
+    if request.method == 'POST':
+        try:
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({
+                    'ok': False,
+                    'error': 'Datos inválidos'
+                }, status=400)
+
+            with transaction.atomic():
+
+                # ====================================================
+                # DATOS PRINCIPALES
+                # ====================================================
+                almacen_id = data.get('almacen')
+                canal_id = data.get('canal')
+                cliente_id = data.get('cliente')
+
+                total = Decimal(
+                    str(data.get('total', 0))
+                )
+
+                descuento_total = Decimal(
+                    str(data.get('descuento', 0))
+                )
+
+                observaciones = data.get(
+                    'observaciones',
+                    ''
+                )
+
+                costo_envio = Decimal(
+                    str(data.get('costo_envio', 0))
+                )
+
+                direccion_entrega = data.get(
+                    'direccion_entrega',
+                    ''
+                )
+
+                telefono_entrega = data.get(
+                    'telefono_entrega',
+                    ''
+                )
+
+                items = data.get('items', [])
+                pagos = data.get('pagos', [])
+
+                # ====================================================
+                # VALIDACIONES BÁSICAS
+                # ====================================================
+                if total <= 0:
+                    return JsonResponse({
+                        'ok': False,
+                        'error': 'El total de la venta debe ser mayor a 0'
+                    }, status=400)
+
+                if not items:
+                    return JsonResponse({
+                        'ok': False,
+                        'error': 'No hay productos'
+                    }, status=400)
+
+                if not pagos:
+                    return JsonResponse({
+                        'ok': False,
+                        'error': (
+                            'Debe ingresar al menos un '
+                            'método de pago'
+                        )
+                    }, status=400)
+
+                # ====================================================
+                # CALCULAR PAGOS
+                # ====================================================
+                # ✅ EL MONTO A COBRAR INCLUYE COSTO DE ENVÍO Y DESCUENTO
+                #monto_a_cobrar = total - descuento_total + costo_envio
+                # ✅ AHORA (el total ya incluye el descuento)
+                monto_a_cobrar = total + costo_envio
+                # ✅ Validar que no sea negativo
+                if monto_a_cobrar <= 0:
+                    return JsonResponse({
+                        'ok': False,
+                        'error': 'El monto a cobrar debe ser mayor a 0'
+                    }, status=400)
+
+                pendiente = monto_a_cobrar
+                pagos_calculados = []
+                
+                for pago_data in pagos:
+
+                    metodo_id = pago_data.get(
+                        'metodo_id'
+                    )
+
+                    monto_recibido = Decimal(
+                        str(
+                            pago_data.get(
+                                'monto_recibido',
+                                0
+                            )
+                        )
+                    )
+
+                    referencia = pago_data.get(
+                        'referencia',
+                        ''
+                    )
+
+                    es_parcial = bool(
+                        pago_data.get(
+                            'es_parcial',
+                            False
+                        )
+                    )
+
+                    # Ignorar pagos en cero o negativos
+                    if monto_recibido <= 0:
+                        continue
+
+                    # ==================================================
+                    # VALIDAR MÉTODO DE PAGO
+                    # ==================================================
+                    if not metodo_id:
+                        return JsonResponse({
+                            'ok': False,
+                            'error': (
+                                'Uno de los pagos no tiene '
+                                'método de pago seleccionado'
+                            )
+                        }, status=400)
+
+                    # ==================================================
+                    # CALCULAR APLICADO Y VUELTO
+                    # ==================================================
+
+                    # Si ya se cubrió toda la venta,
+                    # cualquier dinero adicional sería vuelto.
+                    if pendiente <= 0:
+
+                        monto_aplicado = Decimal('0.00')
+                        vuelto = monto_recibido
+
+                    # Pago exacto o superior al pendiente
+                    elif monto_recibido >= pendiente:
+
+                        monto_aplicado = pendiente
+                        vuelto = (
+                            monto_recibido -
+                            pendiente
+                        )
+
+                    # Pago menor al pendiente
+                    elif es_parcial:
+
+                        monto_aplicado = monto_recibido
+                        vuelto = Decimal('0.00')
+
+                    else:
+                        monto_aplicado = monto_recibido  # ✅ ACEPTAR COMO PARCIAL
+                        vuelto = Decimal('0.00')
+                        #return JsonResponse({'ok': False,'error': (f'El monto recibido 'f'({monto_recibido:.2f}) 'f'es menor a lo pendiente 'f'({pendiente:.2f}). 'f'Márquelo como pago parcial ' f'si corresponde.')}, status=400)
+
+                    # ==================================================
+                    # ACTUALIZAR PENDIENTE
+                    # ==================================================
+                    pendiente -= monto_aplicado
+
+                    if pendiente < 0:
+                        pendiente = Decimal('0.00')
+
+                    # ==================================================
+                    # GUARDAR PAGO CALCULADO EN MEMORIA
+                    # ==================================================
+                    pagos_calculados.append({
+                        'metodo_id': metodo_id,
+                        'monto_recibido': monto_recibido,
+                        'monto_aplicado': monto_aplicado,
+                        'vuelto': vuelto,
+                        'referencia': referencia
+                    })
+
+                # ====================================================
+                # VALIDAR QUE LA VENTA ESTÉ COMPLETAMENTE PAGADA
+                # ====================================================
+                if pendiente > 0:
+
+                    return JsonResponse({
+                        'ok': False,
+                        'error': (
+                            'El monto recibido es insuficiente. '
+                            f'Faltan Bs. {pendiente:.2f}'
+                        )
+                    }, status=400)
+
+                # ====================================================
+                # OBTENER ALMACÉN
+                # ====================================================
+                almacen = Almacen.objects.get(
+                    id=almacen_id,
+                    sucursal=sucursal,
+                    is_active=True
+                )
+
+                # ====================================================
+                # OBTENER CANAL
+                # ====================================================
+                canal = CanalVenta.objects.get(
+                    id=canal_id,
+                    is_active=True,
+                    fk_empresa=sucursal.fk_empresa
+                )
+
+                # ====================================================
+                # OBTENER CLIENTE
+                # ====================================================
+                cliente_obj = None
+
+                if cliente_id and cliente_id != '':
+
+                    try:
+                        cliente_obj = Cliente.objects.get(
+                            id=cliente_id,
+                            fk_empresa=sucursal.fk_empresa
+                        )
+
+                    except Cliente.DoesNotExist:
+                        cliente_obj = None
+
+                # ====================================================
+                # CAJA TURNO ACTIVA
+                # ====================================================
+                caja_turno = CajaTurno.objects.filter(
+                    sucursal=sucursal,
+                    usuario=usuario,
+                    is_active=True,
+                    fecha_cierre__isnull=True
+                ).first()
+
+                if not caja_turno:
+                    return JsonResponse({
+                        'ok': False,
+                        'error': 'No hay caja turno activa'
+                    }, status=400)
+
+                # ====================================================
+                # CREAR VENTA
+                # ====================================================
+                venta = Venta(
+                    usuario=usuario,
+                    sucursal=sucursal,
+                    almacen=almacen,
+                    canal=canal,
+                    cliente=cliente_obj,
+                    caja_turno=caja_turno,
+                    total=total,
+                    descuento=descuento_total,
+                    costo_envio=costo_envio,
+                    direccion_entrega=direccion_entrega,
+                    telefono_entrega=telefono_entrega,
+                    fecha=timezone.now(),
+                    observaciones=observaciones,
+                )
+
+                venta.save()
+
+                # ====================================================
+                # MOVIMIENTO DE CAJA
+                #
+                # IMPORTANTE:
+                # Esta parte todavía la dejamos como está.
+                # Más adelante la reemplazaremos por movimientos
+                # asociados a CUENTAS cuando hagamos esa etapa.
+                # ====================================================
+                MovimientoCaja.objects.create(
+                    caja_turno=caja_turno,
+                    tipo='VENTA',
+                    monto=monto_a_cobrar,
+                    referencia=str(venta.id),
+                    descripcion=f'Venta #{venta.id}',
+                    usuario=usuario
+                )
+
+                # ====================================================
+                # EGRESO DE CAJA POR COSTO DE ENVÍO
+                #
+                # También lo dejamos por ahora.
+                # Más adelante deberá convertirse en un movimiento
+                # de la CUENTA EFECTIVO.
+                # ====================================================
+                if costo_envio > 0:
+
+                    MovimientoCaja.objects.create(
+                        caja_turno=caja_turno,
+                        tipo='EGRESO',
+                        monto=costo_envio,
+                        referencia=str(venta.id),
+                        descripcion=(
+                            f'Costo envío Venta #{venta.id}'
+                        ),
+                        usuario=usuario
+                    )
+
+                # ====================================================
+                # PROCESAR ITEMS
+                # ====================================================
+                for item in items:
+
+                    tipo = item.get(
+                        'tipo',
+                        'producto'
+                    )
+
+                    item_id = item.get('id')
+
+                    cantidad = Decimal(
+                        str(
+                            item.get(
+                                'cantidad',
+                                1
+                            )
+                        )
+                    )
+
+                    precio = Decimal(
+                        str(
+                            item.get(
+                                'precio',
+                                0
+                            )
+                        )
+                    )
+
+                    descuento = Decimal(
+                        str(
+                            item.get(
+                                'descuento',
+                                0
+                            )
+                        )
+                    )
+
+                    subtotal = Decimal(
+                        str(
+                            item.get(
+                                'subtotal',
+                                0
+                            )
+                        )
+                    )
+
+                    nombre = item.get(
+                        'nombre',
+                        ''
+                    )
+
+                    # ==================================================
+                    # CANTIDAD INVÁLIDA
+                    # ==================================================
+                    if cantidad <= 0:
+                        continue
+
+                    # ==================================================
+                    # PRODUCTO NORMAL
+                    # ==================================================
+                    if tipo == 'producto':
+
+                        producto_variante = (
+                            ProductoVariante.objects.get(
+                                id=item_id,
+                                is_active=True
+                            )
+                        )
+
+                        # ----------------------------------------------
+                        # DETALLE VENTA
+                        # ----------------------------------------------
+                        DetalleVenta.objects.create(
+                            venta=venta,
+                            producto_variante=producto_variante,
+                            nombre_producto=(
+                                nombre or
+                                producto_variante.nombre_variante
+                            ),
+                            cantidad=cantidad,
+                            precio=precio,
+                            subtotal=subtotal,
+                            descuento=descuento
+                        )
+
+                        # ----------------------------------------------
+                        # KARDEX
+                        # ----------------------------------------------
+                        Kardex.objects.create(
+                            producto_variante=producto_variante,
+                            sucursal=sucursal,
+                            almacen=almacen,
+                            tipo_movimiento='salida',
+                            cantidad=cantidad,
+                            precio_unitario=precio,
+                            total=subtotal,
+                            referencia=(
+                                f'Venta #{venta.id}'
+                            )
+                        )
+
+                        # ----------------------------------------------
+                        # STOCK
+                        # ----------------------------------------------
+                        if producto_variante.maneja_stock:
+
+                            stock, _ = (
+                                Stock.objects.get_or_create(
+                                    almacen=almacen,
+                                    producto_variante=(
+                                        producto_variante
+                                    ),
+                                    defaults={
+                                        'cantidad_actual': 0,
+                                        'costo_unitario_promedio': 0,
+                                        'valor_total': 0,
+                                        'cajas_actual': 0,
+                                        'peso_neto_total': 0
+                                    }
+                                )
+                            )
+
+                            stock.cantidad_actual -= cantidad
+
+                            stock.save()
+
+                    # ==================================================
+                    # PACK
+                    # ==================================================
+                    elif tipo == 'pack':
+
+                        producto_padre = (
+                            Producto.objects.get(
+                                id=item_id,
+                                is_active=True
+                            )
+                        )
+
+                        pack_variante = (
+                            ProductoVariante.objects.filter(
+                                producto=producto_padre,
+                                is_active=True
+                            ).first()
+                        )
+
+                        DetalleVenta.objects.create(
+                            venta=venta,
+                            producto_variante=pack_variante,
+                            producto_padre=producto_padre,
+                            nombre_producto=(
+                                nombre or
+                                producto_padre.nombre
+                            ),
+                            cantidad=cantidad,
+                            precio=precio,
+                            subtotal=subtotal,
+                            descuento=descuento
+                        )
+
+                # ====================================================
+                # GUARDAR PAGOS
+                # ====================================================
+                vuelto_total = Decimal('0.00')
+
+                for pago_data in pagos_calculados:
+
+                    metodo_id = pago_data[
+                        'metodo_id'
+                    ]
+
+                    try:
+
+                        metodo = MetodoPago.objects.get(
+                            id=metodo_id,
+                            empresa=sucursal.fk_empresa,
+                            estado=True
+                        )
+
+                    except MetodoPago.DoesNotExist:
+
+                        raise ValueError(
+                            f'El método de pago '
+                            f'{metodo_id} no es válido.'
+                        )
+
+                    # ----------------------------------------------
+                    # CREAR PAGO
+                    # ----------------------------------------------
+                    PagoVenta.objects.create(
+                        venta=venta,
+                        metodo_pago=metodo,
+                        monto_recibido=(
+                            pago_data[
+                                'monto_recibido'
+                            ]
+                        ),
+                        monto_aplicado=(
+                            pago_data[
+                                'monto_aplicado'
+                            ]
+                        ),
+                        vuelto=(
+                            pago_data[
+                                'vuelto'
+                            ]
+                        ),
+                        referencia_pago=(
+                            pago_data[
+                                'referencia'
+                            ]
+                        )
+                    )
+
+                    # ----------------------------------------------
+                    # ACUMULAR VUELTO
+                    # ----------------------------------------------
+                    vuelto_total += pago_data[
+                        'vuelto'
+                    ]
+
+                # ====================================================
+                # RESPUESTA
+                # ====================================================
+                return JsonResponse({
+                    'ok': True,
+                    'venta_id': venta.id,
+                    'vuelto': float(vuelto_total),
+                    'mensaje': (
+                        f'✅ Venta #{venta.id} '
+                        f'registrada correctamente'
+                    )
+                })
+
+        # ============================================================
+        # ERROR GENERAL
+        # ============================================================
+        except Exception as e:
+
+            import traceback
+            traceback.print_exc()
+
+            return JsonResponse({
+                'ok': False,
+                'error': str(e)
+            }, status=500)
+
+    # ================================================================
+    # GET - MOSTRAR FORMULARIO
+    # ================================================================
+
+    canal_qs = CanalVenta.objects.filter(
+        is_active=True,
+        fk_empresa=sucursal.fk_empresa
+    )
+
+    categorias = Category.objects.filter(
+        is_active=True,
+        fk_empresa=sucursal.fk_empresa
+    )
+
+    almacenes = Almacen.objects.filter(
+        sucursal=sucursal,
+        is_active=True
+    )
+
+    clientes = Cliente.objects.filter(
+        estado=True,
+        fk_empresa=sucursal.fk_empresa
+    )
+
+    metodos_pago = MetodoPago.objects.filter(
+        empresa=sucursal.fk_empresa,
+        estado=True
+    )
+
+    tipos_ingreso = TipoIngreso.objects.filter(
+        is_active=True,
+        fk_empresa=sucursal.fk_empresa
+    )
+
+    tipos_egreso = TipoEgreso.objects.filter(
+        is_active=True,
+        fk_empresa=sucursal.fk_empresa
+    )
+
+    # ================================================================
+    # PRODUCTOS
+    # ================================================================
+    variantes = ProductoVariante.objects.filter(
+        is_active=True,
+        producto__fk_empresa=sucursal.fk_empresa,
+        producto__visible_venta=True
+    ).select_related(
+        'producto',
+        'producto__category'
+    )
+
+    # ================================================================
+    # PACKS
+    # ================================================================
+    packs_ids = list(
+        set(
+            DetallePack.objects.filter(
+                producto_padre__producto__fk_empresa=(
+                    sucursal.fk_empresa
+                ),
+                producto_padre__producto__visible_venta=True
+            ).values_list(
+                'producto_padre__producto_id',
+                flat=True
+            ).distinct()
+        )
+    )
+
+    if packs_ids:
+
+        packs = Producto.objects.filter(
+            id__in=packs_ids,
+            is_active=True,
+            visible_venta=True
+        )
+
+    else:
+
+        packs = Producto.objects.none()
+
+    # ================================================================
+    # CANAL POR DEFECTO
+    # ================================================================
+    canal_default = canal_qs.first()
+
+    # ================================================================
+    # PRECIOS PRODUCTOS
+    # ================================================================
+    precio_producto = {}
+
+    for variante in variantes:
+
+        precio_producto[variante.id] = float(
+            obtener_precio_producto(
+                variante,
+                sucursal,
+                canal_default
+            )
+        )
+
+    # ================================================================
+    # PRECIOS PACKS
+    # ================================================================
+    precio_pack = {}
+
+    for pack in packs:
+
+        pack_variante = (
+            ProductoVariante.objects.filter(
+                producto=pack,
+                is_active=True
+            ).first()
+        )
+
+        if pack_variante:
+
+            precio_pack[pack.id] = float(
+                obtener_precio_producto(
+                    pack_variante,
+                    sucursal,
+                    canal_default
+                )
+            )
+
+        else:
+
+            precio_pack[pack.id] = 0.00
+
+    # ================================================================
+    # CONTEXT
+    # ================================================================
+    context = {
+        'usuario': usuario,
+        'sucursal': sucursal,
+        'canales': canal_qs,
+        'almacenes': almacenes,
+        'clientes': clientes,
+        'metodos_pago': metodos_pago,
+        'tipos_ingreso': tipos_ingreso,
+        'tipos_egreso': tipos_egreso,
+        'categorias': categorias,
+        'productos': variantes,
+        'packs': packs,
+        'precio_producto': precio_producto,
+        'precio_pack': precio_pack,
+        'fecha_actual': timezone.now().strftime(
+            '%Y-%m-%d %H:%M:%S'
+        ),
+    }
+
+    return render(
+        request,
+        'ventas/registro_venta.html',
+        context
+    )
+    
 @login_required
 @permiso_requerido('cocina_kanban', 'ver')
 def cocina_kanban(request):
@@ -4156,7 +4886,7 @@ def api_reporte_ventas(request):
             for pago in venta.pagos.all():
                 pagos.append({
                     'metodo': pago.metodo_pago.nombre,
-                    'monto': float(pago.monto),
+                    'monto': float(pago.monto_aplicado),
                     'referencia': pago.referencia_pago or '-',
                 })
             

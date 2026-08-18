@@ -225,7 +225,7 @@
                                     {% for p in v.pagos.all %}
                                     <span class="badge bg-secondary bg-opacity-10 text-secondary">
                                         <i class="bi bi-credit-card me-1"></i>
-                                        {{ p.metodo_pago.nombre }}: ${{ p.monto }}
+                                        {{ p.metodo_pago.nombre }}: ${{ p.monto_aplicado }}
                                     </span>
                                     {% empty %}
                                     <span class="text-muted">-</span>

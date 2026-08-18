@@ -285,7 +285,11 @@
                         <span class="lbl-cambio" id="lbl-falta-nuevo" style="color:#ef4444;">Bs 0.00</span>
                     </div>
                 </div>
-
+                <!-- ── VUELTO ── -->
+                <div class="vuelto-box" id="vuelto-box" style="display:none;">
+                    <span class="vuelto-lbl"><i class="fas fa-undo-alt"></i> Vuelto:</span>
+                    <span class="vuelto-num" id="vuelto-total">Bs 0.00</span>
+                </div>
                 <!-- ── Costo de envío (toggle) ── -->
                 <div class="envio-toggle-row" onclick="document.getElementById('chk-envio').click();event.stopPropagation();">
                     <input type="checkbox" id="chk-envio" onclick="event.stopPropagation();">
@@ -575,6 +579,14 @@
     }
 </script>
 <script>
+    // ===================== TRUNCAR A 2 DECIMALES (SIN REDONDEAR) =====================
+    function truncar2Decimales(valor) {
+        if (isNaN(valor) || valor === null || valor === undefined) {
+            return 0;
+        }
+        // Trunca a 2 decimales sin redondear
+        return Math.floor(parseFloat(valor) * 100) / 100;
+    }
     document.addEventListener('DOMContentLoaded', function() {
 
         // ===================== VARIABLES =====================
@@ -1033,12 +1045,10 @@
             const cobrar = totalACobrarModal();
             
             // Si solamente hay un método de pago, actualizar automáticamente
-            // el monto distribuido al nuevo total a cobrar.
             const filas = document.querySelectorAll('.fila-pago-nueva');
 
             if (filas.length === 1) {
                 const montoInput = filas[0].querySelector('.fp-monto-inp');
-
                 if (montoInput) {
                     montoInput.value = cobrar > 0 ? cobrar.toFixed(2) : '';
                 }
@@ -1048,46 +1058,52 @@
             const falta = cobrar - pagado;
             const pct = cobrar > 0 ? Math.min((pagado / cobrar) * 100, 100) : 0;
 
-            document.getElementById('pago-subtotal').textContent =
-                `Bs ${total.toFixed(2)}`;
+            document.getElementById('pago-subtotal').textContent = `Bs ${total.toFixed(2)}`;
+            document.getElementById('pago-total-final').textContent = `Bs ${cobrar.toFixed(2)}`;
 
-            document.getElementById('pago-total-final').textContent =
-                `Bs ${cobrar.toFixed(2)}`;
+            const descuento = parseFloat(document.getElementById('pago-descuento').value) || 0;
+            document.getElementById('chip-descuento-val').textContent = `- Bs ${descuento.toFixed(2)}`;
 
-            const descuento =
-                parseFloat(document.getElementById('pago-descuento').value) || 0;
-
-            document.getElementById('chip-descuento-val').textContent =
-                `- Bs ${descuento.toFixed(2)}`;
-
-            document.getElementById('lbl-total-pagado-nuevo').textContent =
-                `Bs ${pagado.toFixed(2)}`;
+            document.getElementById('lbl-total-pagado-nuevo').textContent = `Bs ${pagado.toFixed(2)}`;
 
             const faltaEl = document.getElementById('lbl-falta-nuevo');
-
-            faltaEl.textContent =
-                falta > 0.009
-                    ? `Bs ${falta.toFixed(2)}`
-                    : `✓ Cubierto`;
-
-            faltaEl.style.color =
-                falta > 0.009
-                    ? '#ef4444'
-                    : '#16a34a';
+            faltaEl.textContent = falta > 0.009 ? `Bs ${falta.toFixed(2)}` : `✓ Cubierto`;
+            faltaEl.style.color = falta > 0.009 ? '#ef4444' : '#16a34a';
 
             const barra = document.getElementById('barra-progreso-pago');
-
             barra.style.width = pct + '%';
-
-            barra.style.background =
-                pct >= 100
-                    ? '#22c55e'
-                    : '#f59e0b';
+            barra.style.background = pct >= 100 ? '#22c55e' : '#f59e0b';
 
             const btn = document.getElementById('btn-confirmar-venta');
-
             if (btn) {
                 btn.disabled = falta > 0.009;
+            }
+
+            // ========== CALCULAR Y MOSTRAR VUELTO ==========
+            const totalRecibido = totalPagoDistribuido();
+            const vuelto = totalRecibido - cobrar;
+            const vueltoBox = document.getElementById('vuelto-box');
+            const vueltoTotal = document.getElementById('vuelto-total');
+
+            if (!vueltoBox) return; // Si no existe el elemento, salir
+
+            if (vuelto > 0.009) {
+                // Hay vuelto
+                vueltoBox.style.display = 'flex';
+                vueltoBox.className = 'vuelto-box';
+                vueltoTotal.textContent = `Bs ${vuelto.toFixed(2)}`;
+                vueltoTotal.style.color = '#22c55e';
+                vueltoBox.querySelector('.vuelto-lbl').innerHTML = '<i class="fas fa-undo-alt"></i> Vuelto:';
+            } else if (vuelto < -0.009) {
+                // Falta dinero
+                vueltoBox.style.display = 'flex';
+                vueltoBox.className = 'vuelto-box vuelto--negativo';
+                vueltoTotal.textContent = `Bs ${Math.abs(vuelto).toFixed(2)}`;
+                vueltoTotal.style.color = '#ef4444';
+                vueltoBox.querySelector('.vuelto-lbl').innerHTML = '<i class="fas fa-exclamation-triangle"></i> Falta:';
+            } else {
+                // Exacto
+                vueltoBox.style.display = 'none';
             }
         }
 
@@ -1152,7 +1168,8 @@
                 const ref      = fila.querySelector('.fp-ref').value.trim();
                 if (monto > 0) {
                     if (!metodoId) { todoOk = false; return; }
-                    pagosData.push({ metodo_id: parseInt(metodoId), monto, referencia: ref });
+                    //pagosData.push({ metodo_id: parseInt(metodoId), monto, referencia: ref });
+                    pagosData.push({ metodo_id: parseInt(metodoId), monto_recibido: monto, referencia: ref, es_parcial: false});
                 }
             });
 
@@ -1183,20 +1200,28 @@
                 claseBoton: 'mcaja-btn-ok--green', // Botón verde de éxito
                 alConfirmar: async () => {
                         const payload = {
-                            canal     : canalId,
-                            almacen   : almacenId,
+                            canal: canalId,
+                            almacen: almacenId,
                             cliente: document.getElementById('cliente-venta').value || null,
-                            total     : totalFinal, 
-                            //total     : total,
-                            descuento : descuento,
-                            costo_envio       : costoEnvio,
-                            direccion_entrega : document.getElementById('input-direccion').value.trim(),
-                            telefono_entrega  : document.getElementById('input-telefono').value.trim(),
+                            total: truncar2Decimales(totalFinal),
+                            descuento: truncar2Decimales(descuento),
+                            costo_envio: truncar2Decimales(costoEnvio),
+                            direccion_entrega: document.getElementById('input-direccion').value.trim(),
+                            telefono_entrega: document.getElementById('input-telefono').value.trim(),
                             observaciones: document.getElementById('pago-observaciones').value.trim(),
-                            pagos : pagosData,
-                            items : carrito.map(item => ({
-                                tipo: item.tipo, id: item.id, nombre: item.nombre,
-                                cantidad: item.cantidad, precio: item.precio, descuento: item.descuento || 0, subtotal: item.subtotal
+                            pagos: pagosData.map(p => ({
+                                metodo_id: p.metodo_id,
+                                monto_recibido: truncar2Decimales(p.monto_recibido),
+                                referencia: p.referencia
+                            })),
+                            items: carrito.map(item => ({
+                                tipo: item.tipo,
+                                id: item.id,
+                                nombre: item.nombre,
+                                cantidad: item.cantidad,
+                                precio: truncar2Decimales(item.precio),
+                                descuento: truncar2Decimales(item.descuento || 0),
+                                subtotal: truncar2Decimales(item.subtotal)
                             }))
                         };
 

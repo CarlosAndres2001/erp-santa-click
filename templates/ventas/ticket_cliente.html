@@ -196,18 +196,27 @@
         {% for pago in pagos %}
         <div class="pago-item">
             <span>{{ pago.metodo_pago.nombre }}</span>
-            <span>{{ pago.monto|floatformat:2 }}</span>
+            <span>{{ pago.monto_recibido|floatformat:2 }}</span>
         </div>
         {% if pago.referencia_pago %}
-        <div style="font-size:8px;color:#888;padding-left:5px;margin-bottom:2px;">
+        <div style="font-size:8px;color:#000;padding-left:5px;margin-bottom:2px;">
             Ref: {{ pago.referencia_pago }}
         </div>
         {% endif %}
+        <!-- ❌ ELIMINA EL VUELTO POR MÉTODO -->
         {% endfor %}
+        
         <div class="pago-total">
-            <span>TOTAL PAGADO:</span>
-            <span>{{ total_pagado|floatformat:2 }}</span>
+            <span>TOTAL RECIBIDO:</span>
+            <span>{{ total_recibido|floatformat:2 }}</span>
         </div>
+        
+        {% if total_vuelto > 0 %}
+        <div class="pago-item" style="border-top:1px solid #000;padding-top:3px;margin-top:3px;font-size:11px;color:#000000;">
+            <span>🔄 VUELTO:</span>
+            <span>{{ total_vuelto|floatformat:2 }}</span>
+        </div>
+        {% endif %}
     </div>
 
     {% if venta.observaciones %}
