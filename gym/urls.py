@@ -200,6 +200,7 @@ urlpatterns = [
     path('inventario/detalles-venta/', views.reporte_detalles_venta, name='reporte_detalles_venta'),
     path('api/reporte-detalles-venta/', views.api_reporte_detalles_venta, name='api_reporte_detalles_venta'),
     path('api/exportar-detalles-venta/', views.exportar_detalles_venta_excel, name='exportar_detalles_venta_excel'),
+    path('dashboard/ventas/', views.dashboard_ventas, name='dashboard_ventas'),
     
     # ====================================================
     # TRASPASO (MAESTRO-DETALLE)

@@ -33,6 +33,10 @@ import time
 from gym.decorators import permiso_requerido
 from openpyxl.styles import Font, Alignment, PatternFill
 from django.http import HttpResponse
+from datetime import timedelta, datetime
+from django.utils import timezone
+from django.db.models import (Sum, Count, F, Q, DecimalField, ExpressionWrapper, Value, CharField)
+from django.db.models.functions import (Coalesce, TruncDate, TruncDay)
 
 
 # ====================================================
@@ -5313,8 +5317,597 @@ def exportar_detalles_venta_excel(request):
     except Exception as e:
         import traceback
         traceback.print_exc()
-        return HttpResponse(f'Error al exportar: {str(e)}', status=500)
-    
+        return HttpResponse(f'Error al exportar: {str(e)}', status=500)    
+
+@login_required
+def dashboard_ventas(request):
+    """
+    Dashboard general de ventas.
+
+    Incluye:
+    - KPIs
+    - Dona de ventas por canal
+    - Dona de pagos por método
+    - Ventas últimos 7 días
+    - Top 10 productos
+    - Filtros por fecha, sucursal, canal y producto
+    """
+
+    usuario = request.user
+
+    # ==========================================================
+    # EMPRESA DEL USUARIO
+    # ==========================================================
+    empresa = usuario.sucursal.fk_empresa
+
+    hoy = timezone.now().date()
+
+    # ==========================================================
+    # FECHAS POR DEFECTO
+    # ==========================================================
+    fecha_desde = request.GET.get("fecha_desde", "")
+    fecha_hasta = request.GET.get("fecha_hasta", "")
+
+    periodo = request.GET.get("periodo", "semana")
+
+    # ==========================================================
+    # FILTROS
+    # ==========================================================
+    sucursal_id = request.GET.get("sucursal", "")
+    canal_id = request.GET.get("canal", "")
+    producto_id = request.GET.get("producto", "")
+
+    # ==========================================================
+    # CALCULAR RANGO DE FECHAS
+    # ==========================================================
+    if periodo == "hoy":
+        fecha_inicio = hoy
+        fecha_fin = hoy
+
+    elif periodo == "ayer":
+        fecha_inicio = hoy - timedelta(days=1)
+        fecha_fin = hoy - timedelta(days=1)
+
+    elif periodo == "semana":
+        # Lunes de esta semana
+        fecha_inicio = hoy - timedelta(days=hoy.weekday())
+        fecha_fin = hoy
+
+    elif periodo == "mes":
+        fecha_inicio = hoy.replace(day=1)
+        fecha_fin = hoy
+
+    elif periodo == "personalizado" and fecha_desde and fecha_hasta:
+        try:
+            fecha_inicio = timezone.datetime.strptime(
+                fecha_desde,
+                "%Y-%m-%d"
+            ).date()
+
+            fecha_fin = timezone.datetime.strptime(
+                fecha_hasta,
+                "%Y-%m-%d"
+            ).date()
+
+        except ValueError:
+            fecha_inicio = hoy - timedelta(days=6)
+            fecha_fin = hoy
+
+    else:
+        # Por defecto últimos 7 días
+        fecha_inicio = hoy - timedelta(days=6)
+        fecha_fin = hoy
+
+    # ==========================================================
+    # QUERYSET BASE
+    # ==========================================================
+    ventas = (
+        Venta.objects
+        .filter(
+            sucursal__fk_empresa=empresa,
+            is_active=True,
+            fecha__date__gte=fecha_inicio,
+            fecha__date__lte=fecha_fin
+        )
+        .select_related(
+            "sucursal",
+            "canal",
+            "usuario"
+        )
+    )
+
+    # ==========================================================
+    # FILTRO SUCURSAL
+    # ==========================================================
+    if sucursal_id:
+        ventas = ventas.filter(sucursal_id=sucursal_id)
+
+    # ==========================================================
+    # FILTRO CANAL
+    # ==========================================================
+    if canal_id:
+        ventas = ventas.filter(canal_id=canal_id)
+
+    # ==========================================================
+    # FILTRO PRODUCTO
+    # ==========================================================
+    if producto_id:
+        ventas = ventas.filter(
+            detalles__is_active=True
+        ).filter(
+            Q(detalles__producto_variante__producto_id=producto_id) |
+            Q(detalles__producto_padre_id=producto_id)
+        ).distinct()
+
+    # ==========================================================
+    # KPI GENERALES DEL PERIODO
+    # ==========================================================
+    resumen = ventas.aggregate(
+        total_ventas=Coalesce(
+            Sum("total"),
+            Value(Decimal("0.00")),
+            output_field=DecimalField(max_digits=15, decimal_places=2)
+        ),
+        cantidad_ventas=Count("id"),
+        total_descuentos=Coalesce(
+            Sum("descuento"),
+            Value(Decimal("0.00")),
+            output_field=DecimalField(max_digits=15, decimal_places=2)
+        ),
+        total_envios=Coalesce(
+            Sum("costo_envio"),
+            Value(Decimal("0.00")),
+            output_field=DecimalField(max_digits=15, decimal_places=2)
+        )
+    )
+
+    total_ventas = resumen["total_ventas"] or Decimal("0.00")
+    cantidad_ventas = resumen["cantidad_ventas"] or 0
+    total_descuentos = resumen["total_descuentos"] or Decimal("0.00")
+    total_envios = resumen["total_envios"] or Decimal("0.00")
+
+    ticket_promedio = (
+        total_ventas / cantidad_ventas
+        if cantidad_ventas > 0
+        else Decimal("0.00")
+    )
+
+    # ==========================================================
+    # VENTAS DE HOY
+    # ==========================================================
+    ventas_hoy = (
+        Venta.objects
+        .filter(
+            sucursal__fk_empresa=empresa,
+            is_active=True,
+            fecha__date=hoy
+        )
+    )
+
+    if sucursal_id:
+        ventas_hoy = ventas_hoy.filter(sucursal_id=sucursal_id)
+
+    if canal_id:
+        ventas_hoy = ventas_hoy.filter(canal_id=canal_id)
+
+    if producto_id:
+        ventas_hoy = ventas_hoy.filter(
+            Q(
+                detalles__is_active=True,
+                detalles__producto_variante__producto_id=producto_id
+            )
+            |
+            Q(
+                detalles__is_active=True,
+                detalles__producto_padre_id=producto_id
+            )
+        ).distinct()
+
+    total_hoy = (
+        ventas_hoy.aggregate(
+            total=Coalesce(
+                Sum("total"),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(
+                    max_digits=15,
+                    decimal_places=2
+                )
+            )
+        )["total"]
+        or Decimal("0.00")
+    )
+
+    # ==========================================================
+    # VENTAS DEL MES
+    # ==========================================================
+    inicio_mes = hoy.replace(day=1)
+
+    ventas_mes = Venta.objects.filter(
+        sucursal__fk_empresa=empresa,
+        is_active=True,
+        fecha__date__gte=inicio_mes,
+        fecha__date__lte=hoy
+    )
+
+    if sucursal_id:
+        ventas_mes = ventas_mes.filter(sucursal_id=sucursal_id)
+
+    if canal_id:
+        ventas_mes = ventas_mes.filter(canal_id=canal_id)
+
+    total_mes = (
+        ventas_mes.aggregate(
+            total=Coalesce(
+                Sum("total"),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(
+                    max_digits=15,
+                    decimal_places=2
+                )
+            )
+        )["total"]
+        or Decimal("0.00")
+    )
+
+    # ==========================================================
+    # DONA: VENTAS POR CANAL
+    # ==========================================================
+    ventas_por_canal_qs = (
+        ventas
+        .values(
+            "canal__id",
+            "canal__nombre"
+        )
+        .annotate(
+            total=Coalesce(
+                Sum("total"),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(
+                    max_digits=15,
+                    decimal_places=2
+                )
+            ),
+            cantidad=Count("id")
+        )
+        .order_by("-total")
+    )
+
+    ventas_por_canal_labels = []
+    ventas_por_canal_data = []
+    ventas_por_canal_cantidad = []
+
+    for item in ventas_por_canal_qs:
+        ventas_por_canal_labels.append(
+            item["canal__nombre"] or "Sin canal"
+        )
+
+        ventas_por_canal_data.append(
+            float(item["total"] or 0)
+        )
+
+        ventas_por_canal_cantidad.append(
+            item["cantidad"] or 0
+        )
+
+    # ==========================================================
+    # DONA: MÉTODOS DE PAGO
+    # IMPORTANTE:
+    # Se usa monto_aplicado y NO monto_recibido.
+    # Así soportamos pagos múltiples y no contamos el vuelto.
+    # ==========================================================
+    pagos = (
+        PagoVenta.objects
+        .filter(
+            venta__in=ventas
+        )
+        .select_related("metodo_pago")
+    )
+
+    pagos_por_metodo_qs = (
+        pagos
+        .values(
+            "metodo_pago__id",
+            "metodo_pago__nombre"
+        )
+        .annotate(
+            total=Coalesce(
+                Sum("monto_aplicado"),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(
+                    max_digits=15,
+                    decimal_places=2
+                )
+            ),
+            cantidad=Count("id")
+        )
+        .order_by("-total")
+    )
+
+    pagos_por_metodo_labels = []
+    pagos_por_metodo_data = []
+    pagos_por_metodo_cantidad = []
+
+    for item in pagos_por_metodo_qs:
+        pagos_por_metodo_labels.append(
+            item["metodo_pago__nombre"] or "Sin método"
+        )
+
+        pagos_por_metodo_data.append(
+            float(item["total"] or 0)
+        )
+
+        pagos_por_metodo_cantidad.append(
+            item["cantidad"] or 0
+        )
+
+    total_cobrado = sum(
+        Decimal(str(valor))
+        for valor in pagos_por_metodo_data
+    )
+
+    # ==========================================================
+    # GRÁFICO DE VENTAS POR DÍA
+    # Siempre mostramos todos los días del rango
+    # ==========================================================
+    ventas_diarias_qs = (
+        ventas
+        .annotate(dia=TruncDate("fecha"))
+        .values("dia")
+        .annotate(
+            total=Coalesce(
+                Sum("total"),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(
+                    max_digits=15,
+                    decimal_places=2
+                )
+            ),
+            cantidad=Count("id")
+        )
+        .order_by("dia")
+    )
+
+    ventas_diarias_dict = {
+        item["dia"]: {
+            "total": float(item["total"] or 0),
+            "cantidad": item["cantidad"] or 0
+        }
+        for item in ventas_diarias_qs
+    }
+
+    dias_labels = []
+    dias_data = []
+    dias_cantidad = []
+
+    fecha_actual = fecha_inicio
+
+    nombres_dias = [
+        "Lun",
+        "Mar",
+        "Mié",
+        "Jue",
+        "Vie",
+        "Sáb",
+        "Dom"
+    ]
+
+    while fecha_actual <= fecha_fin:
+        if (fecha_fin - fecha_inicio).days <= 7:
+            etiqueta = nombres_dias[fecha_actual.weekday()]
+        else:
+            etiqueta = fecha_actual.strftime("%d/%m")
+
+        datos_dia = ventas_diarias_dict.get(
+            fecha_actual,
+            {
+                "total": 0,
+                "cantidad": 0
+            }
+        )
+
+        dias_labels.append(etiqueta)
+        dias_data.append(datos_dia["total"])
+        dias_cantidad.append(datos_dia["cantidad"])
+
+        fecha_actual += timedelta(days=1)
+
+    # ==========================================================
+    # TOP 10 PRODUCTOS
+    #
+    # Separamos:
+    # - productos normales por variante
+    # - packs por producto_padre
+    #
+    # detalle_padre__isnull=True evita contar componentes internos
+    # de packs como ventas independientes.
+    # ==========================================================
+
+    detalles = DetalleVenta.objects.filter(
+        venta__in=ventas,
+        is_active=True,
+        detalle_padre__isnull=True
+    )
+
+    top_variantes = (
+        detalles
+        .filter(producto_variante__isnull=False)
+        .values(
+            "producto_variante__producto__id",
+            "producto_variante__producto__nombre"
+        )
+        .annotate(
+            cantidad_vendida=Coalesce(
+                Sum("cantidad"),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(
+                    max_digits=15,
+                    decimal_places=2
+                )
+            ),
+            total_vendido=Coalesce(
+                Sum("subtotal"),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(
+                    max_digits=15,
+                    decimal_places=2
+                )
+            )
+        )
+    )
+
+    top_packs = (
+        detalles
+        .filter(
+            producto_padre__isnull=False,
+            producto_variante__isnull=True
+        )
+        .values(
+            "producto_padre__id",
+            "producto_padre__nombre"
+        )
+        .annotate(
+            cantidad_vendida=Coalesce(
+                Sum("cantidad"),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(
+                    max_digits=15,
+                    decimal_places=2
+                )
+            ),
+            total_vendido=Coalesce(
+                Sum("subtotal"),
+                Value(Decimal("0.00")),
+                output_field=DecimalField(
+                    max_digits=15,
+                    decimal_places=2
+                )
+            )
+        )
+    )
+
+    # ==========================================================
+    # UNIFICAR PRODUCTOS Y PACKS
+    # ==========================================================
+    productos_top = {}
+
+    for item in top_variantes:
+        producto_id_item = item["producto_variante__producto__id"]
+
+        productos_top[producto_id_item] = {
+            "nombre": item["producto_variante__producto__nombre"],
+            "cantidad": item["cantidad_vendida"] or Decimal("0"),
+            "total": item["total_vendido"] or Decimal("0")
+        }
+
+    for item in top_packs:
+        producto_id_item = item["producto_padre__id"]
+
+        if producto_id_item in productos_top:
+            productos_top[producto_id_item]["cantidad"] += (
+                item["cantidad_vendida"] or Decimal("0")
+            )
+
+            productos_top[producto_id_item]["total"] += (
+                item["total_vendido"] or Decimal("0")
+            )
+        else:
+            productos_top[producto_id_item] = {
+                "nombre": item["producto_padre__nombre"],
+                "cantidad": item["cantidad_vendida"] or Decimal("0"),
+                "total": item["total_vendido"] or Decimal("0")
+            }
+
+    top_productos = sorted(
+        productos_top.values(),
+        key=lambda x: x["total"],
+        reverse=True
+    )[:10]
+
+    top_productos_json = [
+        {
+            "nombre": item["nombre"],
+            "cantidad": float(item["cantidad"]),
+            "total": float(item["total"])
+        }
+        for item in top_productos
+    ]
+
+    # ==========================================================
+    # LISTAS PARA FILTROS
+    # ==========================================================
+    sucursales = Sucursal.objects.filter(
+        fk_empresa=empresa,
+        estado=True
+    ).order_by("nombre")
+
+    canales = CanalVenta.objects.filter(
+        fk_empresa=empresa,
+        is_active=True
+    ).order_by("nombre")
+
+    productos = Producto.objects.filter(
+        fk_empresa=empresa,
+        is_active=True,
+        visible_venta=True
+    ).order_by("nombre")
+
+    # ==========================================================
+    # CONTEXTO
+    # ==========================================================
+    context = {
+        "empresa": empresa,
+
+        # Moneda
+        "simbolo_moneda": empresa.simbolo_moneda or "Bs.",
+
+        # KPIs
+        "total_ventas": total_ventas,
+        "cantidad_ventas": cantidad_ventas,
+        "ticket_promedio": ticket_promedio,
+        "total_descuentos": total_descuentos,
+        "total_envios": total_envios,
+        "total_hoy": total_hoy,
+        "total_mes": total_mes,
+        "total_cobrado": total_cobrado,
+
+        # Fechas
+        "fecha_inicio": fecha_inicio,
+        "fecha_fin": fecha_fin,
+
+        # Datos para dona canales
+        "ventas_por_canal_labels": ventas_por_canal_labels,
+        "ventas_por_canal_data": ventas_por_canal_data,
+        "ventas_por_canal_cantidad": ventas_por_canal_cantidad,
+
+        # Datos para dona pagos
+        "pagos_por_metodo_labels": pagos_por_metodo_labels,
+        "pagos_por_metodo_data": pagos_por_metodo_data,
+        "pagos_por_metodo_cantidad": pagos_por_metodo_cantidad,
+
+        # Gráfico diario
+        "dias_labels": dias_labels,
+        "dias_data": dias_data,
+        "dias_cantidad": dias_cantidad,
+
+        # Top productos
+        "top_productos": top_productos_json,
+
+        # Filtros
+        "sucursales": sucursales,
+        "canales": canales,
+        "productos": productos,
+
+        # Valores seleccionados
+        "periodo": periodo,
+        "sucursal_id": str(sucursal_id),
+        "canal_id": str(canal_id),
+        "producto_id": str(producto_id),
+        "fecha_desde": fecha_desde,
+        "fecha_hasta": fecha_hasta,
+    }
+
+    return render(request, "ventas/dashboard_ventas.html", context)
+
 # ====================================================
 #  TRASPASO (MAESTRO-DETALLE)
 # ====================================================
