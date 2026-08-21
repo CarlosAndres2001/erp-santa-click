@@ -16,9 +16,9 @@
                 Cierre de Caja
             </h3>
 
-            <small class="opacity-75">
-                Registre el monto declarado por cada método de pago para cerrar el turno.
-            </small>
+            <p class="text-muted mb-0">
+                Realice el arqueo y registre los montos declarados por cada método de pago.
+            </p>
         </div>
 
         <div class="mt-2 mt-md-0">
@@ -148,7 +148,7 @@
                     </h5>
 
                     <small class="opacity-75">
-                        Ingrese el monto real que tiene en caja para cada método de pago.
+                        Compare el monto registrado por el sistema con el monto declarado.
                     </small>
                 </div>
 
@@ -167,20 +167,19 @@
                                     Método de Pago
                                 </th>
 
-                                <!-- ✅ OCULTAR: Ventas, Ingresos, Egresos, Sistema, Diferencia -->
-                                <th class="text-end d-none">
+                                <th class="text-end">
                                     Ventas
                                 </th>
 
-                                <th class="text-end d-none">
+                                <th class="text-end">
                                     Ingresos
                                 </th>
 
-                                <th class="text-end d-none">
+                                <th class="text-end">
                                     Egresos
                                 </th>
 
-                                <th class="text-end d-none">
+                                <th class="text-end">
                                     Sistema
                                 </th>
 
@@ -188,7 +187,7 @@
                                     Monto Declarado
                                 </th>
 
-                                <th class="text-end pe-4 d-none">
+                                <th class="text-end pe-4">
                                     Diferencia
                                 </th>
                             </tr>
@@ -227,8 +226,8 @@
                                 </td>
 
 
-                                <!-- VENTAS (OCULTO) -->
-                                <td class="text-end d-none">
+                                <!-- VENTAS -->
+                                <td class="text-end">
 
                                     <span class="fw-semibold">
                                         {{ item.total_ventas|floatformat:2 }}
@@ -237,8 +236,8 @@
                                 </td>
 
 
-                                <!-- INGRESOS (OCULTO) -->
-                                <td class="text-end d-none">
+                                <!-- INGRESOS -->
+                                <td class="text-end">
 
                                     <span class="text-success fw-semibold">
                                         + {{ item.total_ingresos|floatformat:2 }}
@@ -247,8 +246,8 @@
                                 </td>
 
 
-                                <!-- EGRESOS (OCULTO) -->
-                                <td class="text-end d-none">
+                                <!-- EGRESOS -->
+                                <td class="text-end">
 
                                     <span class="text-danger fw-semibold">
                                         - {{ item.total_egresos|floatformat:2 }}
@@ -257,8 +256,8 @@
                                 </td>
 
 
-                                <!-- SISTEMA (OCULTO - pero guardamos el dato en data-atributo) -->
-                                <td class="text-end d-none">
+                                <!-- SISTEMA -->
+                                <td class="text-end">
 
                                     <span class="monto-sistema fw-bold"
                                           data-monto="{{ item.monto_sistema }}">
@@ -270,7 +269,7 @@
                                 </td>
 
 
-                                <!-- DECLARADO (VISIBLE) -->
+                                <!-- DECLARADO -->
                                 <td>
 
                                     <div class="input-group">
@@ -288,17 +287,16 @@
                                             class="form-control nexus-input monto-declarado"
                                             data-sistema="{{ item.monto_sistema }}"
                                             data-metodo="{{ item.metodo_pago.nombre }}"
-                                            value="0.00"
-                                            required
-                                            placeholder="0.00">
+                                            value="{{ item.monto_sistema|floatformat:2 }}"
+                                            required>
 
                                     </div>
 
                                 </td>
 
 
-                                <!-- DIFERENCIA (OCULTO) -->
-                                <td class="text-end pe-4 d-none">
+                                <!-- DIFERENCIA -->
+                                <td class="text-end pe-4">
 
                                     <span class="badge diferencia-badge bg-secondary"
                                           id="diferencia_{{ item.metodo_pago.id }}">
@@ -330,12 +328,12 @@
 
 
                         <!-- ================================================= -->
-                        <!-- TOTALES (OCULTOS) -->
+                        <!-- TOTALES -->
                         <!-- ================================================= -->
 
                         {% if arqueos %}
 
-                        <tfoot class="d-none">
+                        <tfoot>
 
                             <tr class="table-light">
 
@@ -406,32 +404,28 @@
 
 
         <!-- ===================================================== -->
-        <!-- RESUMEN DEL CIERRE (SOLO DECLARADO) -->
+        <!-- RESUMEN DEL CIERRE -->
         <!-- ===================================================== -->
 
         <div class="row g-4 mb-4">
 
-            <div class="col-md-6">
+            <div class="col-md-4">
 
                 <div class="card nexus-card h-100 shadow-sm">
 
                     <div class="card-body">
 
-                        <div class="text mb-2">
-                            <i class="bi bi-cash-coin me-1"></i>
-                            Total declarado en caja
+                        <div class="text-muted mb-2">
+                            <i class="bi bi-cpu me-1"></i>
+                            Total según sistema
                         </div>
 
                         <h3 class="mb-0 fw-bold">
-                            <span class="text fs-5">Bs.</span>
-                            <span id="resumenDeclarado">
-                                0.00
+                            <span class="text-muted fs-5">Bs.</span>
+                            <span id="resumenSistema">
+                                {{ total_sistema|floatformat:2 }}
                             </span>
                         </h3>
-
-                        <small class="text">
-                            Suma de todos los montos declarados por método de pago
-                        </small>
 
                     </div>
 
@@ -440,22 +434,54 @@
             </div>
 
 
-            <div class="col-md-6">
+            <div class="col-md-4">
 
-                <div class="card nexus-card h-100 shadow-sm border-0 bg-light">
+                <div class="card nexus-card h-100 shadow-sm">
 
-                    <div class="card-body text-center py-4">
+                    <div class="card-body">
 
-                        <div class="text- mb-2">
-                            <i class="bi bi-info-circle me-1"></i>
-                            Instrucciones
+                        <div class="text-muted mb-2">
+                            <i class="bi bi-cash-coin me-1"></i>
+                            Total declarado
                         </div>
 
-                        <small class="opacity-75">
-                            Ingrese el monto real que tiene en caja para cada método de pago.
-                            <br>
-                            La diferencia será calculada automáticamente al cerrar.
-                        </small>
+                        <h3 class="mb-0 fw-bold">
+                            <span class="text-muted fs-5">Bs.</span>
+                            <span id="resumenDeclarado">
+                                0.00
+                            </span>
+                        </h3>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-md-4">
+
+                <div class="card nexus-card h-100 shadow-sm">
+
+                    <div class="card-body">
+
+                        <div class="text-muted mb-2">
+                            <i class="bi bi-arrow-left-right me-1"></i>
+                            Diferencia total
+                        </div>
+
+                        <h3 class="mb-0 fw-bold"
+                            id="resumenDiferencia">
+
+                            <span class="text-muted fs-5">
+                                Bs.
+                            </span>
+
+                            <span id="resumenDiferenciaMonto">
+                                0.00
+                            </span>
+
+                        </h3>
 
                     </div>
 
@@ -487,7 +513,7 @@
                 <textarea
                     name="observaciones_cierre"
                     rows="4"
-                    class="form-control"
+                    class="form-control nexus-textarea"
                     placeholder="Ingrese cualquier observación relacionada al cierre de caja..."></textarea>
 
             </div>
@@ -534,69 +560,61 @@
 
 <style>
 
-    .info-box {
-        border: 1px solid var(--border-color, rgba(0,0,0,.08));
-        border-radius: 12px;
-        padding: 15px;
-        height: 100%;
-        background: var(--bg-card);
-    }
+.info-box {
+    border: 1px solid var(--border-color, rgba(0,0,0,.08));
+    border-radius: 12px;
+    padding: 15px;
+    height: 100%;
+    background: var(--bg-card);
+}
 
-    .info-label {
-        font-size: .80rem;
-        color: var(--text-muted, #6c757d);
-        margin-bottom: 6px;
-    }
+.info-label {
+    font-size: .80rem;
+    color: var(--text-muted, #6c757d);
+    margin-bottom: 6px;
+}
 
-    .info-value {
-        font-weight: 600;
-        font-size: .95rem;
-    }
+.info-value {
+    font-weight: 600;
+    font-size: .95rem;
+}
 
-    .metodo-icon {
-        width: 38px;
-        height: 38px;
-        min-width: 38px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 10px;
-        background: rgba(0,0,0,.06);
-        margin-right: 10px;
-        font-size: 1.1rem;
-    }
+.metodo-icon {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: rgba(0,0,0,.06);
+    margin-right: 10px;
+    font-size: 1.1rem;
+}
 
-    .arqueo-row {
-        transition: background .2s ease;
-    }
+.arqueo-row {
+    transition: background .2s ease;
+}
 
-    .arqueo-row:hover {
-        background: rgba(0,0,0,.025);
-    }
+.arqueo-row:hover {
+    background: rgba(0,0,0,.025);
+}
 
-    .monto-declarado {
-        font-weight: 600;
-        text-align: right;
-        font-size: 1.1rem;
-        padding: 10px 12px;
-    }
+.monto-declarado {
+    font-weight: 600;
+    text-align: right;
+}
 
-    .diferencia-badge {
-        min-width: 90px;
-        padding: 8px 10px;
-        font-size: .85rem;
-    }
+.diferencia-badge {
+    min-width: 90px;
+    padding: 8px 10px;
+    font-size: .85rem;
+}
 
-    .table > :not(caption) > * > * {
-        padding-top: 14px;
-        padding-bottom: 14px;
-    }
-
-    /* Estilo para el input cuando tiene error */
-    .monto-declarado.is-invalid {
-        border-color: #dc3545;
-        box-shadow: 0 0 0 0.25rem rgba(220, 53, 69, 0.25);
-    }
+.table > :not(caption) > * > * {
+    padding-top: 14px;
+    padding-bottom: 14px;
+}
 
 </style>
 
@@ -606,200 +624,343 @@
 <!-- ========================================================= -->
 
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
+
+document.addEventListener('DOMContentLoaded', function () {
 
 
-        // =========================================================
-        // FECHA Y HORA ACTUAL
-        // =========================================================
+    // =========================================================
+    // FECHA Y HORA ACTUAL
+    // =========================================================
 
-        function actualizarFechaCierre() {
+    function actualizarFechaCierre() {
 
-            const ahora = new Date();
+        const ahora = new Date();
 
-            const dia = String(ahora.getDate()).padStart(2, '0');
-            const mes = String(ahora.getMonth() + 1).padStart(2, '0');
-            const anio = ahora.getFullYear();
+        const dia = String(ahora.getDate()).padStart(2, '0');
+        const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+        const anio = ahora.getFullYear();
 
-            const horas = String(ahora.getHours()).padStart(2, '0');
-            const minutos = String(ahora.getMinutes()).padStart(2, '0');
-            const segundos = String(ahora.getSeconds()).padStart(2, '0');
+        const horas = String(ahora.getHours()).padStart(2, '0');
+        const minutos = String(ahora.getMinutes()).padStart(2, '0');
+        const segundos = String(ahora.getSeconds()).padStart(2, '0');
 
-            const fecha =
-                dia + '/' +
-                mes + '/' +
-                anio + ' ' +
-                horas + ':' +
-                minutos + ':' +
-                segundos;
+        const fecha =
+            dia + '/' +
+            mes + '/' +
+            anio + ' ' +
+            horas + ':' +
+            minutos + ':' +
+            segundos;
 
-            const elemento = document.getElementById('fecha_cierre');
+        const elemento = document.getElementById('fecha_cierre');
 
-            if (elemento) {
-                elemento.textContent = fecha;
+        if (elemento) {
+            elemento.textContent = fecha;
+        }
+
+    }
+
+
+    actualizarFechaCierre();
+
+    setInterval(actualizarFechaCierre, 1000);
+
+
+    // =========================================================
+    // FORMATEAR NÚMERO
+    // =========================================================
+
+    function formatearNumero(numero) {
+
+        return Number(numero || 0).toFixed(2);
+
+    }
+
+
+    // =========================================================
+    // ACTUALIZAR ARQUEO
+    // =========================================================
+
+    function actualizarTotales() {
+
+        let totalDeclarado = 0;
+        let totalSistema = 0;
+
+        const inputs = document.querySelectorAll('.monto-declarado');
+
+
+        inputs.forEach(function(input) {
+
+            let declarado = parseFloat(input.value);
+
+            if (isNaN(declarado)) {
+                declarado = 0;
             }
 
-        }
 
+            let sistema = parseFloat(
+                input.dataset.sistema
+            );
 
-        actualizarFechaCierre();
-
-        setInterval(actualizarFechaCierre, 1000);
-
-
-        // =========================================================
-        // FORMATEAR NÚMERO
-        // =========================================================
-
-        function formatearNumero(numero) {
-
-            return Number(numero || 0).toFixed(2);
-
-        }
-
-
-        // =========================================================
-        // ACTUALIZAR TOTAL DECLARADO (SIN MOSTRAR DIFERENCIAS)
-        // =========================================================
-
-        function actualizarTotales() {
-
-            let totalDeclarado = 0;
-
-            const inputs = document.querySelectorAll('.monto-declarado');
-
-
-            inputs.forEach(function(input) {
-
-                let declarado = parseFloat(input.value);
-
-                if (isNaN(declarado)) {
-                    declarado = 0;
-                }
-
-
-                // No permitir negativo visualmente
-                if (declarado < 0) {
-                    declarado = 0;
-                    input.value = '0.00';
-                    input.classList.add('is-invalid');
-                } else {
-                    input.classList.remove('is-invalid');
-                }
-
-
-                totalDeclarado += declarado;
-
-            });
-
-
-            // =====================================================
-            // ACTUALIZAR RESUMEN DECLARADO
-            // =====================================================
-
-            const resumenDeclarado =
-                document.getElementById('resumenDeclarado');
-
-            if (resumenDeclarado) {
-                resumenDeclarado.textContent =
-                    formatearNumero(totalDeclarado);
+            if (isNaN(sistema)) {
+                sistema = 0;
             }
 
-        }
+
+            // No permitir negativo visualmente
+            if (declarado < 0) {
+                declarado = 0;
+                input.value = '0.00';
+            }
 
 
-        // =========================================================
-        // EVENTOS DE LOS INPUTS
-        // =========================================================
+            const diferencia = declarado - sistema;
 
-        document
-            .querySelectorAll('.monto-declarado')
-            .forEach(function(input) {
 
-                input.addEventListener(
-                    'input',
-                    actualizarTotales
+            // Buscar la fila
+            const fila = input.closest('tr');
+
+
+            // Obtener el badge de diferencia
+            const badge = fila.querySelector('.diferencia-badge');
+
+
+            if (badge) {
+
+                badge.textContent = formatearNumero(diferencia);
+
+
+                // Limpiar clases anteriores
+                badge.classList.remove(
+                    'bg-success',
+                    'bg-danger',
+                    'bg-secondary'
                 );
 
-                input.addEventListener(
-                    'change',
-                    actualizarTotales
-                );
 
-            });
+                // Comparar con una pequeña tolerancia decimal
+                if (Math.abs(diferencia) < 0.005) {
 
+                    badge.classList.add('bg-success');
+                    badge.innerHTML =
+                        '<i class="bi bi-check-circle me-1"></i>0.00';
 
-        // Calcular al cargar
-        actualizarTotales();
+                } else if (diferencia > 0) {
 
-
-        // =========================================================
-        // CONFIRMACIÓN ANTES DE CERRAR
-        // =========================================================
-
-        const formulario =
-            document.getElementById('formCerrarCaja');
-
-
-        formulario.addEventListener('submit', function(event) {
-
-            const inputs =
-                document.querySelectorAll('.monto-declarado');
-
-            let hayNegativos = false;
-
-            // Verificar negativos
-            for (const input of inputs) {
-
-                const monto = parseFloat(input.value);
-
-                if (isNaN(monto) || monto < 0) {
-
-                    hayNegativos = true;
-
-                    input.classList.add('is-invalid');
+                    badge.classList.add('bg-success');
+                    badge.innerHTML =
+                        '<i class="bi bi-arrow-up-circle me-1"></i>' +
+                        formatearNumero(diferencia);
 
                 } else {
 
-                    input.classList.remove('is-invalid');
+                    badge.classList.add('bg-danger');
+                    badge.innerHTML =
+                        '<i class="bi bi-arrow-down-circle me-1"></i>' +
+                        formatearNumero(diferencia);
 
                 }
 
             }
 
 
-            if (hayNegativos) {
+            totalDeclarado += declarado;
+            totalSistema += sistema;
+
+        });
+
+
+        // =====================================================
+        // DIFERENCIA GENERAL
+        // =====================================================
+
+        const diferenciaTotal =
+            totalDeclarado - totalSistema;
+
+
+        // Tabla
+        const totalDeclaradoElemento =
+            document.getElementById('totalDeclarado');
+
+        if (totalDeclaradoElemento) {
+            totalDeclaradoElemento.textContent =
+                formatearNumero(totalDeclarado);
+        }
+
+
+        const diferenciaTotalElemento =
+            document.getElementById('diferenciaTotal');
+
+        if (diferenciaTotalElemento) {
+
+            diferenciaTotalElemento.textContent =
+                formatearNumero(diferenciaTotal);
+
+
+            diferenciaTotalElemento.classList.remove(
+                'bg-success',
+                'bg-danger',
+                'bg-secondary'
+            );
+
+
+            if (Math.abs(diferenciaTotal) < 0.005) {
+
+                diferenciaTotalElemento.classList.add('bg-success');
+
+            } else if (diferenciaTotal > 0) {
+
+                diferenciaTotalElemento.classList.add('bg-success');
+
+            } else {
+
+                diferenciaTotalElemento.classList.add('bg-danger');
+
+            }
+
+        }
+
+
+        // =====================================================
+        // RESUMEN
+        // =====================================================
+
+        const resumenSistema =
+            document.getElementById('resumenSistema');
+
+        if (resumenSistema) {
+            resumenSistema.textContent =
+                formatearNumero(totalSistema);
+        }
+
+
+        const resumenDeclarado =
+            document.getElementById('resumenDeclarado');
+
+        if (resumenDeclarado) {
+            resumenDeclarado.textContent =
+                formatearNumero(totalDeclarado);
+        }
+
+
+        const resumenDiferenciaMonto =
+            document.getElementById('resumenDiferenciaMonto');
+
+        if (resumenDiferenciaMonto) {
+            resumenDiferenciaMonto.textContent =
+                formatearNumero(diferenciaTotal);
+        }
+
+
+        const resumenDiferencia =
+            document.getElementById('resumenDiferencia');
+
+        if (resumenDiferencia) {
+
+            resumenDiferencia.classList.remove(
+                'text-success',
+                'text-danger'
+            );
+
+
+            if (Math.abs(diferenciaTotal) < 0.005) {
+
+                // Sin diferencia
+
+            } else if (diferenciaTotal > 0) {
+
+                resumenDiferencia.classList.add('text-success');
+
+            } else {
+
+                resumenDiferencia.classList.add('text-danger');
+
+            }
+
+        }
+
+    }
+
+
+    // =========================================================
+    // EVENTOS DE LOS INPUTS
+    // =========================================================
+
+    document
+        .querySelectorAll('.monto-declarado')
+        .forEach(function(input) {
+
+            input.addEventListener(
+                'input',
+                actualizarTotales
+            );
+
+            input.addEventListener(
+                'change',
+                actualizarTotales
+            );
+
+        });
+
+
+    // Calcular al cargar
+    actualizarTotales();
+
+
+    // =========================================================
+    // CONFIRMACIÓN ANTES DE CERRAR
+    // =========================================================
+
+    const formulario =
+        document.getElementById('formCerrarCaja');
+
+
+    formulario.addEventListener('submit', function(event) {
+
+        const inputs =
+            document.querySelectorAll('.monto-declarado');
+
+
+        // Verificar nuevamente negativos
+        for (const input of inputs) {
+
+            const monto = parseFloat(input.value);
+
+            if (isNaN(monto) || monto < 0) {
 
                 event.preventDefault();
 
                 alert(
-                    '❌ Existen montos declarados inválidos (negativos).\n' +
+                    'Existen montos declarados inválidos. ' +
                     'Verifique los valores antes de cerrar la caja.'
                 );
+
+                input.focus();
 
                 return;
 
             }
 
-
-            // Confirmar cierre
-            const confirmado = confirm(
-                '🔒 ¿Está seguro de cerrar la caja?\n\n' +
-                'Esta acción finalizará el turno actual.\n' +
-                'No podrá realizar más operaciones en este turno.'
-            );
+        }
 
 
-            if (!confirmado) {
+        const confirmado = confirm(
+            '¿Está seguro de cerrar la caja?\n\n' +
+            'Una vez cerrada, el turno quedará finalizado.'
+        );
 
-                event.preventDefault();
 
-            }
+        if (!confirmado) {
 
-        });
+            event.preventDefault();
 
+        }
 
     });
+
+
+});
+
 </script>
 
 {% endblock %}

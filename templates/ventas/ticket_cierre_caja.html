@@ -1,0 +1,699 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Ticket de Cierre - #{{ caja_turno.id }}</title>
+
+    <style>
+
+        /* =====================================================
+           CONFIGURACIÓN GENERAL
+        ===================================================== */
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        @page {
+            margin: 2mm;
+        }
+
+        html,
+        body {
+            width: 100%;
+        }
+
+        body {
+            background: #f2f2f2;
+            font-family: Arial, Helvetica, sans-serif;
+            color: #000;
+            padding: 20px;
+        }
+
+
+        /* =====================================================
+           TICKET
+        ===================================================== */
+
+        .ticket {
+            width: 80mm;
+            max-width: 100%;
+            margin: 0 auto;
+            background: #fff;
+            padding: 4mm;
+            font-size: 11px;
+            line-height: 1.25;
+        }
+
+
+        /* =====================================================
+           HEADER
+        ===================================================== */
+
+        .ticket-header {
+            text-align: center;
+            padding-bottom: 8px;
+            border-bottom: 1px dashed #000;
+        }
+
+        .empresa {
+            font-size: 15px;
+            font-weight: 800;
+            text-transform: uppercase;
+            line-height: 1.2;
+        }
+
+        .sucursal {
+            font-size: 10px;
+            margin-top: 2px;
+        }
+
+        .direccion {
+            font-size: 9px;
+            margin-top: 2px;
+        }
+
+        .titulo {
+            margin-top: 8px;
+            font-size: 13px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+
+        .fecha-cierre {
+            font-size: 10px;
+            margin-top: 3px;
+        }
+
+
+        /* =====================================================
+           SEPARADOR
+        ===================================================== */
+
+        .separador {
+            border-top: 1px dashed #000;
+            margin: 8px 0;
+        }
+
+
+        /* =====================================================
+           INFORMACIÓN DEL TURNO
+        ===================================================== */
+
+        .info {
+            font-size: 10px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 3px;
+        }
+
+        .info-label {
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .info-value {
+            text-align: right;
+            font-weight: 500;
+            overflow-wrap: anywhere;
+        }
+
+
+        /* =====================================================
+           TÍTULOS DE SECCIÓN
+        ===================================================== */
+
+        .section-title {
+            text-align: center;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin: 8px 0 5px;
+        }
+
+
+        /* =====================================================
+           TABLA ARQUEO
+        ===================================================== */
+
+        .tabla-arqueo {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 9px;
+            table-layout: fixed;
+        }
+
+        .tabla-arqueo th {
+            font-size: 8px;
+            font-weight: 800;
+            text-transform: uppercase;
+            border-bottom: 1px solid #000;
+            padding: 4px 1px;
+            vertical-align: bottom;
+        }
+
+        .tabla-arqueo td {
+            padding: 4px 1px;
+            border-bottom: 1px dashed #bbb;
+            vertical-align: middle;
+        }
+
+        /* Método */
+        .tabla-arqueo th:nth-child(1),
+        .tabla-arqueo td:nth-child(1) {
+            width: 34%;
+            text-align: left;
+            padding-right: 3px;
+        }
+
+        /* Sistema */
+        .tabla-arqueo th:nth-child(2),
+        .tabla-arqueo td:nth-child(2) {
+            width: 22%;
+            text-align: right;
+        }
+
+        /* Declarado */
+        .tabla-arqueo th:nth-child(3),
+        .tabla-arqueo td:nth-child(3) {
+            width: 24%;
+            text-align: right;
+        }
+
+        /* Diferencia */
+        .tabla-arqueo th:nth-child(4),
+        .tabla-arqueo td:nth-child(4) {
+            width: 20%;
+            text-align: right;
+        }
+
+        .metodo-nombre {
+            font-weight: 700;
+            word-break: break-word;
+        }
+
+        .monto {
+            white-space: nowrap;
+        }
+
+
+        /* =====================================================
+           TOTALES
+        ===================================================== */
+
+        .totales {
+            margin-top: 8px;
+            padding-top: 7px;
+            border-top: 1px dashed #000;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+            font-size: 10px;
+        }
+
+        .total-label {
+            font-weight: 700;
+        }
+
+        .total-value {
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .total-row.total-principal {
+            margin-top: 4px;
+            padding-top: 6px;
+            border-top: 1px solid #000;
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .total-row.diferencia {
+            font-size: 12px;
+            font-weight: 800;
+            padding-top: 5px;
+        }
+
+
+        /* =====================================================
+           OBSERVACIONES
+        ===================================================== */
+
+        .observaciones {
+            margin-top: 9px;
+            padding-top: 7px;
+            border-top: 1px dashed #000;
+            font-size: 9px;
+            line-height: 1.4;
+        }
+
+        .observaciones-label {
+            font-size: 9px;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+
+        .observaciones-texto {
+            white-space: pre-line;
+            word-break: break-word;
+        }
+
+
+        /* =====================================================
+           FOOTER
+        ===================================================== */
+
+        .ticket-footer {
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px dashed #000;
+            text-align: center;
+        }
+
+        .mensaje-footer {
+            font-size: 9px;
+            font-weight: 700;
+        }
+
+        .generado {
+            font-size: 8px;
+            margin-top: 4px;
+        }
+
+
+        /* =====================================================
+           FIRMAS
+        ===================================================== */
+
+        .firmas {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 22px;
+        }
+
+        .firma {
+            width: 48%;
+            text-align: center;
+            font-size: 8px;
+        }
+
+        .firma-linea {
+            border-top: 1px solid #000;
+            margin-bottom: 4px;
+            width: 100%;
+        }
+
+
+        /* =====================================================
+           BOTÓN
+        ===================================================== */
+
+        .acciones {
+            width: 80mm;
+            max-width: 100%;
+            margin: 15px auto 0;
+        }
+
+        .btn-print {
+            width: 100%;
+            padding: 11px;
+            background: #111;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .btn-print:hover {
+            background: #333;
+        }
+
+
+        /* =====================================================
+           IMPRESIÓN TÉRMICA
+        ===================================================== */
+
+        @media print {
+
+            @page {
+                size: auto;
+                margin: 0;
+            }
+
+            html,
+            body {
+                width: 80mm;
+                margin: 0;
+                padding: 0;
+                background: #fff;
+            }
+
+            body {
+                font-size: 10px;
+            }
+
+            .ticket {
+                width: 80mm;
+                max-width: none;
+                margin: 0;
+                padding: 3mm;
+                box-shadow: none;
+            }
+
+            .acciones,
+            .no-print {
+                display: none !important;
+            }
+
+            * {
+                color: #000 !important;
+                text-shadow: none !important;
+                box-shadow: none !important;
+            }
+        }
+
+
+        /* =====================================================
+           OPCIONAL: IMPRESORA DE 58MM
+           Si alguna vez usas 58mm, descomenta esto:
+
+        @media print and (max-width: 60mm) {
+            html, body, .ticket {
+                width: 58mm;
+            }
+
+            .ticket {
+                padding: 2mm;
+                font-size: 9px;
+            }
+
+            .tabla-arqueo {
+                font-size: 7px;
+            }
+        }
+        ===================================================== */
+
+    </style>
+</head>
+
+<body>
+
+
+<div class="ticket" id="ticket">
+
+
+    <!-- =====================================================
+         HEADER
+    ===================================================== -->
+
+    <div class="ticket-header">
+
+        <div class="empresa">
+            {{ sucursal.fk_empresa.nombre|upper }}
+        </div>
+
+        <div class="sucursal">
+            {{ sucursal.nombre }}
+        </div>
+
+        {% if sucursal.direccion %}
+        <div class="direccion">
+            {{ sucursal.direccion }}
+        </div>
+        {% endif %}
+
+        <div class="titulo">
+            CIERRE DE CAJA
+        </div>
+
+        <div class="fecha-cierre">
+            {{ caja_turno.fecha_cierre|date:"d/m/Y H:i:s" }}
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         INFORMACIÓN DEL TURNO
+    ===================================================== -->
+
+    <div class="separador"></div>
+
+    <div class="info">
+
+        <div class="info-row">
+            <span class="info-label">N° TURNO:</span>
+            <span class="info-value">#{{ caja_turno.id }}</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">CAJERO:</span>
+            <span class="info-value">
+                {{ caja_turno.usuario.get_full_name|default:caja_turno.usuario.username }}
+            </span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">APERTURA:</span>
+            <span class="info-value">
+                {{ caja_turno.fecha_apertura|date:"d/m/Y H:i" }}
+            </span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">CIERRE:</span>
+            <span class="info-value">
+                {{ caja_turno.fecha_cierre|date:"d/m/Y H:i" }}
+            </span>
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         ARQUEO
+    ===================================================== -->
+
+    <div class="separador"></div>
+
+    <div class="section-title">
+        DETALLE DE ARQUEO
+    </div>
+
+
+    <table class="tabla-arqueo">
+
+        <thead>
+            <tr>
+                <th>MÉTODO</th>
+                <th>SISTEMA</th>
+                <th>DECLARADO</th>
+                <th>DIF.</th>
+            </tr>
+        </thead>
+
+        <tbody>
+
+            {% for item in arqueos %}
+
+            <tr>
+
+                <td class="metodo-nombre">
+                    {{ item.metodo_pago.nombre }}
+                </td>
+
+                <td class="monto">
+                    {{ item.monto_sistema|floatformat:2 }}
+                </td>
+
+                <td class="monto">
+                    {{ item.monto_declarado|floatformat:2 }}
+                </td>
+
+                <td class="monto">
+
+                    {% if item.diferencia > 0.005 %}
+                        +{{ item.diferencia|floatformat:2 }}
+
+                    {% elif item.diferencia < -0.005 %}
+                        {{ item.diferencia|floatformat:2 }}
+
+                    {% else %}
+                        0.00
+                    {% endif %}
+
+                </td>
+
+            </tr>
+
+            {% empty %}
+
+            <tr>
+                <td colspan="4" style="text-align:center; padding:8px;">
+                    SIN MÉTODOS REGISTRADOS
+                </td>
+            </tr>
+
+            {% endfor %}
+
+        </tbody>
+
+    </table>
+
+
+    <!-- =====================================================
+         TOTALES
+    ===================================================== -->
+
+    <div class="totales">
+
+        <div class="total-row">
+
+            <span class="total-label">
+                TOTAL SISTEMA
+            </span>
+
+            <span class="total-value">
+                Bs. {{ total_sistema|floatformat:2 }}
+            </span>
+
+        </div>
+
+
+        <div class="total-row">
+
+            <span class="total-label">
+                TOTAL DECLARADO
+            </span>
+
+            <span class="total-value">
+                Bs. {{ total_declarado|floatformat:2 }}
+            </span>
+
+        </div>
+
+
+        <div class="total-row total-principal diferencia">
+
+            <span class="total-label">
+                DIFERENCIA
+            </span>
+
+            <span class="total-value">
+
+                {% if diferencia_total > 0.005 %}
+                    +Bs. {{ diferencia_total|floatformat:2 }}
+
+                {% elif diferencia_total < -0.005 %}
+                    Bs. {{ diferencia_total|floatformat:2 }}
+
+                {% else %}
+                    Bs. 0.00
+                {% endif %}
+
+            </span>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         OBSERVACIONES
+    ===================================================== -->
+
+    {% if caja_turno.observaciones_cierre %}
+
+    <div class="observaciones">
+
+        <div class="observaciones-label">
+            OBSERVACIONES
+        </div>
+
+        <div class="observaciones-texto">
+            {{ caja_turno.observaciones_cierre }}
+        </div>
+
+    </div>
+
+    {% endif %}
+
+
+    <!-- =====================================================
+         FOOTER
+    ===================================================== -->
+
+    <div class="ticket-footer">
+
+        <div class="mensaje-footer">
+            CIERRE DE CAJA REGISTRADO
+        </div>
+
+        <div class="generado">
+            Generado: {{ now|date:"d/m/Y H:i:s" }}
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         FIRMAS
+    ===================================================== -->
+
+    <div class="firmas">
+
+        <div class="firma">
+            <div class="firma-linea"></div>
+            FIRMA CAJERO
+        </div>
+
+        <div class="firma">
+            <div class="firma-linea"></div>
+            FIRMA SUPERVISOR
+        </div>
+
+    </div>
+
+
+</div>
+
+
+<!-- =====================================================
+     ACCIONES
+===================================================== -->
+
+<div class="acciones no-print">
+
+    <button
+        type="button"
+        class="btn-print"
+        onclick="window.print()">
+
+        IMPRIMIR TICKET
+
+    </button>
+
+</div>
+
+
+</body>
+</html>

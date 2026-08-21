@@ -143,9 +143,8 @@ urlpatterns = [
     path('caja_turno/', views.caja_turno_list, name='caja_turno_list'),
     path('caja/abrir/', views.abrir_caja, name='abrir_caja'),
     path('caja/cerrar/', views.cerrar_caja, name='cerrar_caja'),
-    path('caja/comprobante/<int:caja_turno_id>/', views.comprobante_cierre_caja, name='comprobante_cierre_caja'),
-    path('api/total-efectivo-esperado/', views.total_efectivo_esperado, name='total_efectivo_esperado'),
     path('reporte-cajas/', views.reporte_cajas, name='reporte_cajas'),
+    path('ticket-cierre/<int:turno_id>/', views.ticket_cierre_caja, name='ticket_cierre_caja'),
     # ====================================================
     # TIPO EGRESO
     # ====================================================

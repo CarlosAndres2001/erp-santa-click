@@ -2,79 +2,94 @@
 
 {% block content %}
 
-<div class="ticket-header">
+<div class="ticket" style="width:300px;background:white;padding:10px 14px;line-height:1.2;border:1px solid #ddd;font-family:'Courier New',monospace;font-size:13px;">
 
-    <h4>
-        {{ ingreso.usuario.sucursal.fk_empresa.nombre }}
-    </h4>
-
-    <strong>
-        INGRESO MONETARIO
-    </strong>
-
-</div>
-
-<div class="line"></div>
-
-<div>
-
-    <div>
-        Nro: {{ ingreso.id }}
+    <div class="header" style="text-align:center;border-bottom:2px solid #000;padding-bottom:5px;margin-bottom:5px;">
+        <div class="nombre" style="font-size:18px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;">
+            {{ ingreso.usuario.sucursal.fk_empresa.nombre }}
+        </div>
+        {% if ingreso.usuario.sucursal.direccion %}
+        <div class="direccion" style="font-size:10px;color:#000;margin-top:2px;font-weight:bold;">
+            {{ ingreso.usuario.sucursal.direccion }}
+        </div>
+        {% endif %}
+        {% if not ingreso.is_active %}
+        <div style="background:#dc2626;color:#fff;padding:6px 10px;margin:4px 0;font-size:18px;font-weight:bold;text-transform:uppercase;letter-spacing:2px;border:2px solid #991b1b;">
+            ⚠️ ANULADO
+        </div>
+        <div style="font-size:10px;color:#dc2626;font-weight:bold;margin-bottom:4px;">
+            Motivo: {{ ingreso.motivo_anulacion|default:"Sin motivo registrado" }}
+        </div>
+        {% endif %}
+        <div class="badge" style="font-size:10px;background:#10b981;color:#fff;padding:2px 12px;display:inline-block;margin-top:3px;letter-spacing:1px;font-weight:bold;">
+            INGRESO MONETARIO
+        </div>
+        <div class="venta-info" style="display:flex;justify-content:space-between;margin-top:4px;font-size:12px;font-weight:bold;border-top:1px dashed #000;padding-top:4px;">
+            <span>N°: #{{ ingreso.id|stringformat:"06d" }}</span>
+            <span>{{ ingreso.fecha|date:"d/m/Y H:i" }}</span>
+        </div>
     </div>
 
-    <div>
-        Fecha:
-        {{ ingreso.fecha|date:"d/m/Y H:i" }}
+    <div class="cliente-info" style="border-bottom:1px dashed #000;padding-bottom:3px;margin-bottom:3px;">
+        <div class="cliente-row" style="display:flex;justify-content:space-between;padding:1px 0;font-size:11px;">
+            <span class="label" style="color:#000;font-weight:bold;">SUCURSAL:</span>
+            <span class="value" style="font-weight:bold;color:#000;">{{ ingreso.usuario.sucursal.nombre }}</span>
+        </div>
+        <div class="cliente-row" style="display:flex;justify-content:space-between;padding:1px 0;font-size:11px;">
+            <span class="label" style="color:#000;font-weight:bold;">CAJERO:</span>
+            <span class="value" style="font-weight:bold;color:#000;">{{ ingreso.usuario.nombre|default:ingreso.usuario.username }}</span>
+        </div>
+        <div class="cliente-row" style="display:flex;justify-content:space-between;padding:1px 0;font-size:11px;">
+            <span class="label" style="color:#000;font-weight:bold;">MOTIVO:</span>
+            <span class="value" style="font-weight:bold;color:#000;">{{ ingreso.motivo.nombre }}</span>
+        </div>
+        <div class="cliente-row" style="display:flex;justify-content:space-between;padding:1px 0;font-size:11px;">
+            <span class="label" style="color:#000;font-weight:bold;">MÉTODO PAGO:</span>
+            <span class="value" style="font-weight:bold;color:#000;">{{ ingreso.metodo_pago.nombre }}</span>
+        </div>
+    </div>
+
+    <div class="totales" style="border-top:2px solid #000;padding-top:3px;margin-top:3px;">
+        <div class="total-row" style="display:flex;justify-content:space-between;padding:2px 0;font-size:14px;">
+            <span class="label" style="color:#000;font-weight:bold;">MONTO INGRESADO:</span>
+            <span class="value" style="font-weight:bold;color:#10b981;font-size:16px;">Bs {{ ingreso.monto|floatformat:2 }}</span>
+        </div>
+    </div>
+
+    {% if ingreso.observaciones %}
+    <div class="obs" style="border-top:1px dashed #000;padding-top:3px;margin-top:3px;font-size:10px;color:#000;font-weight:bold;">
+        <span class="label" style="font-weight:bold;color:#000;">OBS:</span> {{ ingreso.observaciones }}
+    </div>
+    {% endif %}
+
+    <div class="footer" style="border-top:2px solid #000;padding-top:4px;margin-top:4px;text-align:center;font-size:10px;color:#000;font-weight:bold;">
+        <div class="gracias" style="font-size:12px;font-weight:bold;color:#000;letter-spacing:1px;">¡OPERACIÓN REGISTRADA!</div>
+        <div class="sub" style="font-size:9px;color:#000;margin-top:1px;font-weight:bold;">{{ ingreso.usuario.sucursal.fk_empresa.nombre }}</div>
+        <div class="sub" style="font-size:8px;color:#aaa;">SISTEMA NEXUS</div>
     </div>
 
 </div>
 
-<div class="line"></div>
-
-<div>
-
-    <strong>Sucursal:</strong><br>
-    {{ ingreso.usuario.sucursal.nombre }}
-
-    <br><br>
-
-    <strong>Cajero:</strong><br>
-    {{ ingreso.usuario }}
-
-    <br><br>
-
-    <strong>Motivo:</strong><br>
-    {{ ingreso.motivo }}
-
-    <br><br>
-
-    <strong>Monto:</strong><br>
-    Bs {{ ingreso.monto }}
-
+<!-- ===== BOTONES ===== -->
+<div class="print-actions" style="position:fixed;bottom:20px;right:20px;display:flex;gap:8px;flex-direction:column;z-index:1000;">
+    <button class="btn-print" onclick="window.print()" style="border:none;border-radius:6px;padding:10px 18px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:all .2s;font-family:Arial,sans-serif;background:#10b981;color:#fff;box-shadow:0 2px 8px rgba(16,185,129,.3);">
+        🖨️ Imprimir Ticket
+    </button>
+    <a class="btn-secondary" href="{% url 'crear_venta' %}" style="border:none;border-radius:6px;padding:10px 18px;font-size:12px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:6px;transition:all .2s;font-family:Arial,sans-serif;background:#1a1f2e;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.2);">
+        ← Volver a ventas
+    </a>
 </div>
 
-{% if ingreso.observaciones %}
-
-<div class="line"></div>
-
-<div>
-
-    <strong>Observaciones:</strong>
-
-    <br>
-
-    {{ ingreso.observaciones }}
-
-</div>
-
-{% endif %}
-
-<div class="line"></div>
-
-<div style="text-align:center">
-
-    Documento generado por el sistema
-
-</div>
+<style>
+@media print {
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { background: #fff; padding: 0; display: block; }
+    .ticket { border: none; width: 100%; padding: 6px 10px; }
+    .print-actions { display: none !important; }
+}
+@media print and (max-width:80mm) {
+    .ticket { width: 80mm; padding: 4px 6px; }
+}
+</style>
 
 {% endblock %}

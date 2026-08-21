@@ -19,7 +19,7 @@ from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
 from django.conf import settings 
 from .models import (
-    Almacen, DetallePack, IngresoMonetario, Kardex, MetodoPago, Modulo, MovimientoCaja, PagoVenta, PermisoRol, ProductoVariante, Rol, PlanEmpresa, Empresa, Sucursal, TipoProducto, Usuario, CanalVenta, UnidadMedida, Category,
+    Almacen, ArqueoCaja, DetallePack, IngresoMonetario, Kardex, MetodoPago, Modulo, MovimientoCaja, PagoVenta, PermisoRol, ProductoVariante, Rol, PlanEmpresa, Empresa, Sucursal, TipoProducto, Usuario, CanalVenta, UnidadMedida, Category,
     Producto, PrecioProducto, Stock, TipoIngreso, Ingreso, DetalleIngreso, Turno,
     Caja, CajaTurno, TipoEgreso, Egreso, DetalleEgreso, Proveedor, Compra, DetalleCompra,
     Venta, DetalleVenta, Traspaso, DetalleTraspaso, EgresoMonetario, Plan, Cliente,
@@ -2416,125 +2416,286 @@ def cerrar_caja(request):
 
     usuario = request.user
 
-    caja_turno = CajaTurno.objects.filter(
-        usuario=usuario,
-        sucursal=usuario.sucursal,
-        estado='ABIERTA',
-        is_active=True
-    ).first()
+    caja_turno = CajaTurno.objects.filter(usuario=usuario, sucursal=usuario.sucursal, estado='ABIERTA', is_active=True).first()
 
     if not caja_turno:
         messages.warning(request, 'No tienes una caja abierta.')
         return redirect('abrir_caja')
 
+    # ==========================================================
+    # CALCULAR LOS MONTOS DEL SISTEMA POR MÉTODO DE PAGO
+    # ==========================================================
+
+    metodos_pago = MetodoPago.objects.filter(empresa=usuario.fk_empresa,estado=True).order_by('nombre')
+
+    arqueos = []
+
+    for metodo in metodos_pago:
+
+        # ------------------------------------------------------
+        # 1. VENTAS
+        # ------------------------------------------------------
+        total_ventas = PagoVenta.objects.filter(
+            venta__caja_turno=caja_turno,
+            venta__is_active=True,
+            metodo_pago=metodo
+        ).aggregate(
+            total=Sum('monto_aplicado')
+        )['total'] or Decimal('0')
+
+        # ------------------------------------------------------
+        # 2. INGRESOS MONETARIOS
+        # ------------------------------------------------------
+        total_ingresos = IngresoMonetario.objects.filter(
+            caja_turno=caja_turno,
+            is_active=True,
+            metodo_pago=metodo
+        ).aggregate(
+            total=Sum('monto')
+        )['total'] or Decimal('0')
+
+        # ------------------------------------------------------
+        # 3. EGRESOS MONETARIOS
+        # ------------------------------------------------------
+        total_egresos = EgresoMonetario.objects.filter(
+            caja_turno=caja_turno,
+            is_active=True,
+            metodo_pago=metodo
+        ).aggregate(
+            total=Sum('monto')
+        )['total'] or Decimal('0')
+
+        # ------------------------------------------------------
+        # TOTAL TEÓRICO DEL MÉTODO
+        # ------------------------------------------------------
+        monto_sistema = (
+            total_ventas
+            + total_ingresos
+            - total_egresos
+        )
+
+        arqueos.append({
+            'metodo_pago': metodo,
+            'total_ventas': total_ventas,
+            'total_ingresos': total_ingresos,
+            'total_egresos': total_egresos,
+            'monto_sistema': monto_sistema,
+        })
+
+    # ==========================================================
+    # POST → GUARDAR CIERRE
+    # ==========================================================
+
     if request.method == 'POST':
 
-        caja_turno.monto_efectivo = Decimal(
-            request.POST.get('monto_efectivo') or '0'
-        )
+        observaciones = request.POST.get(
+            'observaciones_cierre',
+            ''
+        ).strip()
 
-        caja_turno.monto_qr = Decimal(
-            request.POST.get('monto_qr') or '0'
-        )
+        try:
 
-        caja_turno.monto_tarjeta = Decimal(
-            request.POST.get('monto_tarjeta') or '0'
-        )
+            with transaction.atomic():
 
-        caja_turno.monto_cierre = Decimal(
-            request.POST.get('monto_cierre') or '0'
-        )
+                total_declarado = Decimal('0')
+                total_sistema = Decimal('0')
 
-        caja_turno.saldo_teorico = Decimal(
-            request.POST.get('saldo_teorico') or '0'
-        )
+                # ----------------------------------------------
+                # GUARDAR CADA ARQUEO
+                # ----------------------------------------------
 
-        caja_turno.diferencia = Decimal(
-            request.POST.get('diferencia') or '0'
-        )
+                for item in arqueos:
 
-        caja_turno.observaciones_cierre = request.POST.get(
-            'observaciones_cierre', ''
-        )
+                    metodo = item['metodo_pago']
+                    monto_sistema = item['monto_sistema']
 
-        caja_turno.estado = 'CERRADA'
-        caja_turno.fecha_cierre = timezone.now()
+                    monto_declarado = Decimal(
+                        request.POST.get(
+                            f'monto_declarado_{metodo.id}',
+                            '0'
+                        ) or '0'
+                    )
 
-        caja_turno.save()
+                    # Evitar valores negativos
+                    if monto_declarado < 0:
+                        raise ValueError(
+                            f'El monto declarado para '
+                            f'{metodo.nombre} no puede ser negativo.'
+                        )
 
-        MovimientoCaja.objects.create(
+                    ArqueoCaja.objects.update_or_create(
+                        caja_turno=caja_turno,
+                        metodo_pago=metodo,
+                        defaults={
+                            'monto_sistema': monto_sistema,
+                            'monto_declarado': monto_declarado,
+                        }
+                    )
+
+                    total_sistema += monto_sistema
+                    total_declarado += monto_declarado
+
+                # ----------------------------------------------
+                # TOTALES GENERALES DEL CIERRE
+                # ----------------------------------------------
+
+                diferencia_total = (total_declarado - total_sistema)
+
+                # ----------------------------------------------
+                # GUARDAR CAMPOS GENERALES DE CAJA
+                # Estos campos todavía existen por compatibilidad
+                # con los datos antiguos.
+                # NO se utilizan para calcular el cierre nuevo.
+                # ----------------------------------------------
+
+                caja_turno.monto_cierre = total_declarado
+                caja_turno.saldo_teorico = total_sistema
+                caja_turno.diferencia = diferencia_total
+
+                caja_turno.observaciones_cierre = observaciones
+                caja_turno.estado = 'CERRADA'
+                caja_turno.fecha_cierre = timezone.now()
+
+                caja_turno.save()
+
+                # ----------------------------------------------
+                # MOVIMIENTO DE CIERRE
+                # ----------------------------------------------
+
+                MovimientoCaja.objects.create(
+                    caja_turno=caja_turno,
+                    tipo='CIERRE',
+                    monto=total_declarado,
+                    descripcion='Cierre de caja',
+                    usuario=usuario
+                )
+
+            messages.success(request,'Caja cerrada correctamente.')
+
+            #return redirect('abrir_caja')
+            return redirect('ticket_cierre_caja', turno_id=caja_turno.id)
+
+        except ValueError as e: messages.error(request,str(e))
+
+        except Exception as e:
+
+            messages.error(request,f'No se pudo cerrar la caja: {str(e)}')
+
+    # ==========================================================
+    # TOTAL GENERAL PARA MOSTRAR EN EL TEMPLATE
+    # ==========================================================
+
+    total_sistema = sum((item['monto_sistema']for item in arqueos),Decimal('0.00'))
+    
+    return render(request,'ventas/cerrar_caja.html',{'caja_turno': caja_turno,'arqueos': arqueos,'total_sistema': total_sistema,})
+
+def obtener_monto_declarado(caja_turno, metodo_pago):
+    """Función para obtener el monto declarado de un arqueo de caja"""
+    try:
+        arqueo = ArqueoCaja.objects.get(
             caja_turno=caja_turno,
-            tipo='CIERRE',
-            monto=caja_turno.monto_cierre,
-            descripcion='Cierre de caja',
-            usuario=usuario
+            metodo_pago=metodo_pago
         )
-
-        messages.success(request, 'Caja cerrada correctamente.')
-        return redirect('abrir_caja')
-
-    return render(
-        request,
-        'ventas/cerrar_caja.html',
-        {
-            'caja_turno': caja_turno
-        }
-    )
-
+        return arqueo.monto_declarado
+    except ArqueoCaja.DoesNotExist:
+        return Decimal('0.00')
+    
 @login_required
-def comprobante_cierre_caja(request, caja_turno_id):
-    """Muestra el comprobante de cierre de caja"""
+@permiso_requerido('ver_ticket_cierre', 'ver')
+def ticket_cierre_caja(request, turno_id):
+    """Vista para generar el ticket de cierre de caja"""
+    
+    usuario = request.user
+    sucursal = usuario.sucursal
+    
+    # Obtener el turno (solo cerrados)
     caja_turno = get_object_or_404(
-        CajaTurno, 
-        id=caja_turno_id,
-        usuario=request.user,
-        sucursal=request.user.sucursal
+        CajaTurno,
+        id=turno_id,
+        sucursal=sucursal,
+        estado='CERRADA'  # Asegurar que esté cerrado
     )
     
-    # Obtener ventas del turno
-    ventas = caja_turno.ventas.filter(is_active=True)
-    total_ventas = ventas.count()
-    total_monto = ventas.aggregate(total=models.Sum('total'))['total'] or 0
+    # Obtener todos los métodos de pago de la empresa
+    metodos_pago = MetodoPago.objects.filter(
+        empresa=sucursal.fk_empresa,
+        estado=True
+    ).order_by('nombre')
     
-    # Calcular efectivo esperado (suma de ventas en efectivo)
-    total_efectivo_esperado = 0
-    for venta in ventas:
-        for pago in venta.pagos.all():
-            if pago.metodo_pago.nombre.lower() == 'efectivo':
-                total_efectivo_esperado += float(pago.monto)
+    arqueos = []
+    total_sistema = Decimal('0.00')
+    total_declarado = Decimal('0.00')
+    
+    for metodo in metodos_pago:
+        
+        # 1. VENTAS
+        total_ventas = PagoVenta.objects.filter(
+            venta__caja_turno=caja_turno,
+            venta__is_active=True,
+            metodo_pago=metodo
+        ).aggregate(
+            total=Sum('monto_aplicado')
+        )['total'] or Decimal('0.00')
+        
+        # 2. INGRESOS MONETARIOS
+        total_ingresos = IngresoMonetario.objects.filter(
+            caja_turno=caja_turno,
+            is_active=True,
+            metodo_pago=metodo
+        ).aggregate(
+            total=Sum('monto')
+        )['total'] or Decimal('0.00')
+        
+        # 3. EGRESOS MONETARIOS
+        total_egresos = EgresoMonetario.objects.filter(
+            caja_turno=caja_turno,
+            is_active=True,
+            metodo_pago=metodo
+        ).aggregate(
+            total=Sum('monto')
+        )['total'] or Decimal('0.00')
+        
+        # MONTO SISTEMA = Ventas + Ingresos - Egresos
+        monto_sistema = total_ventas + total_ingresos - total_egresos
+        
+        # ✅ OBTENER MONTO DECLARADO DEL ARQUEO
+        try:
+            arqueo = ArqueoCaja.objects.get(
+                caja_turno=caja_turno,
+                metodo_pago=metodo
+            )
+            monto_declarado = arqueo.monto_declarado
+        except ArqueoCaja.DoesNotExist:
+            monto_declarado = Decimal('0.00')
+        
+        total_sistema += monto_sistema
+        total_declarado += monto_declarado
+        
+        arqueos.append({
+            'metodo_pago': metodo,
+            'total_ventas': total_ventas,
+            'total_ingresos': total_ingresos,
+            'total_egresos': total_egresos,
+            'monto_sistema': monto_sistema,
+            'monto_declarado': monto_declarado,
+            'diferencia': monto_declarado - monto_sistema,
+        })
+    
+    # Diferencia total
+    diferencia_total = total_declarado - total_sistema
     
     context = {
         'caja_turno': caja_turno,
-        'ventas': ventas,
-        'total_ventas': total_ventas,
-        'total_monto': total_monto,
-        'total_efectivo_esperado': total_efectivo_esperado,
-        'fecha_cierre': timezone.now(),
+        'arqueos': arqueos,
+        'total_sistema': total_sistema,
+        'total_declarado': total_declarado,
+        'diferencia_total': diferencia_total,
+        'sucursal': sucursal,
+        'usuario': usuario,
+        'now': timezone.now(),
     }
     
-    return render(request, 'ventas/comprobante_cierre_caja.html', context)
-
-@login_required
-def total_efectivo_esperado(request):
-    """Retorna el total de efectivo esperado del turno actual"""
-    caja_turno = CajaTurno.objects.filter(
-        usuario=request.user,
-        sucursal=request.user.sucursal,
-        is_active=True,
-        fecha_cierre__isnull=True
-    ).first()
-    
-    if not caja_turno:
-        return JsonResponse({'ok': True, 'total': 0})
-    
-    from django.db.models import Sum
-    total_efectivo = 0
-    for venta in caja_turno.ventas.filter(is_active=True):
-        for pago in venta.pagos.all():
-            if pago.metodo_pago.nombre.lower() == 'efectivo':
-                total_efectivo += float(pago.monto)
-    
-    return JsonResponse({'ok': True, 'total': total_efectivo})
+    return render(request, 'ventas/ticket_cierre_caja.html', context)
 
 # ====================================================
 # REPORTE DE CAJAS
@@ -3902,10 +4063,7 @@ def crear_venta(request):
             try:
                 data = json.loads(request.body)
             except json.JSONDecodeError:
-                return JsonResponse({
-                    'ok': False,
-                    'error': 'Datos inválidos'
-                }, status=400)
+                return JsonResponse({'ok': False,'error': 'Datos inválidos'}, status=400)
 
             with transaction.atomic():
 
@@ -3915,34 +4073,13 @@ def crear_venta(request):
                 almacen_id = data.get('almacen')
                 canal_id = data.get('canal')
                 cliente_id = data.get('cliente')
-
-                total = Decimal(
-                    str(data.get('total', 0))
-                )
-
-                descuento_total = Decimal(
-                    str(data.get('descuento', 0))
-                )
-
-                observaciones = data.get(
-                    'observaciones',
-                    ''
-                )
-
-                costo_envio = Decimal(
-                    str(data.get('costo_envio', 0))
-                )
-
-                direccion_entrega = data.get(
-                    'direccion_entrega',
-                    ''
-                )
-
-                telefono_entrega = data.get(
-                    'telefono_entrega',
-                    ''
-                )
-
+                total = Decimal(str(data.get('total', 0)))
+                descuento_total = Decimal(str(data.get('descuento', 0)))
+                observaciones = data.get('observaciones','')
+                costo_envio = Decimal(str(data.get('costo_envio', 0)))
+                metodo_pago_delivery = data.get('metodo_pago_delivery')
+                direccion_entrega = data.get('direccion_entrega','')
+                telefono_entrega = data.get('telefono_entrega','')
                 items = data.get('items', [])
                 pagos = data.get('pagos', [])
 
@@ -3952,23 +4089,17 @@ def crear_venta(request):
                 if total <= 0:
                     return JsonResponse({
                         'ok': False,
-                        'error': 'El total de la venta debe ser mayor a 0'
-                    }, status=400)
+                        'error': 'El total de la venta debe ser mayor a 0'}, status=400)
 
                 if not items:
                     return JsonResponse({
                         'ok': False,
-                        'error': 'No hay productos'
-                    }, status=400)
+                        'error': 'No hay productos'}, status=400)
 
                 if not pagos:
                     return JsonResponse({
                         'ok': False,
-                        'error': (
-                            'Debe ingresar al menos un '
-                            'método de pago'
-                        )
-                    }, status=400)
+                        'error': ('Debe ingresar al menos un método de pago')}, status=400)
 
                 # ====================================================
                 # CALCULAR PAGOS
@@ -3981,38 +4112,17 @@ def crear_venta(request):
                 if monto_a_cobrar <= 0:
                     return JsonResponse({
                         'ok': False,
-                        'error': 'El monto a cobrar debe ser mayor a 0'
-                    }, status=400)
+                        'error': 'El monto a cobrar debe ser mayor a 0'}, status=400)
 
                 pendiente = monto_a_cobrar
                 pagos_calculados = []
                 
                 for pago_data in pagos:
 
-                    metodo_id = pago_data.get(
-                        'metodo_id'
-                    )
-
-                    monto_recibido = Decimal(
-                        str(
-                            pago_data.get(
-                                'monto_recibido',
-                                0
-                            )
-                        )
-                    )
-
-                    referencia = pago_data.get(
-                        'referencia',
-                        ''
-                    )
-
-                    es_parcial = bool(
-                        pago_data.get(
-                            'es_parcial',
-                            False
-                        )
-                    )
+                    metodo_id = pago_data.get('metodo_id')
+                    monto_recibido = Decimal(str(pago_data.get('monto_recibido',0)))
+                    referencia = pago_data.get('referencia','')
+                    es_parcial = bool(pago_data.get('es_parcial',False))
 
                     # Ignorar pagos en cero o negativos
                     if monto_recibido <= 0:
@@ -4024,11 +4134,7 @@ def crear_venta(request):
                     if not metodo_id:
                         return JsonResponse({
                             'ok': False,
-                            'error': (
-                                'Uno de los pagos no tiene '
-                                'método de pago seleccionado'
-                            )
-                        }, status=400)
+                            'error': ('Uno de los pagos no tiene método de pago seleccionado')}, status=400)
 
                     # ==================================================
                     # CALCULAR APLICADO Y VUELTO
@@ -4045,10 +4151,7 @@ def crear_venta(request):
                     elif monto_recibido >= pendiente:
 
                         monto_aplicado = pendiente
-                        vuelto = (
-                            monto_recibido -
-                            pendiente
-                        )
+                        vuelto = (monto_recibido - pendiente)
 
                     # Pago menor al pendiente
                     elif es_parcial:
@@ -4087,29 +4190,18 @@ def crear_venta(request):
 
                     return JsonResponse({
                         'ok': False,
-                        'error': (
-                            'El monto recibido es insuficiente. '
-                            f'Faltan Bs. {pendiente:.2f}'
-                        )
-                    }, status=400)
+                        'error': ('El monto recibido es insuficiente. '
+                            f'Faltan Bs. {pendiente:.2f}')}, status=400)
 
                 # ====================================================
                 # OBTENER ALMACÉN
                 # ====================================================
-                almacen = Almacen.objects.get(
-                    id=almacen_id,
-                    sucursal=sucursal,
-                    is_active=True
-                )
+                almacen = Almacen.objects.get(id=almacen_id, sucursal=sucursal, is_active=True)
 
                 # ====================================================
                 # OBTENER CANAL
                 # ====================================================
-                canal = CanalVenta.objects.get(
-                    id=canal_id,
-                    is_active=True,
-                    fk_empresa=sucursal.fk_empresa
-                )
+                canal = CanalVenta.objects.get( id=canal_id, is_active=True, fk_empresa=sucursal.fk_empresa)
 
                 # ====================================================
                 # OBTENER CLIENTE
@@ -4119,10 +4211,7 @@ def crear_venta(request):
                 if cliente_id and cliente_id != '':
 
                     try:
-                        cliente_obj = Cliente.objects.get(
-                            id=cliente_id,
-                            fk_empresa=sucursal.fk_empresa
-                        )
+                        cliente_obj = Cliente.objects.get(id=cliente_id, fk_empresa=sucursal.fk_empresa)
 
                     except Cliente.DoesNotExist:
                         cliente_obj = None
@@ -4130,12 +4219,7 @@ def crear_venta(request):
                 # ====================================================
                 # CAJA TURNO ACTIVA
                 # ====================================================
-                caja_turno = CajaTurno.objects.filter(
-                    sucursal=sucursal,
-                    usuario=usuario,
-                    is_active=True,
-                    fecha_cierre__isnull=True
-                ).first()
+                caja_turno = CajaTurno.objects.filter(sucursal=sucursal, usuario=usuario, is_active=True, fecha_cierre__isnull=True).first()
 
                 if not caja_turno:
                     return JsonResponse({
@@ -4189,15 +4273,53 @@ def crear_venta(request):
                 # de la CUENTA EFECTIVO.
                 # ====================================================
                 if costo_envio > 0:
-
+                
+                    if not metodo_pago_delivery:
+                        raise ValueError(
+                            'Debe seleccionar un método de pago '
+                            'para el costo de envío')
+                    
+                    # ✅ OBTENER EL MÉTODO DE PAGO
+                    try:
+                        metodo_delivery = MetodoPago.objects.get(id=metodo_pago_delivery,empresa=sucursal.fk_empresa,estado=True)
+                    
+                    except MetodoPago.DoesNotExist:
+                        raise ValueError(
+                            f'El método de pago para delivery '
+                            f'{metodo_pago_delivery} no es válido'
+                        )
+                    
+                    # ✅ REGISTRAR EGRESO MONETARIO
+                    # Primero necesitas un motivo de egreso para "Costo de envío"
+                    # Si no existe, crealo en la base de datos o usa uno existente
+                    try:
+                        motivo_envio = TipoEgreso.objects.get(nombre__iexact='costo de envío', fk_empresa=sucursal.fk_empresa,is_active=True)
+                    
+                    except TipoEgreso.DoesNotExist:
+                        # Si no existe, puedes usar un motivo genérico o crearlo
+                        motivo_envio = TipoEgreso.objects.filter(fk_empresa=sucursal.fk_empresa,is_active=True).first()
+                        
+                        if not motivo_envio:
+                            raise ValueError('No hay motivos de egreso configurados. Cree uno con nombre "Costo de envío"')
+                    
+                    # ✅ CREAR EL EGRESO MONETARIO
+                    EgresoMonetario.objects.create(
+                        motivo=motivo_envio,
+                        metodo_pago=metodo_delivery,
+                        monto=costo_envio,
+                        observaciones=f'Costo de envío para venta #{venta.id} - {direccion_entrega}',
+                        usuario=usuario,
+                        caja_turno=caja_turno,
+                        #sucursal=sucursal,
+                        fecha=timezone.now(),
+                        # fecha=timezone.now()  # Si tu modelo tiene fecha automática
+                    )
                     MovimientoCaja.objects.create(
                         caja_turno=caja_turno,
                         tipo='EGRESO',
                         monto=costo_envio,
                         referencia=str(venta.id),
-                        descripcion=(
-                            f'Costo envío Venta #{venta.id}'
-                        ),
+                        descripcion=(f'Costo envío Venta #{venta.id}'),
                         usuario=usuario
                     )
 
@@ -4206,53 +4328,13 @@ def crear_venta(request):
                 # ====================================================
                 for item in items:
 
-                    tipo = item.get(
-                        'tipo',
-                        'producto'
-                    )
-
+                    tipo = item.get('tipo','producto')
                     item_id = item.get('id')
-
-                    cantidad = Decimal(
-                        str(
-                            item.get(
-                                'cantidad',
-                                1
-                            )
-                        )
-                    )
-
-                    precio = Decimal(
-                        str(
-                            item.get(
-                                'precio',
-                                0
-                            )
-                        )
-                    )
-
-                    descuento = Decimal(
-                        str(
-                            item.get(
-                                'descuento',
-                                0
-                            )
-                        )
-                    )
-
-                    subtotal = Decimal(
-                        str(
-                            item.get(
-                                'subtotal',
-                                0
-                            )
-                        )
-                    )
-
-                    nombre = item.get(
-                        'nombre',
-                        ''
-                    )
+                    cantidad = Decimal(str(item.get('cantidad',1)))
+                    precio = Decimal(str(item.get('precio',0)))
+                    descuento = Decimal(str(item.get('descuento',0)))
+                    subtotal = Decimal(str(item.get('subtotal', 0)))
+                    nombre = item.get('nombre', '')
 
                     # ==================================================
                     # CANTIDAD INVÁLIDA
@@ -4265,12 +4347,7 @@ def crear_venta(request):
                     # ==================================================
                     if tipo == 'producto':
 
-                        producto_variante = (
-                            ProductoVariante.objects.get(
-                                id=item_id,
-                                is_active=True
-                            )
-                        )
+                        producto_variante = (ProductoVariante.objects.get(id=item_id, is_active=True))
 
                         # ----------------------------------------------
                         # DETALLE VENTA
@@ -4278,10 +4355,7 @@ def crear_venta(request):
                         DetalleVenta.objects.create(
                             venta=venta,
                             producto_variante=producto_variante,
-                            nombre_producto=(
-                                nombre or
-                                producto_variante.nombre_variante
-                            ),
+                            nombre_producto=(nombre or producto_variante.nombre_variante),
                             cantidad=cantidad,
                             precio=precio,
                             subtotal=subtotal,
@@ -4335,27 +4409,16 @@ def crear_venta(request):
                     elif tipo == 'pack':
 
                         producto_padre = (
-                            Producto.objects.get(
-                                id=item_id,
-                                is_active=True
-                            )
-                        )
+                            Producto.objects.get(id=item_id,is_active=True))
 
                         pack_variante = (
-                            ProductoVariante.objects.filter(
-                                producto=producto_padre,
-                                is_active=True
-                            ).first()
-                        )
+                            ProductoVariante.objects.filter(producto=producto_padre,is_active=True).first())
 
                         DetalleVenta.objects.create(
                             venta=venta,
                             producto_variante=pack_variante,
                             producto_padre=producto_padre,
-                            nombre_producto=(
-                                nombre or
-                                producto_padre.nombre
-                            ),
+                            nombre_producto=(nombre or producto_padre.nombre),
                             cantidad=cantidad,
                             precio=precio,
                             subtotal=subtotal,
@@ -4369,24 +4432,17 @@ def crear_venta(request):
 
                 for pago_data in pagos_calculados:
 
-                    metodo_id = pago_data[
-                        'metodo_id'
-                    ]
+                    metodo_id = pago_data['metodo_id']
 
                     try:
 
-                        metodo = MetodoPago.objects.get(
-                            id=metodo_id,
-                            empresa=sucursal.fk_empresa,
-                            estado=True
-                        )
+                        metodo = MetodoPago.objects.get(id=metodo_id,empresa=sucursal.fk_empresa,estado=True)
 
                     except MetodoPago.DoesNotExist:
 
                         raise ValueError(
                             f'El método de pago '
-                            f'{metodo_id} no es válido.'
-                        )
+                            f'{metodo_id} no es válido.')
 
                     # ----------------------------------------------
                     # CREAR PAGO
@@ -4394,26 +4450,10 @@ def crear_venta(request):
                     PagoVenta.objects.create(
                         venta=venta,
                         metodo_pago=metodo,
-                        monto_recibido=(
-                            pago_data[
-                                'monto_recibido'
-                            ]
-                        ),
-                        monto_aplicado=(
-                            pago_data[
-                                'monto_aplicado'
-                            ]
-                        ),
-                        vuelto=(
-                            pago_data[
-                                'vuelto'
-                            ]
-                        ),
-                        referencia_pago=(
-                            pago_data[
-                                'referencia'
-                            ]
-                        )
+                        monto_recibido=(pago_data['monto_recibido']),
+                        monto_aplicado=(pago_data['monto_aplicado']),
+                        vuelto=(pago_data['vuelto']),
+                        referencia_pago=(pago_data['referencia'])
                     )
 
                     # ----------------------------------------------
@@ -4453,52 +4493,18 @@ def crear_venta(request):
     # GET - MOSTRAR FORMULARIO
     # ================================================================
 
-    canal_qs = CanalVenta.objects.filter(
-        is_active=True,
-        fk_empresa=sucursal.fk_empresa
-    )
-
-    categorias = Category.objects.filter(
-        is_active=True,
-        fk_empresa=sucursal.fk_empresa
-    )
-
-    almacenes = Almacen.objects.filter(
-        sucursal=sucursal,
-        is_active=True
-    )
-
-    clientes = Cliente.objects.filter(
-        estado=True,
-        fk_empresa=sucursal.fk_empresa
-    )
-
-    metodos_pago = MetodoPago.objects.filter(
-        empresa=sucursal.fk_empresa,
-        estado=True
-    )
-
-    tipos_ingreso = TipoIngreso.objects.filter(
-        is_active=True,
-        fk_empresa=sucursal.fk_empresa
-    )
-
-    tipos_egreso = TipoEgreso.objects.filter(
-        is_active=True,
-        fk_empresa=sucursal.fk_empresa
-    )
+    canal_qs = CanalVenta.objects.filter(is_active=True,fk_empresa=sucursal.fk_empresa)
+    categorias = Category.objects.filter(is_active=True, fk_empresa=sucursal.fk_empresa)
+    almacenes = Almacen.objects.filter(sucursal=sucursal,is_active=True)
+    clientes = Cliente.objects.filter(estado=True,fk_empresa=sucursal.fk_empresa)
+    metodos_pago = MetodoPago.objects.filter(empresa=sucursal.fk_empresa,estado=True)
+    tipos_ingreso = TipoIngreso.objects.filter(is_active=True,fk_empresa=sucursal.fk_empresa)
+    tipos_egreso = TipoEgreso.objects.filter(is_active=True,fk_empresa=sucursal.fk_empresa)
 
     # ================================================================
     # PRODUCTOS
     # ================================================================
-    variantes = ProductoVariante.objects.filter(
-        is_active=True,
-        producto__fk_empresa=sucursal.fk_empresa,
-        producto__visible_venta=True
-    ).select_related(
-        'producto',
-        'producto__category'
-    )
+    variantes = ProductoVariante.objects.filter(is_active=True, producto__fk_empresa=sucursal.fk_empresa, producto__visible_venta=True).select_related('producto','producto__category')
 
     # ================================================================
     # PACKS
@@ -4519,11 +4525,7 @@ def crear_venta(request):
 
     if packs_ids:
 
-        packs = Producto.objects.filter(
-            id__in=packs_ids,
-            is_active=True,
-            visible_venta=True
-        )
+        packs = Producto.objects.filter(id__in=packs_ids, is_active=True, visible_venta=True)
 
     else:
 
@@ -4541,13 +4543,7 @@ def crear_venta(request):
 
     for variante in variantes:
 
-        precio_producto[variante.id] = float(
-            obtener_precio_producto(
-                variante,
-                sucursal,
-                canal_default
-            )
-        )
+        precio_producto[variante.id] = float(obtener_precio_producto(variante,sucursal,canal_default))
 
     # ================================================================
     # PRECIOS PACKS
@@ -4557,11 +4553,7 @@ def crear_venta(request):
     for pack in packs:
 
         pack_variante = (
-            ProductoVariante.objects.filter(
-                producto=pack,
-                is_active=True
-            ).first()
-        )
+            ProductoVariante.objects.filter(producto=pack,is_active=True).first())
 
         if pack_variante:
 
@@ -4569,9 +4561,7 @@ def crear_venta(request):
                 obtener_precio_producto(
                     pack_variante,
                     sucursal,
-                    canal_default
-                )
-            )
+                    canal_default))
 
         else:
 
@@ -4599,11 +4589,7 @@ def crear_venta(request):
         ),
     }
 
-    return render(
-        request,
-        'ventas/registro_venta.html',
-        context
-    )
+    return render(request,'ventas/registro_venta.html',context)
     
 @login_required
 @permiso_requerido('cocina_kanban', 'ver')
@@ -4738,12 +4724,7 @@ def sse_nuevos_pedidos(request, sucursal_id):
             desde = time.time() - 10
             fecha_limite = datetime.now()
             
-            nuevos = Venta.objects.filter(
-                sucursal_id=sucursal_id,
-                fecha__gte=datetime.now() - timedelta(seconds=10)
-            ).exclude(
-                estado_venta='despachado'
-            ).order_by('-fecha')
+            nuevos = Venta.objects.filter(sucursal_id=sucursal_id,fecha__gte=datetime.now() - timedelta(seconds=10)).exclude(estado_venta='despachado').order_by('-fecha')
             
             # Si hay pedidos nuevos y no es el mismo que el último enviado
             if nuevos.exists() and (ultimo_id != nuevos.first().id):
@@ -6151,11 +6132,18 @@ def crear_ingreso_monetario(request):
             'No existe una caja abierta.'
         )
         return redirect('crear_venta')
-
+    # 👇 OBTENER EL OBJETO METODO PAGO
+    try:
+        metodo_pago = MetodoPago.objects.get(id=request.POST.get('metodo_pago'))
+    except MetodoPago.DoesNotExist:
+        messages.error(request, 'Método de pago no válido')
+        return redirect('crear_venta')
+    
     ingreso = IngresoMonetario.objects.create(
         fecha=timezone.now(),
         monto=request.POST.get('monto') or 0,
         motivo_id=request.POST.get('motivo'),
+        metodo_pago=metodo_pago,
         observaciones=request.POST.get(
             'observaciones',
             ''
@@ -6199,6 +6187,7 @@ def ticket_ingreso_monetario(request, id):
             'ingreso': ingreso
         }
     )
+
 # ====================================================
 #  EGRESO MONETARIO
 # ====================================================
@@ -6301,11 +6290,18 @@ def crear_egreso_monetario(request):
             'No existe una caja abierta.'
         )
         return redirect('crear_venta')
-
+    # 👇 OBTENER EL OBJETO METODO PAGO
+    try:
+        metodo_pago = MetodoPago.objects.get(id=request.POST.get('metodo_pago'))
+    except MetodoPago.DoesNotExist:
+        messages.error(request, 'Método de pago no válido')
+        return redirect('crear_venta')
+    
     egreso = EgresoMonetario.objects.create(
         fecha=timezone.now(),
         monto=request.POST.get('monto') or 0,
         motivo_id=request.POST.get('motivo'),
+        metodo_pago=metodo_pago,
         observaciones=request.POST.get(
             'observaciones',
             ''
@@ -6349,6 +6345,7 @@ def ticket_egreso_monetario(request, id):
             'egreso': egreso
         }
     )
+
 # ====================================================
 #  PLANES (Membresías/Servicios)
 # ====================================================

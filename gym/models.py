@@ -600,7 +600,28 @@ class CajaTurno(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     class Meta:
         db_table = 'caja_turno'
-        
+     
+class ArqueoCaja(models.Model):
+    caja_turno = models.ForeignKey(CajaTurno, on_delete=models.CASCADE, related_name='arqueos')
+    metodo_pago = models.ForeignKey('MetodoPago', on_delete=models.PROTECT)
+    monto_sistema = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    monto_declarado = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    diferencia = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    observaciones = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'arqueo_caja'
+        unique_together = ('caja_turno', 'metodo_pago')
+
+    def save(self, *args, **kwargs):
+        self.diferencia = self.monto_declarado - self.monto_sistema
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.caja_turno} - {self.metodo_pago.nombre}: {self.monto_declarado} (sistema: {self.monto_sistema})"
+       
 # ========================================
 # MovimientoCaja
 # ========================================
@@ -896,6 +917,7 @@ class EgresoMonetario(models.Model):
     fecha = models.DateTimeField()
     monto = models.DecimalField(max_digits=12, decimal_places=2)
     motivo = models.ForeignKey(TipoEgreso, on_delete=models.PROTECT)
+    metodo_pago = models.ForeignKey(MetodoPago, on_delete=models.PROTECT)
     observaciones = models.TextField(blank=True, null=True)
     usuario = models.ForeignKey(Usuario, on_delete=models.PROTECT)
     caja_turno = models.ForeignKey(CajaTurno, on_delete=models.PROTECT, null=True, blank=True)
@@ -914,6 +936,7 @@ class IngresoMonetario(models.Model):
     fecha = models.DateTimeField()
     monto = models.DecimalField(max_digits=12, decimal_places=2)
     motivo = models.ForeignKey(TipoIngreso, on_delete=models.PROTECT)
+    metodo_pago = models.ForeignKey(MetodoPago, on_delete=models.PROTECT)
     observaciones = models.TextField(blank=True, null=True)
     usuario = models.ForeignKey(Usuario, on_delete=models.PROTECT)
     caja_turno = models.ForeignKey(CajaTurno, on_delete=models.PROTECT, null=True, blank=True)

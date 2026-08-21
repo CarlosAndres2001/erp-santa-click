@@ -118,7 +118,8 @@
                     {% endif %}
 
                     <div class="card-img-wrap">
-                        <img src="{% if v.foto %}{{ v.foto.url }}{% else %}https://placehold.co/200x200/1a1d23/10b981?text={{ v.producto.nombre|first }}{% endif %}"
+                        
+                        <img src="{% if v.foto %} {{ v.foto.url }} {% elif v.foto_url %} {{ v.foto_url }} {% else %} https://placehold.co/200x200/1a1d23/10b981?text={{ v.producto.nombre|first }} {% endif %}"
                              class="producto-imagen"
                              alt="{{ v.nombre_variante }}"
                              onerror="this.src='https://placehold.co/200x200/1a1d23/10b981?text=P'">
@@ -297,7 +298,7 @@
                     <span class="envio-badge">Egreso de caja</span>
                 </div>
 
-                <div id="panel-envio-nuevo" class="panel-envio-nuevo d-none">
+                <!--<div id="panel-envio-nuevo" class="panel-envio-nuevo d-none">
                     <div class="row g-2">
                         <div class="col-sm-4">
                             <label>Costo de envío (Bs.)</label>
@@ -313,8 +314,44 @@
                         </div>
                     </div>
                     <div class="envio-info-tip"><i class="fas fa-info-circle"></i> El monto de envío se suma al cobro y se registra como egreso de caja para el delivery.</div>
+                </div>-->
+                <div id="panel-envio-nuevo" class="panel-envio-nuevo d-none">
+                    <div class="row g-2">
+                        <!-- COSTO ENVÍO -->
+                        <div class="col-sm-3">
+                            <label>Costo de envío (Bs.)</label>
+                            <input type="number" id="input-costo-envio" placeholder="0.00" min="0" step="0.50">
+                        </div>
+                        <!-- MÉTODO CON EL QUE SE PAGA AL DELIVERY -->
+                        <div class="col-sm-3">
+                            <label>Se paga al delivery con</label>
+                            <select id="select-metodo-pago-delivery" class="form-select">
+                                <option value=""> Seleccionar... </option>
+                                {% for metodo in metodos_pago %}
+                                    <option value="{{ metodo.id }}">
+                                        {{ metodo.nombre }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <!-- DIRECCIÓN -->
+                        <div class="col-sm-3">
+                            <label>Dirección de entrega</label>
+                            <input type="text" id="input-direccion" placeholder="Calle / Zona / Ref.">
+                        </div>
+                        <!-- TELÉFONO -->
+                        <div class="col-sm-3">
+                            <label>Teléfono contacto</label>
+                            <input type="text" id="input-telefono" placeholder="Ej: 70000000">
+                        </div>
+                    </div>
+                    <div class="envio-info-tip">
+                        <i class="fas fa-info-circle"></i>
+                        El costo de envío se suma al cobro de la venta. Al confirmar,
+                        este importe será registrado como un egreso de caja utilizando
+                        el método de pago seleccionado para pagar al delivery.
+                    </div>
                 </div>
-
 
                 <!-- Referencia + Observaciones -->
                 <div style="display:flex;gap:10px;margin-bottom:10px;">
@@ -371,6 +408,15 @@
                         </select>
                     </div>
                     <div class="mcaja-field">
+                        <label class="mcaja-label">Método de Pago</label>
+                        <select name="metodo_pago" class="mcaja-select" required>
+                            <option value="">— Seleccione método —</option>
+                            {% for mp in metodos_pago %}
+                                <option value="{{ mp.id }}">{{ mp.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mcaja-field">
                         <label class="mcaja-label">Monto (Bs.)</label>
                         <input type="number" step="0.01" min="0.01" name="monto" class="mcaja-input" placeholder="0.00" required>
                     </div>
@@ -411,6 +457,15 @@
                             <option value="">— Seleccione motivo —</option>
                             {% for item in tipos_egreso %}
                                 <option value="{{ item.id }}">{{ item.nombre }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mcaja-field">
+                        <label class="mcaja-label">Método de Pago</label>
+                        <select name="metodo_pago" class="mcaja-select" required>
+                            <option value="">— Seleccione método —</option>
+                            {% for mp in metodos_pago %}
+                                <option value="{{ mp.id }}">{{ mp.nombre }}</option>
                             {% endfor %}
                         </select>
                     </div>
@@ -952,6 +1007,7 @@
 
         // ── Estado del modal de pago ──────────────────────────────
         let metodoPagoSeleccionado = null;  // método activo en la grilla (para referencia visual)
+        let montoPagoEditadoManualmente = false;
 
         function getIconMetodo(nombre) {
             const n = nombre.toLowerCase();
@@ -1014,7 +1070,11 @@
                 <button type="button" class="fp-del" title="Quitar"><i class="fas fa-times"></i></button>
             `;
 
-            fila.querySelector('.fp-monto-inp').addEventListener('input', actualizarResumenPago);
+            //fila.querySelector('.fp-monto-inp').addEventListener('input', actualizarResumenPago);
+            fila.querySelector('.fp-monto-inp').addEventListener('input', function() {
+                montoPagoEditadoManualmente = true;
+                actualizarResumenPago();
+            });
             fila.querySelector('.fp-del').addEventListener('click', function() {
                 const filas = document.querySelectorAll('.fila-pago-nueva');
                 if (filas.length > 1) {
@@ -1047,7 +1107,8 @@
             // Si solamente hay un método de pago, actualizar automáticamente
             const filas = document.querySelectorAll('.fila-pago-nueva');
 
-            if (filas.length === 1) {
+            //if (filas.length === 1) {
+            if (filas.length === 1 && !montoPagoEditadoManualmente) {
                 const montoInput = filas[0].querySelector('.fp-monto-inp');
                 if (montoInput) {
                     montoInput.value = cobrar > 0 ? cobrar.toFixed(2) : '';
@@ -1116,6 +1177,7 @@
             document.getElementById('chk-envio').checked      = false;
             document.getElementById('panel-envio-nuevo').classList.add('d-none');
             document.getElementById('input-costo-envio').value = '';
+            
             document.getElementById('input-direccion').value  = '';
             document.getElementById('input-telefono').value   = '';
             document.getElementById('pagos-container-nuevo').innerHTML = '';
@@ -1125,6 +1187,7 @@
             metodoPagoSeleccionado = null;
 
             // Fila inicial con el total
+            montoPagoEditadoManualmente = false;
             crearFilaPago(total);
             actualizarResumenPago();
 
@@ -1206,6 +1269,7 @@
                             total: truncar2Decimales(totalFinal),
                             descuento: truncar2Decimales(descuento),
                             costo_envio: truncar2Decimales(costoEnvio),
+                            metodo_pago_delivery: document.getElementById('select-metodo-pago-delivery').value || null,
                             direccion_entrega: document.getElementById('input-direccion').value.trim(),
                             telefono_entrega: document.getElementById('input-telefono').value.trim(),
                             observaciones: document.getElementById('pago-observaciones').value.trim(),
