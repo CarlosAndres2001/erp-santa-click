@@ -2697,12 +2697,68 @@ def ticket_cierre_caja(request, turno_id):
     
     return render(request, 'ventas/ticket_cierre_caja.html', context)
 
-# ====================================================
-# REPORTE DE CAJAS
-# ====================================================
 @login_required
 @permiso_requerido('reporte_cajas', 'ver')
 def reporte_cajas(request):
+    """Reporte histórico de cierres de caja con filtros"""
+
+    usuario = request.user
+    sucursal = usuario.sucursal
+
+    cierres = CajaTurno.objects.filter(
+        sucursal=sucursal,
+        estado='CERRADA',
+        is_active=True
+    ).select_related('caja', 'turno', 'usuario').order_by('-fecha_cierre')
+
+    # ----------------------------------------------
+    # FILTROS
+    # ----------------------------------------------
+    fecha_desde = request.GET.get('fecha_desde')
+    fecha_hasta = request.GET.get('fecha_hasta')
+    caja_id = request.GET.get('caja')
+    usuario_id = request.GET.get('usuario')
+    turno_id = request.GET.get('turno')
+
+    if fecha_desde:
+        cierres = cierres.filter(fecha_cierre__date__gte=fecha_desde)
+    if fecha_hasta:
+        cierres = cierres.filter(fecha_cierre__date__lte=fecha_hasta)
+    if caja_id:
+        cierres = cierres.filter(caja_id=caja_id)
+    if usuario_id:
+        cierres = cierres.filter(usuario_id=usuario_id)
+    if turno_id:
+        cierres = cierres.filter(turno_id=turno_id)
+
+    # ----------------------------------------------
+    # TOTALES DEL LISTADO FILTRADO
+    # ----------------------------------------------
+    totales = cierres.aggregate(
+        total_declarado=Sum('monto_cierre'),
+        total_sistema=Sum('saldo_teorico'),
+        total_diferencia=Sum('diferencia')
+    )
+
+    context = {
+        'cierres': cierres,
+        'totales': totales,
+        'cajas': Caja.objects.filter(is_active=True, fk_empresa=usuario.sucursal.fk_empresa),
+        'turnos': Turno.objects.filter(is_active=True, fk_empresa=usuario.sucursal.fk_empresa),
+        'usuarios': Usuario.objects.filter(sucursal=sucursal, is_active=True),
+        'filtros': {
+            'fecha_desde': fecha_desde,
+            'fecha_hasta': fecha_hasta,
+            'caja': caja_id,
+            'usuario': usuario_id,
+            'turno': turno_id,
+        }
+    }
+    return render(request, 'ventas/reporte_cierres_caja.html', context)
+
+@login_required
+@permiso_requerido('reporte_cajas', 'ver')
+def reporte_cierres_caja(request):
     """Vista para el reporte de movimientos de caja"""
     
     usuario = request.user
@@ -2872,7 +2928,9 @@ def reporte_cajas(request):
         'simbolo_moneda': simbolo_moneda,
     }
     
-    return render(request, 'inventario/reporte_cajas.html', context)# ====================================================
+    return render(request, 'inventario/reporte_cajas.html', context)
+
+# ====================================================
 #  TIPO EGRESO
 # ====================================================
 @login_required
@@ -3783,272 +3841,6 @@ def api_precios_canal(request):
     except Exception as e:
         return JsonResponse({'ok': False, 'error': str(e)}, status=500)
 
-"""@login_required
-@permiso_requerido('abrir_caja', 'crear')
-def crear_venta(request):
-    usuario = request.user
-    sucursal = usuario.sucursal
-
-    # ========== PETICIÓN POST JSON ==========
-    if request.method == 'POST':
-        try:
-            try:
-                data = json.loads(request.body)
-            except json.JSONDecodeError:
-                return JsonResponse({'ok': False, 'error': 'Datos inválidos'}, status=400)
-
-            with transaction.atomic():
-                almacen_id      = data.get('almacen')
-                canal_id        = data.get('canal')
-                cliente_id      = data.get('cliente')
-                total           = Decimal(str(data.get('total', 0)))
-                descuento_total = Decimal(str(data.get('descuento', 0)))
-                observaciones   = data.get('observaciones', '')
-                costo_envio     = Decimal(str(data.get('costo_envio', 0)))
-                direccion_entrega = data.get('direccion_entrega', '')
-                telefono_entrega  = data.get('telefono_entrega', '')
-                items           = data.get('items', [])
-                pagos           = data.get('pagos', [])   # ← NUEVO: lista de pagos múltiples
-
-                if not items:
-                    return JsonResponse({'ok': False, 'error': 'No hay productos'}, status=400)
-
-                # Validar que haya al menos un pago
-                if not pagos:
-                    return JsonResponse({'ok': False, 'error': 'Debe ingresar al menos un método de pago'}, status=400)
-
-                # Validar que el total de pagos cubra (total - descuento + costo_envio)
-                monto_a_cobrar = total 
-                total_pagado   = sum(Decimal(str(p.get('monto', 0))) for p in pagos)
-                if total_pagado < monto_a_cobrar:
-                    return JsonResponse({
-                        'ok': False,
-                        'error': f'El monto pagado ({total_pagado}) es menor al total a cobrar ({monto_a_cobrar})'
-                    }, status=400)
-
-                # Obtener objetos
-                almacen = Almacen.objects.get(id=almacen_id, sucursal=sucursal, is_active=True)
-                canal   = CanalVenta.objects.get(id=canal_id, is_active=True, fk_empresa=sucursal.fk_empresa)
-
-                cliente_obj = None
-                if cliente_id and cliente_id != '':
-                    try:
-                        cliente_obj = Cliente.objects.get(id=cliente_id, fk_empresa=sucursal.fk_empresa)
-                    except Cliente.DoesNotExist:
-                        pass
-
-                # Caja turno activa
-                caja_turno = CajaTurno.objects.filter(
-                    sucursal=sucursal,
-                    usuario=usuario,
-                    is_active=True,
-                    fecha_cierre__isnull=True
-                ).first()
-
-                if not caja_turno:
-                    return JsonResponse({'ok': False, 'error': 'No hay caja turno activa'}, status=400)
-
-                # ========== CREAR VENTA ==========
-                venta = Venta(
-                    usuario=usuario,
-                    sucursal=sucursal,
-                    almacen=almacen,
-                    canal=canal,
-                    cliente=cliente_obj,
-                    caja_turno=caja_turno,
-                    total=total,
-                    descuento=descuento_total,
-                    costo_envio=costo_envio,
-                    direccion_entrega=direccion_entrega,
-                    telefono_entrega=telefono_entrega,
-                    fecha=timezone.now(),
-                    observaciones=observaciones,
-                )
-                venta.save()
-
-                # ==========================
-                # MOVIMIENTO DE CAJA: el total de la venta (sin separar envío aquí)
-                # El egreso del delivery se registra aparte si el operador lo decide
-                # ==========================
-                MovimientoCaja.objects.create(
-                    caja_turno=caja_turno,
-                    tipo='VENTA',
-                    monto=monto_a_cobrar,
-                    referencia=str(venta.id),
-                    descripcion=f'Venta #{venta.id}',
-                    usuario=usuario
-                )
-
-                # ==========================
-                # EGRESO DE CAJA: costo de envío (sale de caja para el delivery)
-                # ==========================
-                if costo_envio > 0:
-                    MovimientoCaja.objects.create(
-                        caja_turno=caja_turno,
-                        tipo='EGRESO',
-                        monto=costo_envio,
-                        referencia=str(venta.id),
-                        descripcion=f'Costo envío Venta #{venta.id}',
-                        usuario=usuario
-                    )
-
-                # Procesar items
-                for item in items:
-                    tipo     = item.get('tipo', 'producto')
-                    item_id  = item.get('id')
-                    cantidad = Decimal(str(item.get('cantidad', 1)))
-                    precio   = Decimal(str(item.get('precio', 0)))
-                    descuento = Decimal(str(item.get('descuento', 0)))
-                    subtotal = Decimal(str(item.get('subtotal', 0)))
-                    nombre   = item.get('nombre', '')
-
-                    if cantidad <= 0:
-                        continue
-
-                    if tipo == 'producto':
-                        producto_variante = ProductoVariante.objects.get(id=item_id, is_active=True)
-
-                        DetalleVenta.objects.create(
-                            venta=venta,
-                            producto_variante=producto_variante,
-                            nombre_producto=nombre or producto_variante.nombre_variante,
-                            cantidad=cantidad,
-                            precio=precio,
-                            subtotal=subtotal,
-                            descuento=descuento
-                        )
-
-                        Kardex.objects.create(
-                            producto_variante=producto_variante,
-                            sucursal=sucursal,
-                            almacen=almacen,
-                            tipo_movimiento='salida',
-                            cantidad=cantidad,
-                            precio_unitario=precio,
-                            total=subtotal,
-                            referencia=f'Venta #{venta.id}'
-                        )
-
-                        if producto_variante.maneja_stock:
-                            stock, _ = Stock.objects.get_or_create(
-                                almacen=almacen,
-                                producto_variante=producto_variante,
-                                defaults={
-                                    'cantidad_actual': 0,
-                                    'costo_unitario_promedio': 0,
-                                    'valor_total': 0,
-                                    'cajas_actual': 0,
-                                    'peso_neto_total': 0
-                                }
-                            )
-                            stock.cantidad_actual -= cantidad
-                            stock.save()
-
-                    elif tipo == 'pack':
-                        producto_padre = Producto.objects.get(id=item_id, is_active=True)
-                        pack_variante  = ProductoVariante.objects.filter(producto=producto_padre, is_active=True).first()
-
-                        DetalleVenta.objects.create(
-                            venta=venta,
-                            producto_variante=pack_variante,
-                            producto_padre=producto_padre,
-                            nombre_producto=nombre or producto_padre.nombre,
-                            cantidad=cantidad,
-                            precio=precio,
-                            subtotal=subtotal,
-                            descuento=descuento
-                        )
-
-                # ==========================
-                # PAGOS MÚLTIPLES
-                # ==========================
-                for pago_data in pagos:
-                    metodo_id  = pago_data.get('metodo_id')
-                    monto_pago = Decimal(str(pago_data.get('monto', 0)))
-                    referencia = pago_data.get('referencia', '')
-
-                    if monto_pago <= 0:
-                        continue
-
-                    try:
-                        metodo = MetodoPago.objects.get(id=metodo_id, empresa=sucursal.fk_empresa, estado=True)
-                    except MetodoPago.DoesNotExist:
-                        continue
-
-                    PagoVenta.objects.create(
-                        venta=venta,
-                        metodo_pago=metodo,
-                        monto=monto_pago,
-                        referencia_pago=referencia
-                    )
-
-                return JsonResponse({
-                    'ok': True,
-                    'venta_id': venta.id,
-                    'mensaje': f'✅ Venta #{venta.id} registrada correctamente'
-                })
-
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return JsonResponse({'ok': False, 'error': str(e)}, status=500)
-
-    # ========== GET - Mostrar formulario ==========
-    canal_qs      = CanalVenta.objects.filter(is_active=True, fk_empresa=sucursal.fk_empresa)
-    categorias    = Category.objects.filter(is_active=True, fk_empresa=sucursal.fk_empresa)
-    almacenes     = Almacen.objects.filter(sucursal=sucursal, is_active=True)
-    clientes      = Cliente.objects.filter(estado=True, fk_empresa=sucursal.fk_empresa)
-    metodos_pago  = MetodoPago.objects.filter(empresa=sucursal.fk_empresa, estado=True)
-    tipos_ingreso = TipoIngreso.objects.filter(is_active=True, fk_empresa=sucursal.fk_empresa)
-    tipos_egreso  = TipoEgreso.objects.filter(is_active=True, fk_empresa=sucursal.fk_empresa)
-
-    variantes = ProductoVariante.objects.filter(
-        is_active=True,
-        producto__fk_empresa=sucursal.fk_empresa,
-        producto__visible_venta=True 
-    ).select_related('producto', 'producto__category')
-
-    packs_ids = list(set(
-        DetallePack.objects.filter(
-            producto_padre__producto__fk_empresa=sucursal.fk_empresa,
-            producto_padre__producto__visible_venta=True 
-        ).values_list('producto_padre__producto_id', flat=True).distinct()
-    ))
-    packs = Producto.objects.filter(id__in=packs_ids, is_active=True,visible_venta=True ) if packs_ids else Producto.objects.none()
-
-    canal_default = canal_qs.first()
-
-    precio_producto = {}
-    for v in variantes:
-        precio_producto[v.id] = float(obtener_precio_producto(v, sucursal, canal_default))
-
-    precio_pack = {}
-    for pack in packs:
-        pack_variante = ProductoVariante.objects.filter(producto=pack, is_active=True).first()
-        if pack_variante:
-            precio_pack[pack.id] = float(obtener_precio_producto(pack_variante, sucursal, canal_default))
-        else:
-            precio_pack[pack.id] = 0.00
-
-    context = {
-        'usuario': usuario,
-        'sucursal': sucursal,
-        'canales': canal_qs,
-        'almacenes': almacenes,
-        'clientes': clientes,
-        'metodos_pago': metodos_pago,
-        'tipos_ingreso': tipos_ingreso,
-        'tipos_egreso': tipos_egreso,
-        'categorias': categorias,
-        'productos': variantes,
-        'packs': packs,
-        'precio_producto': precio_producto,
-        'precio_pack': precio_pack,
-        'fecha_actual': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
-    }
-
-    return render(request, 'ventas/registro_venta.html', context)
-"""
 @login_required
 @permiso_requerido('abrir_caja', 'crear')
 def crear_venta(request):
@@ -6194,9 +5986,11 @@ def ticket_ingreso_monetario(request, id):
 @login_required
 @permiso_requerido('reporte_egresos', 'ver')
 def reporte_egresos(request):
+    usuario = request.user
+    empresa = usuario.sucursal.fk_empresa
     egresos = EgresoMonetario.objects.select_related(
         "motivo", "usuario", "caja_turno"
-    ).all().order_by("-fecha")
+    ).filter(caja_turno__sucursal__fk_empresa=empresa).order_by("-fecha")
 
     # ---- Filtros ----
     fecha_inicio = request.GET.get("fecha_inicio")

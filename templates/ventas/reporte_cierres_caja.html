@@ -1,0 +1,271 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid px-4">
+    <!-- ENCABEZADO CON ESTADÍSTICAS RÁPIDAS -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">
+            <i class="bi bi-cash-stack text-primary me-2"></i>Reporte de Cierres de Caja
+        </h2>
+        <div>
+            <span class="badge bg-primary bg-opacity-10 text-primary p-2">
+                <i class="bi bi-calendar3 me-1"></i> {{ fecha_actual|date:"d/m/Y" }}
+            </span>
+        </div>
+    </div>
+
+    <!-- KPI CARDS -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-primary bg-opacity-10 rounded-3 p-3 me-3">
+                        <i class="bi bi-receipt text-primary fs-3"></i>
+                    </div>
+                    <div>
+                        <h6 class="text mb-0 small text-uppercase">Total Cierres</h6>
+                        <h3 class="mb-0 fw-bold">{{ cierres|length|default:0 }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-success bg-opacity-10 rounded-3 p-3 me-3">
+                        <i class="bi bi-cash-stack text-success fs-3"></i>
+                    </div>
+                    <div>
+                        <h6 class="text mb-0 small text-uppercase">Total Declarado</h6>
+                        <h3 class="mb-0 fw-bold">Bs {{ totales.total_declarado|default:0|floatformat:2 }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-info bg-opacity-10 rounded-3 p-3 me-3">
+                        <i class="bi bi-cpu text-info fs-3"></i>
+                    </div>
+                    <div>
+                        <h6 class="text mb-0 small text-uppercase">Total Sistema</h6>
+                        <h3 class="mb-0 fw-bold">Bs {{ totales.total_sistema|default:0|floatformat:2 }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="bg-warning bg-opacity-10 rounded-3 p-3 me-3">
+                        <i class="bi bi-arrow-left-right text-warning fs-3"></i>
+                    </div>
+                    <div>
+                        <h6 class="text mb-0 small text-uppercase">Diferencia Total</h6>
+                        <h3 class="mb-0 fw-bold {% if totales.total_diferencia > 0 %}text-success{% elif totales.total_diferencia < 0 %}text-danger{% else %}text-muted{% endif %}">
+                            {% if totales.total_diferencia > 0 %}
+                                +{{ totales.total_diferencia|floatformat:2 }}
+                            {% else %}
+                                {{ totales.total_diferencia|floatformat:2 }}
+                            {% endif %}
+                        </h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FILTROS MODERNOS -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3 border-0">
+            <div class="d-flex align-items-center">
+                <i class="bi bi-funnel-fill text-primary me-2"></i>
+                <h5 class="mb-0 fw-bold text">Filtros de Búsqueda</h5>
+                <span class="badge bg-secondary ms-2">{{ cierres|length }} resultados</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-calendar-range me-1"></i> Desde
+                    </label>
+                    <input type="date" name="fecha_desde" class="form-control form-control-sm" value="{{ filtros.fecha_desde|default:'' }}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-calendar-range me-1"></i> Hasta
+                    </label>
+                    <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ filtros.fecha_hasta|default:'' }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-building me-1"></i> Caja
+                    </label>
+                    <select name="caja" class="form-select form-select-sm">
+                        <option value="">-- Todas --</option>
+                        {% for c in cajas %}
+                        <option value="{{ c.id }}" {% if filtros.caja == c.id|stringformat:"s" %}selected{% endif %}>
+                            {{ c.nombre }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold text">
+                        <i class="bi bi-person-badge me-1"></i> Usuario
+                    </label>
+                    <select name="usuario" class="form-select form-select-sm">
+                        <option value="">-- Todos --</option>
+                        {% for u in usuarios %}
+                        <option value="{{ u.id }}" {% if filtros.usuario == u.id|stringformat:"s" %}selected{% endif %}>
+                            {{ u.get_full_name|default:u.username }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-search me-1"></i> Filtrar
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold text-muted">&nbsp;</label>
+                    <a href="?" class="btn btn-outline-secondary btn-sm w-100">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Limpiar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- TABLA DE CIERRES -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-striped mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="py-3 px-3">#</th>
+                            <th class="py-3">Caja</th>
+                            <th class="py-3">Turno</th>
+                            <th class="py-3">Usuario</th>
+                            <th class="py-3">Apertura</th>
+                            <th class="py-3">Cierre</th>
+                            <th class="py-3 text-end">Sistema</th>
+                            <th class="py-3 text-end">Declarado</th>
+                            <th class="py-3 text-center">Diferencia</th>
+                            <th class="py-3 text-center">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for c in cierres %}
+                        <tr>
+                            <td class="fw-bold px-3">{{ c.id }}</td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-cash-stack me-2 text-secondary"></i>
+                                    <span>{{ c.caja.nombre }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark">{{ c.turno.nombre|default:"-" }}</span>
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-person-circle me-2 text-secondary"></i>
+                                    <span>{{ c.usuario.get_full_name|default:c.usuario.username }}</span>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-column">
+                                    <span class="fw-semibold">{{ c.fecha_apertura|date:"d/m/Y" }}</span>
+                                    <small class="text-muted">{{ c.fecha_apertura|date:"H:i" }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-column">
+                                    <span class="fw-semibold">{{ c.fecha_cierre|date:"d/m/Y" }}</span>
+                                    <small class="text-muted">{{ c.fecha_cierre|date:"H:i" }}</small>
+                                </div>
+                            </td>
+                            <td class="text-end fw-semibold text-primary">
+                                {{ c.saldo_teorico|floatformat:2 }}
+                            </td>
+                            <td class="text-end fw-semibold text-success">
+                                {{ c.monto_cierre|floatformat:2 }}
+                            </td>
+                            <td class="text-center">
+                                {% if c.diferencia == 0 %}
+                                    <span class="badge bg-success bg-opacity-10 text-success">
+                                        <i class="bi bi-check-circle-fill me-1"></i> 0.00
+                                    </span>
+                                {% elif c.diferencia > 0 %}
+                                    <span class="badge bg-success bg-opacity-10 text-success">
+                                        <i class="bi bi-arrow-up-circle-fill me-1"></i> +{{ c.diferencia|floatformat:2 }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger">
+                                        <i class="bi bi-arrow-down-circle-fill me-1"></i> {{ c.diferencia|floatformat:2 }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                <a href="{% url 'ticket_cierre_caja' turno_id=c.id %}" 
+                                   class="btn btn-sm btn-outline-info" 
+                                   target="_blank"
+                                   title="Reimprimir ticket">
+                                    <i class="bi bi-printer-fill"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="10" class="text-center py-5">
+                                <i class="bi bi-inbox text-muted display-6 d-block mb-3"></i>
+                                <h5 class="text-muted">No hay cierres de caja registrados</h5>
+                                <p class="text-muted small">Los cierres aparecerán aquí cuando se realicen.</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    {% if cierres %}
+                    <tfoot class="table-light fw-bold">
+                        <tr>
+                            <td colspan="6" class="text-end py-3 px-3">
+                                <span class="text-uppercase small text-muted">Totales:</span>
+                            </td>
+                            <td class="text-end text-primary py-3">
+                                {{ totales.total_sistema|default:0|floatformat:2 }}
+                            </td>
+                            <td class="text-end text-success py-3">
+                                {{ totales.total_declarado|default:0|floatformat:2 }}
+                            </td>
+                            <td class="text-center py-3">
+                                {% if totales.total_diferencia == 0 %}
+                                    <span class="badge bg-success bg-opacity-10 text-success">
+                                        {{ totales.total_diferencia|default:0|floatformat:2 }}
+                                    </span>
+                                {% elif totales.total_diferencia > 0 %}
+                                    <span class="badge bg-success bg-opacity-10 text-success">
+                                        +{{ totales.total_diferencia|default:0|floatformat:2 }}
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-danger bg-opacity-10 text-danger">
+                                        {{ totales.total_diferencia|default:0|floatformat:2 }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="py-3"></td>
+                        </tr>
+                    </tfoot>
+                    {% endif %}
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

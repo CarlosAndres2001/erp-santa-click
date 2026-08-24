@@ -145,6 +145,8 @@ urlpatterns = [
     path('caja/cerrar/', views.cerrar_caja, name='cerrar_caja'),
     path('reporte-cajas/', views.reporte_cajas, name='reporte_cajas'),
     path('ticket-cierre/<int:turno_id>/', views.ticket_cierre_caja, name='ticket_cierre_caja'),
+    path('caja/reporte-cierres/', views.reporte_cierres_caja, name='reporte_cierres_caja'),
+    
     # ====================================================
     # TIPO EGRESO
     # ====================================================

@@ -5,149 +5,372 @@
 
 {% block content %}
 <style>
-.dash-saludo{
-    display:flex;justify-content:space-between;align-items:flex-end;
-    margin-bottom:1.2rem;flex-wrap:wrap;gap:.6rem;
-}
-.dash-saludo h1{margin:0}
-.dash-saludo .sub{color:var(--text-muted);font-size:.8rem;margin-top:2px}
-.dash-fecha{
-    background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
-    padding:.5rem .9rem;text-align:right;font-size:.75rem;color:var(--text-muted);
-}
-.dash-fecha .hora{font-size:1.05rem;font-weight:700;color:var(--text-main)}
+/* ============================================================ */
+/* ESTILOS DEL DASHBOARD */
+/* ============================================================ */
 
-.dash-kpis{
-    display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
-    gap:.8rem;margin-bottom:1.2rem;
-}
-.kpi-card{
-    background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);
-    padding:1rem 1.1rem;display:flex;align-items:center;gap:.8rem;transition:var(--transition);
-}
-.kpi-card:hover{border-color:var(--border-light);transform:translateY(-2px)}
-.kpi-icono{
-    width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;
-    background:rgba(16,185,129,.12);flex-shrink:0;
-}
-.kpi-icono i{font-size:1.2rem;color:var(--primary)!important}
-.kpi-valor{font-size:1.4rem;font-weight:800;color:var(--text-main);line-height:1}
-.kpi-label{font-size:.68rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
-
-.dash-alerta{
-    display:flex;align-items:center;gap:.7rem;
-    background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);
-    border-radius:var(--radius-lg);padding:.8rem 1.1rem;margin-bottom:1.2rem;
-}
-.dash-alerta.critica{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25)}
-.dash-alerta i{font-size:1.3rem;color:#f59e0b!important}
-.dash-alerta.critica i{color:#ef4444!important}
-.dash-alerta .txt{font-size:.82rem}
-.dash-alerta .txt strong{color:var(--text-main)}
-.dash-alerta a{margin-left:auto;font-size:.75rem;flex-shrink:0}
-
-.dash-section-title{
-    font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
-    color:var(--text-muted);margin:1.4rem 0 .6rem 0;
+.dash-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
 
-.dash-accesos{
-    display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.7rem;
+.dash-header-left h1 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    margin: 0;
+    color: var(--text-main);
 }
-.acceso-card{
-    background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);
-    padding:1rem .8rem;text-align:center;text-decoration:none;color:var(--text-muted);
-    transition:var(--transition);display:flex;flex-direction:column;align-items:center;gap:.5rem;
-}
-.acceso-card:hover{border-color:var(--primary);color:var(--primary);transform:translateY(-2px);background:var(--bg-elevated)}
-.acceso-card i{font-size:1.5rem;color:var(--primary)!important}
-.acceso-card span{font-size:.75rem;font-weight:600}
 
-@media(max-width:640px){
-    .dash-saludo{flex-direction:column;align-items:flex-start}
-    .dash-fecha{text-align:left;width:100%}
+.dash-header-left h1 i {
+    color: #6366f1;
+    margin-right: 0.5rem;
+}
+
+.dash-header-left .sub {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.dash-header-left .sub .badge-rol {
+    background: #6366f1;
+    color: white;
+    padding: 2px 12px;
+    border-radius: 20px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.dash-header-right {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 0.7rem 1.2rem;
+    text-align: right;
+    min-width: 160px;
+}
+
+.dash-header-right .hora {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.dash-header-right .fecha {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+/* ============================================================ */
+/* KPIS */
+/* ============================================================ */
+
+.dash-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.kpi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.2rem 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s ease;
+}
+
+.kpi-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+    border-color: #6366f1;
+}
+
+.kpi-icono {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1.3rem;
+}
+
+.kpi-card:nth-child(1) .kpi-icono { background: rgba(99, 102, 241, 0.12); color: #6366f1; }
+.kpi-card:nth-child(2) .kpi-icono { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.kpi-card:nth-child(3) .kpi-icono { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+.kpi-card:nth-child(4) .kpi-icono { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+.kpi-card:nth-child(5) .kpi-icono { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+.kpi-card:nth-child(6) .kpi-icono { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
+
+.kpi-info {
+    flex: 1;
+}
+
+.kpi-valor {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1.2;
+}
+
+.kpi-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+}
+
+/* ============================================================ */
+/* ACCESOS RÁPIDOS */
+/* ============================================================ */
+
+.dash-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+.dash-section-title i {
+    color: #6366f1;
+}
+
+.dash-accesos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 0.8rem;
+}
+
+.acceso-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.2rem 0.8rem;
+    text-align: center;
+    text-decoration: none;
+    color: var(--text-muted);
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.acceso-card:hover {
+    border-color: #6366f1;
+    color: #6366f1;
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+}
+
+.acceso-card i {
+    font-size: 1.6rem;
+    color: #6366f1;
+}
+
+.acceso-card span {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+/* ============================================================ */
+/* RESPONSIVE */
+/* ============================================================ */
+
+@media (max-width: 768px) {
+    .dash-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .dash-header-right {
+        text-align: left;
+        width: 100%;
+    }
+    
+    .dash-kpis {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .dash-kpis {
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6rem;
+    }
+    
+    .kpi-icono {
+        width: 38px;
+        height: 38px;
+        font-size: 1rem;
+    }
+    
+    .kpi-valor {
+        font-size: 1.1rem;
+    }
+    
+    .dash-accesos {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.6rem;
+    }
+    
+    .acceso-card {
+        padding: 0.8rem 0.4rem;
+    }
+    
+    .acceso-card i {
+        font-size: 1.3rem;
+    }
+    
+    .acceso-card span {
+        font-size: 0.65rem;
+    }
 }
 </style>
 
-<div class="dash-saludo">
-    <div>
-        <h1><i class="bi bi-house-door-fill"></i> Hola, {{ request.user.nombre }}</h1>
-        <div class="sub">{{ request.user.sucursal.nombre }} — {{ request.user.rol.nombre }}</div>
+<!-- ============================================================ -->
+<!-- HEADER -->
+<!-- ============================================================ -->
+
+<div class="dash-header">
+    <div class="dash-header-left">
+        <h1>
+            <i class="bi bi-house-door-fill"></i>
+            ¡Bienvenido, {{ request.user.nombre }}!
+        </h1>
+        <div class="sub">
+            <i class="bi bi-dot"></i>
+            {{ request.user.sucursal.nombre }}
+            <i class="bi bi-dot"></i>
+            <span class="badge-rol">{{ request.user.rol.nombre }}</span>
+        </div>
     </div>
-    <div class="dash-fecha">
+    <div class="dash-header-right">
         <div class="hora">{{ fecha_actual|date:"H:i" }}</div>
-        <div>{{ fecha_actual|date:"l, d \d\e F \d\e Y"|capfirst }}</div>
+        <div class="fecha">{{ fecha_actual|date:"l, d \d\e F \d\e Y"|capfirst }}</div>
     </div>
 </div>
 
-{% if stock_agotado_count > 0 %}
-<div class="dash-alerta critica">
-    <i class="bi bi-exclamation-octagon-fill"></i>
-    <div class="txt"><strong>{{ stock_agotado_count }}</strong> producto{{ stock_agotado_count|pluralize }} sin stock disponible en este momento.</div>
-    <a href="{% url 'lista_insumos' %}" class="btn btn-sm btn-secondary">Ver inventario</a>
-</div>
-{% elif stock_bajo_count > 0 %}
-<div class="dash-alerta">
-    <i class="bi bi-exclamation-triangle-fill"></i>
-    <div class="txt"><strong>{{ stock_bajo_count }}</strong> producto{{ stock_bajo_count|pluralize }} con stock bajo (menos de {{ 5 }} unidades).</div>
-    <a href="{% url 'lista_insumos' %}" class="btn btn-sm btn-secondary">Revisar</a>
-</div>
-{% endif %}
+<!-- ============================================================ -->
+<!-- KPIS - TARJETAS DE ESTADÍSTICAS -->
+<!-- ============================================================ -->
 
 <div class="dash-kpis">
     <div class="kpi-card">
         <div class="kpi-icono"><i class="bi bi-bag-check-fill"></i></div>
-        <div>
+        <div class="kpi-info">
             <div class="kpi-valor">{{ total_productos_terminados }}</div>
-            <div class="kpi-label">Productos terminados</div>
+            <div class="kpi-label">Productos</div>
         </div>
     </div>
-    <div class="kpi-card">
-        <div class="kpi-icono"><i class="bi bi-box-seam-fill"></i></div>
-        <div>
-            <div class="kpi-valor">{{ total_insumos }}</div>
-            <div class="kpi-label">Insumos</div>
-        </div>
-    </div>
-    <div class="kpi-card">
-        <div class="kpi-icono"><i class="bi bi-gear-wide-connected"></i></div>
-        <div>
-            <div class="kpi-valor">{{ total_procesados }}</div>
-            <div class="kpi-label">Productos procesados</div>
-        </div>
-    </div>
+    
     <div class="kpi-card">
         <div class="kpi-icono"><i class="bi bi-boxes"></i></div>
-        <div>
+        <div class="kpi-info">
             <div class="kpi-valor">{{ total_combos }}</div>
             <div class="kpi-label">Combos / Packs</div>
         </div>
     </div>
+    
     <div class="kpi-card">
         <div class="kpi-icono"><i class="bi bi-people-fill"></i></div>
-        <div>
+        <div class="kpi-info">
             <div class="kpi-valor">{{ total_usuarios }}</div>
-            <div class="kpi-label">Usuarios activos</div>
+            <div class="kpi-label">Usuarios</div>
         </div>
     </div>
+    
     <div class="kpi-card">
         <div class="kpi-icono"><i class="bi bi-building"></i></div>
-        <div>
+        <div class="kpi-info">
             <div class="kpi-valor">{{ total_sucursales }}</div>
             <div class="kpi-label">Sucursales</div>
         </div>
     </div>
+    
+    <div class="kpi-card">
+        <div class="kpi-icono"><i class="bi bi-cash-coin"></i></div>
+        <div class="kpi-info">
+            <div class="kpi-valor">0</div>
+            <div class="kpi-label">Ventas hoy</div>
+        </div>
+    </div>
+    
+    <div class="kpi-card">
+        <div class="kpi-icono"><i class="bi bi-truck"></i></div>
+        <div class="kpi-info">
+            <div class="kpi-valor">0</div>
+            <div class="kpi-label">Proveedores</div>
+        </div>
+    </div>
 </div>
 
-<div class="dash-section-title">Accesos rápidos</div>
-<div class="dash-accesos">
-    <a href="{% url 'lista_insumos' %}" class="acceso-card"><i class="bi bi-box-seam-fill"></i><span>Insumos</span></a>
-    <a href="{% url 'producto_list' %}" class="acceso-card"><i class="bi bi-bag-check-fill"></i><span>Productos</span></a>
-    <a href="{% url 'compra_list' %}" class="acceso-card"><i class="bi bi-cart-plus-fill"></i><span>Compras</span></a>
-    <a href="{% url 'abrir_caja' %}" class="acceso-card"><i class="bi bi-cart"></i><span>Ventas</span></a>
-    <a href="{% url 'usuario_list' %}" class="acceso-card"><i class="bi bi-people-fill"></i><span>Usuarios</span></a>
-    <a href="{% url 'sucursal_list' %}" class="acceso-card"><i class="bi bi-building"></i><span>Sucursales</span></a>
-    <a href="{% url 'proveedor_list' %}" class="acceso-card"><i class="bi bi-truck"></i><span>Proveedores</span></a>
-    <a href="{% url 'caja_list' %}" class="acceso-card"><i class="bi bi-cash"></i><span>Cajas</span></a>
+<!-- ============================================================ -->
+<!-- ACCESOS RÁPIDOS -->
+<!-- ============================================================ -->
+
+<div class="dash-section-title">
+    <i class="bi bi-grid-3x3-gap-fill"></i>
+    Accesos rápidos
 </div>
+
+<div class="dash-accesos">
+    <a href="{% url 'producto_list' %}" class="acceso-card">
+        <i class="bi bi-bag-check-fill"></i>
+        <span>Productos</span>
+    </a>
+    <a href="{% url 'compra_list' %}" class="acceso-card">
+        <i class="bi bi-cart-plus-fill"></i>
+        <span>Compras</span>
+    </a>
+    <a href="{% url 'abrir_caja' %}" class="acceso-card">
+        <i class="bi bi-cash-coin"></i>
+        <span>Ventas</span>
+    </a>
+    <a href="{% url 'usuario_list' %}" class="acceso-card">
+        <i class="bi bi-people-fill"></i>
+        <span>Usuarios</span>
+    </a>
+    <a href="{% url 'sucursal_list' %}" class="acceso-card">
+        <i class="bi bi-building"></i>
+        <span>Sucursales</span>
+    </a>
+    <a href="{% url 'proveedor_list' %}" class="acceso-card">
+        <i class="bi bi-truck"></i>
+        <span>Proveedores</span>
+    </a>
+    <a href="{% url 'caja_list' %}" class="acceso-card">
+        <i class="bi bi-cash-stack"></i>
+        <span>Cajas</span>
+    </a>
+    <a href="{% url 'reporte_egresos' %}" class="acceso-card">
+        <i class="bi bi-file-earmark-text"></i>
+        <span>Reportes</span>
+    </a>
+</div>
+
 {% endblock %}
