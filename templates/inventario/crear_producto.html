@@ -436,6 +436,24 @@
     @media (max-width: 576px) {
         .visibilidad-pills { flex-direction: column; }
     }
+    /* ===== VALIDADOR DE SKU ===== */
+    .sku-valido {
+        border-color: #16a34a !important;
+        box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.15) !important;
+    }
+    .sku-invalido {
+        border-color: #dc2626 !important;
+        box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.15) !important;
+    }
+    .sku-cargando {
+        border-color: #f59e0b !important;
+    }
+    .sku-feedback {
+        display: block;
+        margin-top: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
 </style>
 
 <script>
@@ -508,6 +526,8 @@ document.addEventListener('DOMContentLoaded', function () {
     document.querySelectorAll('.foto-uploader').forEach(inicializarFotoUploader);
 
     // ---- Toggle único / variantes ----
+    const inputSkuBase = document.querySelector('input[name="sku_base"]');
+    if (inputSkuBase) inicializarValidadorSku(inputSkuBase);
     const chkVariantes = document.getElementById('tiene_variantes');
     const bloqueSin = document.getElementById('bloqueSinVariantes');
     const bloqueCon = document.getElementById('bloqueVariantes');
@@ -531,6 +551,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // Inicializar el uploader de foto de esta nueva fila
         inicializarFotoUploader(fila.querySelector('.foto-uploader'));
+
+        // ✅ Inicializar el validador de SKU para esta fila
+        const inputSku = fila.querySelector('input[data-field="sku"]');
+        if (inputSku) inicializarValidadorSku(inputSku);
     }
 
     btnAgregar.addEventListener('click', agregarFilaVariante);
@@ -546,5 +570,87 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 });
+// =====================================================
+// VALIDADOR DE SKU EN TIEMPO REAL
+// =====================================================
+function inicializarValidadorSku(inputSku, excluirId = null) {
+    if (!inputSku) return;
+
+    // Crear el mensaje de feedback al lado del input
+    let feedback = inputSku.parentElement.querySelector('.sku-feedback');
+    if (!feedback) {
+        feedback = document.createElement('small');
+        feedback.className = 'sku-feedback';
+        feedback.style.display = 'block';
+        feedback.style.marginTop = '4px';
+        feedback.style.fontSize = '0.75rem';
+        feedback.style.fontWeight = '500';
+        inputSku.parentElement.appendChild(feedback);
+    }
+
+    // Estilos dinámicos
+    function setEstado(estado, mensaje = '') {
+        inputSku.classList.remove('sku-valido', 'sku-invalido', 'sku-cargando');
+        feedback.classList.remove('text-success', 'text-danger', 'text-muted');
+
+        if (estado === 'valido') {
+            inputSku.classList.add('sku-valido');
+            feedback.classList.add('text-success');
+            feedback.innerHTML = `<i class="bi bi-check-circle-fill"></i> ${mensaje || 'SKU disponible'}`;
+        } else if (estado === 'invalido') {
+            inputSku.classList.add('sku-invalido');
+            feedback.classList.add('text-danger');
+            feedback.innerHTML = `<i class="bi bi-x-circle-fill"></i> ${mensaje || 'SKU ya en uso'}`;
+        } else if (estado === 'cargando') {
+            inputSku.classList.add('sku-cargando');
+            feedback.classList.add('text-muted');
+            feedback.innerHTML = `<i class="bi bi-hourglass-split"></i> Verificando...`;
+        } else {
+            feedback.innerHTML = '';
+        }
+    }
+
+    let timeoutId = null;
+
+    inputSku.addEventListener('input', function () {
+        clearTimeout(timeoutId);
+        const sku = this.value.trim();
+
+        if (!sku) {
+            setEstado(null);
+            return;
+        }
+
+        setEstado('cargando');
+
+        // Debounce: esperar 400ms antes de consultar
+        timeoutId = setTimeout(async () => {
+            try {
+                let url = `/api/verificar-sku/?sku=${encodeURIComponent(sku)}`;
+                if (excluirId) url += `&excluir_id=${excluirId}`;
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.ok) {
+                    if (data.disponible) {
+                        setEstado('valido', data.mensaje);
+                    } else {
+                        setEstado('invalido', data.mensaje);
+                    }
+                } else {
+                    setEstado(null);
+                }
+            } catch (error) {
+                console.error('Error verificando SKU:', error);
+                setEstado(null);
+            }
+        }, 400);
+    });
+}
+
+const skuBase = document.querySelector('input[name="sku_base"]');
+if (skuBase) inicializarValidadorSku(skuBase);
+
 </script>
 {% endblock %}

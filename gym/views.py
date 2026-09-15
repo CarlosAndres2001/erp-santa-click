@@ -1271,7 +1271,34 @@ def insumo_delete(request):
 # ====================================================
 CODIGO_TERMINADO = 'PROD-TERM'
 
+@login_required
+def api_verificar_sku(request):
+    """
+    Verifica si un SKU está disponible.
+    GET: /api/verificar-sku/?sku=XXX&excluir_id=YYY
+    - excluir_id: opcional, para editar (excluye la variante actual)
+    """
+    sku = request.GET.get('sku', '').strip()
+    excluir_id = request.GET.get('excluir_id')
 
+    if not sku:
+        return JsonResponse({'ok': False, 'error': 'SKU vacío'}, status=400)
+
+    qs = ProductoVariante.objects.filter(sku__iexact=sku)
+
+    # Si estamos editando, excluir la variante actual
+    if excluir_id:
+        qs = qs.exclude(id=excluir_id)
+
+    existe = qs.exists()
+
+    return JsonResponse({
+        'ok': True,
+        'disponible': not existe,
+        'sku': sku,
+        'mensaje': 'SKU disponible' if not existe else f'El SKU "{sku}" ya está en uso',
+    })
+    
 def obtener_indices_variantes(post, prefix):
     """
     Encuentra los índices de variante realmente enviados en el POST,
