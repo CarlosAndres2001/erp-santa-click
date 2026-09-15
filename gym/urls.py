@@ -23,6 +23,7 @@ urlpatterns = [
     path('empresa/edit/', views.empresa_edit, name='empresa_edit'),
     path('empresa/delete/', views.empresa_delete, name='empresa_delete'),
     path('empresa/registro/', views.registro_empresa, name='registro_empresa'),
+    path('configuracion/empresa/', views.configuracion_empresa, name='configuracion_empresa'),
 
     # =======================
     # SUCURSAL
@@ -202,6 +203,7 @@ urlpatterns = [
     path('api/reporte-detalles-venta/', views.api_reporte_detalles_venta, name='api_reporte_detalles_venta'),
     path('api/exportar-detalles-venta/', views.exportar_detalles_venta_excel, name='exportar_detalles_venta_excel'),
     path('dashboard/ventas/', views.dashboard_ventas, name='dashboard_ventas'),
+    path('ventas/resumen-mi-turno/',views.resumen_mi_turno, name='resumen_mi_turno'),
     
     # ====================================================
     # TRASPASO (MAESTRO-DETALLE)

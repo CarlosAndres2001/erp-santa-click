@@ -8,7 +8,13 @@
 
 
 <link rel="stylesheet" href="{% static 'css/ventas.css' %}">
-
+{# ============ CONFIGS DE VENTAS ============ #}
+<script>
+    const PERMITIR_DESCUENTO = {{ config_ventas.permitir_descuento|yesno:"true,false" }};
+    const PERMITIR_MULTIPAGO = {{ config_ventas.permitir_multipago|yesno:"true,false" }};
+    const PERMITIR_CLIENTE = {{ config_ventas.permitir_cliente|yesno:"true,false" }};
+    const CLIENTE_OBLIGATORIO = {{ config_ventas.cliente_obligatorio|yesno:"true,false" }};
+</script>
 <div class="pdv-container">
 
     <!-- ================= CABECERA COMPACTA ================= -->
@@ -37,6 +43,7 @@
                     {% endfor %}
                 </select>
             </div>
+            {% if config_ventas.permitir_cliente %}
             <div class="control-group control-group--wide">
                 <label class="control-label">Cliente</label>
                 <select class="pdv-select" id="cliente-venta">
@@ -46,6 +53,7 @@
                     {% endfor %}
                 </select>
             </div>
+            {% endif %}
         </div>
 
         <div class="header-actions">
@@ -99,63 +107,131 @@
                     <input type="text" class="buscador-input" id="buscador-productos" placeholder="Buscar producto...">
                 </div>
             </div>
-
             <div class="productos-grid" id="productos-grid">
-                {% for v in productos %}
-                <div class="producto-card"
-                     data-tipo="producto"
-                     data-id="{{ v.id }}"
-                     data-precio="{{ precio_producto|get_item:v.id|default:v.precio_referencial|default:'0' }}"
-                     data-categoria="{{ v.producto.category.id|default:'' }}"
-                     data-nombre="{{ v.producto.nombre }} - {{ v.nombre_variante }}"
-                     data-nombre-producto="{{ v.producto.nombre }} - {{ v.nombre_variante }}"
-                     data-maneja-stock="{{ v.maneja_stock|yesno:'true,false' }}">
+                {% if modo_variantes == 'todas' %}
+                    {# ============= MODO: TODAS LAS VARIANTES ============= #}
+                    {% for v in productos %}
+                    <div class="producto-card"
+                        data-tipo="producto"
+                        data-id="{{ v.id }}"
+                        data-precio="{{ precio_producto|get_item:v.id|default:v.precio_referencial|default:'0' }}"
+                        data-categoria="{{ v.producto.category.id|default:'' }}"
+                        data-nombre="{{ v.producto.nombre }} - {{ v.nombre_variante }}"
+                        data-nombre-producto="{{ v.producto.nombre }} - {{ v.nombre_variante }}"
+                        data-maneja-stock="{{ v.maneja_stock|yesno:'true,false' }}">
 
-                    {% if v.maneja_stock %}
-                    <div class="badge-stock">
-                        <i class="fas fa-cubes"></i> <span class="stock-cantidad">0</span>
-                    </div>
-                    {% endif %}
+                        {% if v.maneja_stock %}
+                        <div class="badge-stock">
+                            <i class="fas fa-cubes"></i> <span class="stock-cantidad">0</span>
+                        </div>
+                        {% endif %}
 
-                    <div class="card-img-wrap">
-                        
-                        <img src="{% if v.foto %} {{ v.foto.url }} {% elif v.foto_url %} {{ v.foto_url }} {% else %} https://placehold.co/200x200/1a1d23/10b981?text={{ v.producto.nombre|first }} {% endif %}"
-                             class="producto-imagen"
-                             alt="{{ v.nombre_variante }}"
-                             onerror="this.src='https://placehold.co/200x200/1a1d23/10b981?text=P'">
-                        <div class="card-overlay">
-                            <i class="fas fa-plus-circle"></i>
+                        <div class="card-img-wrap">
+                            <img src="{% if v.foto %} {{ v.foto.url }} {% elif v.foto_url %} {{ v.foto_url }} {% else %} https://placehold.co/200x200/transparent/10b981?text={{ v.producto.nombre|first }} {% endif %}"
+                                class="producto-imagen"
+                                alt="{{ v.nombre_variante }}"
+                                onerror="this.src='https://placehold.co/200x200/transparent/10b981?text=P'">
+                            <div class="card-overlay">
+                                <i class="fas fa-plus-circle"></i>
+                            </div>
+                        </div>
+
+                        <div class="producto-info">
+                            <div class="producto-nombre">{{ v.producto.nombre }}</div>
+                            <div class="producto-variante">{{ v.nombre_variante }}</div>
+                            <div class="producto-footer">
+                                <span class="producto-precio">Bs {{ precio_producto|get_item:v.id|default:v.precio_referencial|floatformat:2 }}</span>
+                                <span class="producto-cat">{{ v.producto.category.name|default:"—" }}</span>
+                            </div>
                         </div>
                     </div>
+                    {% endfor %}
 
-                    <div class="producto-info">
-                        <div class="producto-nombre">{{ v.producto.nombre }}</div>
-                        <div class="producto-variante">{{ v.nombre_variante }}</div>
-                        <div class="producto-footer">
-                            <span class="producto-precio">Bs {{ precio_producto|get_item:v.id|default:v.precio_referencial|floatformat:2 }}</span>
-                            <span class="producto-cat">{{ v.producto.category.name|default:"—" }}</span>
+                {% else %}
+                    {# ============= MODO: AGRUPADO (elegir variante al vender) ============= #}
+                    {% for grupo in productos_agrupados %}
+                    <div class="producto-card producto-card--grupo"
+                        data-tipo="grupo"
+                        data-producto-id="{{ grupo.producto.id }}"
+                        data-categoria="{{ grupo.producto.category.id|default:'' }}"
+                        data-nombre="{{ grupo.producto.nombre }}"
+                        data-nombre-producto="{{ grupo.producto.nombre }}"
+                        data-variantes-count="{{ grupo.variantes|length }}">
+
+                        {# ✅ Badge: si tiene 1 sola variante no lo mostramos #}
+                        {% if grupo.variantes|length > 1 %}
+                        <div class="badge-grupo">
+                            <i class="fas fa-layer-group"></i> {{ grupo.variantes|length }} variantes
+                        </div>
+                        {% endif %}
+
+                        <div class="card-img-wrap">
+                            {# ✅ BADGE STOCK: solo si tiene 1 variante y esa variante maneja stock #}
+                            {% if grupo.variantes|length == 1 and grupo.variantes.0.maneja_stock %}
+                            <div class="badge-stock">
+                                <i class="fas fa-cubes"></i> <span class="stock-cantidad" data-variante-id="{{ grupo.variantes.0.id }}">0</span>
+                            </div>
+                            {% endif %}
+                            {% with primera=grupo.variantes.0 %}
+                            <img src="{% if primera.foto %} {{ primera.foto.url }} {% elif primera.foto_url %} {{ primera.foto_url }} {% else %} https://placehold.co/200x200/transparent/10b981?text={{ grupo.producto.nombre|first }} {% endif %}"
+                                class="producto-imagen"
+                                alt="{{ grupo.producto.nombre }}"
+                                onerror="this.src='https://placehold.co/200x200/transparent/10b981?text=P'">
+                            {% endwith %}
+                            <div class="card-overlay">
+                                {% if grupo.variantes|length > 1 %}
+                                    <i class="fas fa-hand-pointer"></i>
+                                {% else %}
+                                    <i class="fas fa-plus-circle"></i>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="producto-info">
+                            {# ✅ Tooltip con el nombre completo #}
+                            <div class="producto-nombre" title="{{ grupo.producto.nombre }}">{{ grupo.producto.nombre }}</div>
+
+                            {# ✅ Texto: depende de la cantidad de variantes #}
+                            <div class="producto-variante">
+                                {% if grupo.variantes|length > 1 %}
+                                    <i class="fas fa-palette"></i> Elegir variante
+                                {% else %}
+                                    {{ grupo.variantes.0.nombre_variante }}
+                                {% endif %}
+                            </div>
+
+                            <div class="producto-footer">
+                                {# ✅ Precio: si tiene 1 sola variante mostramos el precio real #}
+                                {% if grupo.variantes|length > 1 %}
+                                    <span class="producto-precio">Ver opciones</span>
+                                {% else %}
+                                    <span class="producto-precio">Bs {{ precio_producto|get_item:grupo.variantes.0.id|default:grupo.variantes.0.precio_referencial|floatformat:2 }}</span>
+                                {% endif %}
+                                <span class="producto-cat">{{ grupo.producto.category.name|default:"—" }}</span>
+                            </div>
                         </div>
                     </div>
-                </div>
-                {% endfor %}
+                    {% endfor %}
+                {% endif %}
 
+                {# ============= PACKS (siempre igual) ============= #}
                 {% for pack in packs %}
                 <div class="producto-card"
-                     data-tipo="pack"
-                     data-id="{{ pack.id }}"
-                     data-precio="{{ precio_pack|get_item:pack.id|default:'0' }}"
-                     data-categoria="{{ pack.category.id|default:'' }}"
-                     data-nombre="{{ pack.nombre }}"
-                     data-nombre-producto="{{ pack.nombre }}"
-                     data-maneja-stock="false">
+                    data-tipo="pack"
+                    data-id="{{ pack.id }}"
+                    data-precio="{{ precio_pack|get_item:pack.id|default:'0' }}"
+                    data-categoria="{{ pack.category.id|default:'' }}"
+                    data-nombre="{{ pack.nombre }}"
+                    data-nombre-producto="{{ pack.nombre }}"
+                    data-maneja-stock="false">
 
                     <div class="badge-pack"><i class="fas fa-layer-group"></i> PACK</div>
 
                     <div class="card-img-wrap">
                         <img src="https://placehold.co/200x200/10b981/ffffff?text=PACK"
-                             class="producto-imagen"
-                             alt="{{ pack.nombre }}"
-                             onerror="this.src='https://placehold.co/200x200/10b981/ffffff?text=P'">
+                            class="producto-imagen"
+                            alt="{{ pack.nombre }}"
+                            onerror="this.src='https://placehold.co/200x200/10b981/ffffff?text=P'">
                         <div class="card-overlay">
                             <i class="fas fa-plus-circle"></i>
                         </div>
@@ -249,6 +325,7 @@
             <div class="mpago-body-nuevo">
 
                 <!-- Descuento -->
+                {% if config_ventas.permitir_descuento %}
                 <div class="descuento-row">
                     <label><i class="fas fa-tag me-1"></i>Descuento</label>
                     <div class="desc-input-wrap">
@@ -256,7 +333,9 @@
                         <input type="number" id="pago-descuento" value="0" min="0" step="0.01" placeholder="0.00">
                     </div>
                 </div>
-
+                {% else %}
+                <input type="hidden" id="pago-descuento" value="0">
+                {% endif %}
                 <!-- Sección: Métodos -->
                 <div class="mpago-section-label"><i class="fas fa-credit-card"></i> Selecciona un método</div>
                 <div class="metodos-grid-nuevo" id="metodos-pago-grid">
@@ -268,10 +347,11 @@
                 <div id="pagos-container-nuevo">
                     <!-- filas dinámicas -->
                 </div>
+                {% if config_ventas.permitir_multipago %}
                 <button type="button" class="btn-add-pago" id="btn-agregar-pago-nuevo">
                     <i class="fas fa-plus-circle"></i> Agregar otro método de pago
                 </button>
-
+                {% endif %}
                 <!-- Barra progreso -->
                 <div class="mpago-progress-wrap">
                     <div class="mpago-progress-labels">
@@ -597,6 +677,32 @@
     </div>
 </div>
 
+<!-- ── MODAL SELECTOR DE VARIANTES ─────────────────────────── -->
+<div class="modal fade" id="modalVariantes" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border-radius:16px;border:none;background:var(--bg-card);">
+            
+            <div class="modal-header" style="border-bottom:1px solid var(--border);">
+                <h5 class="modal-title" id="modalVariantesTitulo">
+                    <i class="fas fa-box-open me-2"></i>Elegir variante
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <p class="mb-3" style="color:var(--text-muted);font-size:13px;">
+                    Selecciona el sabor / variante que deseas vender:
+                </p>
+                <div id="modalVariantesGrid" class="variantes-grid">
+                    <!-- JS inyecta aquí las variantes -->
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
 <script>        
     // ===================== ♻️ FUNCIÓN COMPARTIDA PARA SOLICITAR CONFIRMACIÓN =====================
     function solicitarConfirmacion({ titulo, mensaje, icono, claseBoton, alConfirmar }) {
@@ -649,7 +755,7 @@
         let total = 0;
         let canalId = document.getElementById('canal-venta').value;
         let almacenId = document.getElementById('almacen-venta').value;
-        let clienteId = document.getElementById('cliente-venta').value;
+        let clienteId = document.getElementById('cliente-venta')?.value;
 
         // Métodos de pago desde el contexto Django
         const METODOS_PAGO = [
@@ -671,7 +777,7 @@
         }
         actualizarFecha();
         setInterval(actualizarFecha, 1000);
-
+        const STOCKS_POR_VARIANTE = {};
         // ===================== CARGAR STOCKS =====================
         async function cargarStocks() {
             if (!almacenId) return;
@@ -687,9 +793,22 @@
                         if (stockSpan) stockSpan.textContent = Math.floor(stockData.cantidad_actual);
                     }
                 });
+                // ✅ Actualizar stock de grupos con 1 sola variante (modo agrupado)
+                document.querySelectorAll('.producto-card--grupo .stock-cantidad').forEach(span => {
+                    const varianteId = span.dataset.varianteId;
+                    const stockData = stocks.find(s => s.producto_variante_id == varianteId);
+                    if (stockData) {
+                        span.textContent = Math.floor(stockData.cantidad_actual);
+                    }
+                });
+                stocks.forEach(s => {
+                    STOCKS_POR_VARIANTE[s.producto_variante_id] = Math.floor(s.cantidad_actual);
+                });
+
+                console.log('✅ Stocks cargados:', Object.keys(STOCKS_POR_VARIANTE).length);
+
             } catch(e) { console.log('Stock fetch error:', e); }
         }
-
         // ===================== FILTRAR =====================
         document.querySelectorAll('.categoria-btn').forEach(btn => {
             btn.addEventListener('click', function() {
@@ -707,9 +826,13 @@
             const texto = buscador ? buscador.value.toLowerCase().trim() : '';
             let visible = 0;
             document.querySelectorAll('.producto-card').forEach(card => {
-                const coincideCat = cat === 'all' || card.dataset.categoria === cat;
-                const coincideTexto = !texto || card.dataset.nombre.toLowerCase().includes(texto);
+                const catCard = card.dataset.categoria || '';
+                const nombreCard = (card.dataset.nombre || '').toLowerCase();
+
+                const coincideCat = cat === 'all' || catCard === cat;
+                const coincideTexto = !texto || nombreCard.includes(texto);
                 const mostrar = coincideCat && coincideTexto;
+
                 card.style.display = mostrar ? '' : 'none';
                 if (mostrar) visible++;
             });
@@ -723,6 +846,7 @@
                 if (e.target.closest('.cantidad-btn')) return;
 
                 const tipo = this.dataset.tipo;
+                if (tipo === 'grupo') return;
                 const id = parseInt(this.dataset.id);
                 const nombre = this.dataset.nombre;
                 const precio = parseFloat(this.dataset.precio);
@@ -839,75 +963,42 @@
             document.querySelectorAll('.decrementar').forEach(btn => {
                 btn.addEventListener('click', e => { e.stopPropagation(); cambiarCantidad(parseInt(btn.dataset.index), -1); });
             });
-            // Evento para input de cantidad editable
-            /*document.querySelectorAll('.qty-input').forEach(input => {
-                input.addEventListener('change', function() {
-                    const index = parseInt(this.dataset.index);
-                    let nuevaCantidad = parseInt(this.value) || 1;
-                    
-                    if (nuevaCantidad < 1) {
-                        nuevaCantidad = 1;
-                        this.value = 1;
-                    }
-                    
-                    const item = carrito[index];
-                    if (!item) return;
-                    
-                    item.cantidad = nuevaCantidad;
-                    item.subtotal = item.cantidad * item.precio;
-                    actualizarCarrito();
-                });
-                
-                // Permitir solo números
-                input.addEventListener('keypress', function(e) {
-                    if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Tab') {
-                        e.preventDefault();
-                    }
-                });
-            });*/
             // Evento para input de cantidad (validando stock)
             document.querySelectorAll('.qty-input').forEach(input => {
                 input.addEventListener('change', function() {
                     const index = parseInt(this.dataset.index);
                     let nuevaCantidad = parseInt(this.value) || 1;
-                    
-                    // Validar mínimo
+
                     if (nuevaCantidad < 1) {
                         nuevaCantidad = 1;
                         this.value = 1;
                     }
-                    
+
                     const item = carrito[index];
                     if (!item) return;
-                    
-                    // === VALIDAR STOCK SI ES PRODUCTO ===
+
+                    // ✅ VALIDAR STOCK
                     if (item.tipo === 'producto') {
-                        const card = document.querySelector(`.producto-card[data-id="${item.id}"][data-tipo="producto"]`);
-                        if (card && card.dataset.manejaStock === 'true') {
-                            const stockSpan = card.querySelector('.stock-cantidad');
-                            const stockActual = stockSpan ? (parseInt(stockSpan.textContent) || 0) : 9999;
-                            
-                            if (nuevaCantidad > stockActual) {
-                                mostrarMensaje(`❌ Stock insuficiente para "${item.nombre}". Disponible: ${stockActual}`, 'warning');
-                                this.value = item.cantidad; // Volver a la cantidad anterior
-                                return;
-                            }
+                        const stockActual = obtenerStockVariante(item.id);
+                        if (stockActual !== null && nuevaCantidad > stockActual) {
+                            mostrarMensaje(`❌ Stock insuficiente para "${item.nombre}". Disponible: ${stockActual}`, 'warning');
+                            this.value = item.cantidad;
+                            return;
                         }
                     }
-                    
-                    // Actualizar cantidad
+
                     item.cantidad = nuevaCantidad;
                     item.subtotal = item.cantidad * item.precio;
                     actualizarCarrito();
                 });
-                
-                // Solo permitir números
+
                 input.addEventListener('keypress', function(e) {
                     if (!/[0-9]/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Tab') {
                         e.preventDefault();
                     }
                 });
             });
+
             // Evento eliminar producto
             document.querySelectorAll('.btn-eliminar-item').forEach(btn => {
                 btn.addEventListener('click', function(e) {
@@ -950,8 +1041,23 @@
                 });
             });
         }
+        // ✅ Obtener stock unificado (modo todas y agrupado)
+        function obtenerStockVariante(productoId) {
+            // 1. Modo "todas": leer del DOM
+            const card = document.querySelector(`.producto-card[data-id="${productoId}"][data-tipo="producto"]`);
+            if (card) {
+                if (card.dataset.manejaStock !== 'true') return null;
+                const span = card.querySelector('.stock-cantidad');
+                return span ? parseInt(span.textContent) || 0 : 0;
+            }
+            // 2. Modo agrupado: leer del objeto global
+            return STOCKS_POR_VARIANTE[productoId] ?? null;
+        }
+        
+
         function cambiarCantidad(index, cambio) {
             const item = carrito[index];
+            if (!item) return;
 
             if (cambio > 0 && item.cantidad >= 9999) {
                 mostrarMensaje('Cantidad máxima alcanzada', 'warning');
@@ -959,14 +1065,10 @@
             }
 
             if (cambio > 0 && item.tipo === 'producto') {
-                const card = document.querySelector(`.producto-card[data-id="${item.id}"][data-tipo="producto"]`);
-                if (card && card.dataset.manejaStock === 'true') {
-                    const stockSpan = card.querySelector('.stock-cantidad');
-                    const stockActual = stockSpan ? (parseInt(stockSpan.textContent) || 0) : 9999;
-                    if (item.cantidad + 1 > stockActual) {
-                        mostrarMensaje(`Stock insuficiente para "${item.nombre}"`, 'warning');
-                        return;
-                    }
+                const stockActual = obtenerStockVariante(item.id);
+                if (stockActual !== null && item.cantidad + 1 > stockActual) {
+                    mostrarMensaje(`Stock insuficiente para "${item.nombre}". Disponible: ${stockActual}`, 'warning');
+                    return;
                 }
             }
 
@@ -1095,7 +1197,10 @@
         }
 
         function totalACobrarModal() {
-            const descuento = parseFloat(document.getElementById('pago-descuento').value) || 0;
+
+            const descuentoInput = document.getElementById('pago-descuento');
+            const descuento = PERMITIR_DESCUENTO && descuentoInput
+                ? (parseFloat(descuentoInput.value) || 0) : 0;
             const envio = document.getElementById('chk-envio').checked
                 ? (parseFloat(document.getElementById('input-costo-envio').value) || 0) : 0;
             return Math.max(0, total - descuento + envio);
@@ -1195,11 +1300,16 @@
             modal.show();
         }
 
-        // ── Botón agregar método ──────────────────────────────────
+        /* ── Botón agregar método ──────────────────────────────────
         document.getElementById('btn-agregar-pago-nuevo').addEventListener('click', () => {
             crearFilaPago(0);
-        });
-
+        });*/
+        const btnAgregarPago = document.getElementById('btn-agregar-pago-nuevo');
+        if (btnAgregarPago) {
+            btnAgregarPago.addEventListener('click', () => {
+                crearFilaPago(0);
+            });
+        }
         // ── Toggle envío ──────────────────────────────────────────
         document.getElementById('chk-envio').addEventListener('change', function() {
             document.getElementById('panel-envio-nuevo').classList.toggle('d-none', !this.checked);
@@ -1222,6 +1332,14 @@
 
         // ===================== CONFIRMAR VENTA =====================
         document.getElementById('btn-confirmar-venta').addEventListener('click', async () => {
+            // ✅ VALIDAR CLIENTE OBLIGATORIO
+            if (CLIENTE_OBLIGATORIO) {
+                const clienteSeleccionado = document.getElementById('cliente-venta')?.value;
+                if (!clienteSeleccionado) {
+                    mostrarMensaje('⚠️ Debes seleccionar un cliente para continuar', 'warning');
+                    return;
+                }
+            }
             // Recolectar pagos de las filas
             const pagosData = [];
             let todoOk = true;
@@ -1265,7 +1383,7 @@
                         const payload = {
                             canal: canalId,
                             almacen: almacenId,
-                            cliente: document.getElementById('cliente-venta').value || null,
+                            cliente: document.getElementById('cliente-venta')?.value || null,
                             total: truncar2Decimales(totalFinal),
                             descuento: truncar2Decimales(descuento),
                             costo_envio: truncar2Decimales(costoEnvio),
@@ -1399,11 +1517,16 @@
             mostrarMensaje('Almacén actualizado', 'info');
         });
 
-        // Listener para cambio de cliente
+        /* Listener para cambio de cliente
         document.getElementById('cliente-venta').addEventListener('change', e => {
             clienteId = e.target.value;
-        });
-
+        });*/
+        const selectCliente = document.getElementById('cliente-venta');
+        if (selectCliente) {
+            selectCliente.addEventListener('change', e => {
+                clienteId = e.target.value;
+            });
+        }
         // ===================== MENSAJES TOAST =====================
         function mostrarMensaje(texto, tipo = 'info') {
             let container = document.getElementById('message-container');
@@ -1670,6 +1793,190 @@
                 document.body.style.overflow = '';
             }
         }
+
+        // ===================== MODAL DE VARIANTES (modo agrupado) =====================
+        const MODO_VARIANTES = '{{ modo_variantes }}';
+
+        // Datos de productos agrupados (solo en modo agrupado)
+        const PRODUCTOS_AGRUPADOS_ARRAY = [
+            {% if modo_variantes == 'agrupado' and productos_agrupados %}
+                {% for grupo in productos_agrupados %}
+                {
+                    producto_id: {{ grupo.producto.id }},
+                    nombre: "{{ grupo.producto.nombre|escapejs }}",
+                    variantes: [
+                        {% for v in grupo.variantes %}
+                        {
+                            id: {{ v.id }},
+                            nombre: "{{ v.nombre_variante|escapejs }}",
+                            sku: "{{ v.sku|escapejs }}",
+                            
+                            precio: parseFloat("{{ precio_producto|get_item:v.id|default:v.precio_referencial|default:0 }}".replace(',', '.')),
+                            maneja_stock: {{ v.maneja_stock|yesno:'true,false' }},
+                            foto: "{% if v.foto %}{{ v.foto.url }}{% elif v.foto_url %}{{ v.foto_url }}{% endif %}"
+                        }{% if not forloop.last %},{% endif %}
+                        {% endfor %}
+                    ]
+                }{% if not forloop.last %},{% endif %}
+                {% endfor %}
+            {% endif %}
+        ];
+
+        // Convertir a objeto indexado por producto_id
+        const PRODUCTOS_AGRUPADOS = {};
+        PRODUCTOS_AGRUPADOS_ARRAY.forEach(g => {
+            PRODUCTOS_AGRUPADOS[g.producto_id] = g;
+        });
+        let modalVariantesBS = null;
+
+        function abrirModalVariantes(productoId, cardElement) {
+            const data = PRODUCTOS_AGRUPADOS[productoId];
+            if (!data) return;
+
+            document.getElementById('modalVariantesTitulo').innerHTML =
+                `<i class="fas fa-box-open me-2"></i>${data.nombre} — Elegir variante`;
+
+            const grid = document.getElementById('modalVariantesGrid');
+            grid.innerHTML = data.variantes.map(v => {
+                // ✅ OBTENER STOCK DEL OBJETO GLOBAL
+                const stockActual = v.maneja_stock ? (STOCKS_POR_VARIANTE[v.id] ?? 0) : null;
+                const agotado = v.maneja_stock && stockActual !== null && stockActual <= 0;
+                const stockBajo = v.maneja_stock && stockActual !== null && stockActual > 0 && stockActual <= 3;
+
+                // Texto de stock
+                let stockTexto = '';
+                if (v.maneja_stock) {
+                    const claseStock = agotado ? 'agotado' : (stockBajo ? 'bajo' : 'ok');
+                    const textoStock = agotado ? 'Agotado' : `Stock: ${stockActual}`;
+                    stockTexto = `<div class="v-stock ${claseStock}">
+                        <i class="fas fa-cubes"></i> ${textoStock}
+                    </div>`;
+                }
+            // ✅ IMAGEN DE LA VARIANTE
+                const imagenHtml = v.foto
+                    ? `<img src="${v.foto}" class="v-foto" alt="${v.nombre}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';">`
+                    : '';
+                const placeholderHtml = `<div class="v-foto v-foto--placeholder" style="${v.foto ? 'display:none;' : ''}">
+                    <i class="fas fa-box"></i>
+                </div>`;
+                return `
+                    <div class="variante-item ${agotado ? 'agotado' : ''}"
+                        data-variante-id="${v.id}"
+                        data-variante-nombre="${v.nombre}"
+                        data-variante-precio="${v.precio}"
+                        data-variante-stock="${v.maneja_stock}"
+                        data-stock-disponible="${stockActual !== null ? stockActual : ''}">
+                        ${imagenHtml}
+                        ${placeholderHtml}
+                        <div class="v-nombre">${v.nombre}</div>
+                        <div class="v-precio">Bs ${parseFloat(v.precio).toFixed(2)}</div>
+                        <div class="v-sku">${v.sku}</div>
+                        ${stockTexto}
+                    </div>
+                `;
+            }).join('');
+
+            grid.querySelectorAll('.variante-item').forEach(el => {
+                el.addEventListener('click', function() {
+                    if (this.classList.contains('agotado')) {
+                        mostrarMensaje('Esta variante está agotada', 'warning');
+                        return;
+                    }
+
+                    const id = parseInt(this.dataset.varianteId);
+                    const nombre = this.dataset.varianteNombre;
+                    const precio = parseFloat(this.dataset.variantePrecio);
+                    const manejaStock = this.dataset.varianteStock === 'true';
+                    const stockDisponible = this.dataset.stockDisponible !== ''
+                        ? parseInt(this.dataset.stockDisponible)
+                        : null;
+
+                    if (manejaStock && stockDisponible !== null) {
+                        const itemEnCarrito = carrito.find(i => i.id === id && i.tipo === 'producto');
+                        const enCarrito = itemEnCarrito ? itemEnCarrito.cantidad : 0;
+
+                        if (enCarrito + 1 > stockDisponible) {
+                            mostrarMensaje(`❌ Stock insuficiente. Disponible: ${stockDisponible}`, 'warning');
+                            return;
+                        }
+                    }
+
+                    agregarVarianteAlCarrito(id, nombre, precio, manejaStock, data.nombre);
+                    if (modalVariantesBS) modalVariantesBS.hide();
+                });
+            });
+
+            if (!modalVariantesBS) {
+                modalVariantesBS = new bootstrap.Modal(document.getElementById('modalVariantes'));
+            }
+            modalVariantesBS.show();
+        }
+
+        function agregarVarianteAlCarrito(id, nombreVariante, precio, manejaStock, nombreProducto) {
+            if (!precio || precio <= 0) {
+                mostrarMensaje('Esta variante no tiene precio configurado', 'warning');
+                return;
+            }
+
+            const nombreCompleto = `${nombreProducto} - ${nombreVariante}`;
+            const existente = carrito.find(i => i.id === id && i.tipo === 'producto');
+            const enCarrito = existente ? existente.cantidad : 0;
+
+            // ✅ VALIDAR STOCK
+            if (manejaStock) {
+                const stockActual = STOCKS_POR_VARIANTE[id] ?? 0;
+                if (enCarrito + 1 > stockActual) {
+                    mostrarMensaje(`❌ Stock insuficiente. Disponible: ${stockActual}`, 'warning');
+                    return;
+                }
+            }
+
+            if (existente) {
+                existente.cantidad++;
+                existente.subtotal = existente.cantidad * existente.precio;
+            } else {
+                carrito.push({
+                    tipo: 'producto',
+                    id: id,
+                    nombre: nombreCompleto,
+                    precio: precio,
+                    cantidad: 1,
+                    subtotal: precio
+                });
+            }
+
+            actualizarCarrito();
+            mostrarMensaje(`"${nombreCompleto}" agregado`, 'success');
+        }
+
+        // Detectar click en cards de grupo (modo agrupado)
+        document.querySelectorAll('.producto-card--grupo').forEach(card => {
+            card.addEventListener('click', function() {
+                const productoId = parseInt(this.dataset.productoId);
+                const data = PRODUCTOS_AGRUPADOS[productoId];
+
+                if (!data) return;
+
+                // ✅ SI SOLO TIENE 1 VARIANTE → AGREGAR DIRECTO AL CARRITO
+                if (data.variantes.length === 1) {
+                    const variante = data.variantes[0];
+                    agregarVarianteAlCarrito(
+                        variante.id,
+                        variante.nombre,
+                        variante.precio,
+                        variante.maneja_stock,
+                        data.nombre
+                    );
+
+                    this.classList.add('added');
+                    setTimeout(() => this.classList.remove('added'), 400);
+                    return;
+                }
+
+                // ✅ SI TIENE 2 O MÁS → ABRIR MODAL
+                abrirModalVariantes(productoId, this);
+            });
+        });
      });
 </script>
 <script>

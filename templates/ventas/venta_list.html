@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-
+{% block title %}Reporte de Ventas{% endblock %}
 {% block content %}
 <div class="container-fluid px-4">
     <!-- ENCABEZADO CON ESTADÍSTICAS RÁPIDAS -->
@@ -78,7 +78,7 @@
                     </div>
                     <div>
                         <h6 class="text mb-0 small text-uppercase">Ticket Promedio</h6>
-                        <h3 class="mb-0 fw-bold">${{ resumen.promedio|floatformat:2|default:"0.00" }}</h3>
+                        <h3 class="mb-0 fw-bold">${{ promedio|floatformat:2|default:"0.00" }}</h3>
                     </div>
                 </div>
             </div>
@@ -276,15 +276,15 @@
         
         <!-- PAGINACIÓN (si tienes) -->
         {% if is_paginated %}
-        <div class="card-footer bg-white border-0 py-3">
+        <div class="card-footer border-0 py-3">
             <nav aria-label="Paginación">
                 <ul class="pagination justify-content-center mb-0">
                     {% if page_obj.has_previous %}
                     <li class="page-item">
-                        <a class="page-link" href="?page=1">&laquo;</a>
+                        <a class="page-link" href="?page=1&{{ request.GET.urlencode }}">&laquo;</a>
                     </li>
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}">Anterior</a>
                     </li>
                     {% endif %}
                     
@@ -294,10 +294,10 @@
                     
                     {% if page_obj.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente</a>
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}">Siguiente</a>
                     </li>
                     <li class="page-item">
-                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">&raquo;</a>
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&{{ request.GET.urlencode }}">&raquo;</a>
                     </li>
                     {% endif %}
                 </ul>

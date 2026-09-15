@@ -19,7 +19,7 @@ from django.core.paginator import Paginator
 from django.utils.dateparse import parse_date
 from django.conf import settings 
 from .models import (
-    Almacen, ArqueoCaja, DetallePack, IngresoMonetario, Kardex, MetodoPago, Modulo, MovimientoCaja, PagoVenta, PermisoRol, ProductoVariante, Rol, PlanEmpresa, Empresa, Sucursal, TipoProducto, Usuario, CanalVenta, UnidadMedida, Category,
+    Almacen, ArqueoCaja, ConfiguracionEmpresa, DetallePack, IngresoMonetario, Kardex, MetodoPago, Modulo, MovimientoCaja, PagoVenta, PermisoRol, ProductoVariante, Rol, PlanEmpresa, Empresa, Sucursal, TipoProducto, Usuario, CanalVenta, UnidadMedida, Category,
     Producto, PrecioProducto, Stock, TipoIngreso, Ingreso, DetalleIngreso, Turno,
     Caja, CajaTurno, TipoEgreso, Egreso, DetalleEgreso, Proveedor, Compra, DetalleCompra,
     Venta, DetalleVenta, Traspaso, DetalleTraspaso, EgresoMonetario, Plan, Cliente,
@@ -353,6 +353,106 @@ def empresa_delete(request):
         empresa.save()
         messages.success(request, 'Empresa desactivada correctamente.')
     return redirect('empresa_list')
+
+@login_required
+@permiso_requerido('configuracion_empresa', 'ver')
+def configuracion_empresa(request):
+    """
+    Panel de configuración de empresa con tabs por módulo.
+    GET: muestra el panel
+    POST: guarda los cambios del tab activo
+    """
+    empresa = request.user.fk_empresa
+    config = ConfiguracionEmpresa.get_for_empresa(empresa)
+
+    if request.method == 'POST':
+        tab = request.POST.get('tab', 'ventas')
+
+        if tab == 'ventas':
+            config.ventas = {
+                'modo_variantes': request.POST.get('modo_variantes', 'todas'),
+                'mostrar_imagen': request.POST.get('mostrar_imagen') == 'on',
+                'mostrar_precio': request.POST.get('mostrar_precio') == 'on',
+                'mostrar_stock': request.POST.get('mostrar_stock') == 'on',
+                'permitir_descuento': request.POST.get('permitir_descuento') == 'on',
+                'permitir_cliente': request.POST.get('permitir_cliente') == 'on',
+                'cliente_obligatorio': request.POST.get('cliente_obligatorio') == 'on',
+                'permitir_multipago': request.POST.get('permitir_multipago') == 'on',
+                'permitir_anular': request.POST.get('permitir_anular') == 'on',
+                'permitir_reimprimir': request.POST.get('permitir_reimprimir') == 'on',
+                'cerrar_venta_automatico': request.POST.get('cerrar_venta_automatico') == 'on',
+                'items_por_pagina': int(request.POST.get('items_por_pagina', 24)),
+            }
+
+        elif tab == 'compras':
+            config.compras = {
+                'crear_producto_rapido': request.POST.get('crear_producto_rapido') == 'on',
+                'crear_variante_rapida': request.POST.get('crear_variante_rapida') == 'on',
+                'proveedor_obligatorio': request.POST.get('proveedor_obligatorio') == 'on',
+                'items_por_pagina': int(request.POST.get('items_por_pagina', 25)),
+            }
+
+        elif tab == 'cierre_caja':
+            config.cierre_caja = {
+                # Pantalla
+                'mostrar_total_ventas': request.POST.get('mostrar_total_ventas') == 'on',
+                'mostrar_total_monto': request.POST.get('mostrar_total_monto') == 'on',
+                'mostrar_desglose_pagos': request.POST.get('mostrar_desglose_pagos') == 'on',
+                'mostrar_montos_esperados': request.POST.get('mostrar_montos_esperados') == 'on',
+                'mostrar_ingresos': request.POST.get('mostrar_ingresos') == 'on',
+                'mostrar_egresos': request.POST.get('mostrar_egresos') == 'on',
+                'mostrar_saldo_inicial': request.POST.get('mostrar_saldo_inicial') == 'on',
+                'mostrar_saldo_esperado': request.POST.get('mostrar_saldo_esperado') == 'on',
+                'mostrar_diferencia': request.POST.get('mostrar_diferencia') == 'on',
+                'mostrar_ticket_promedio': request.POST.get('mostrar_ticket_promedio') == 'on',
+                'mostrar_anuladas': request.POST.get('mostrar_anuladas') == 'on',
+                'mostrar_productos_top': request.POST.get('mostrar_productos_top') == 'on',
+                'mostrar_clientes_atendidos': request.POST.get('mostrar_clientes_atendidos') == 'on',
+                # Ticket
+                'ticket_mostrar_total_ventas': request.POST.get('ticket_mostrar_total_ventas') == 'on',
+                'ticket_mostrar_desglose_pagos': request.POST.get('ticket_mostrar_desglose_pagos') == 'on',
+                'ticket_mostrar_montos_esperados': request.POST.get('ticket_mostrar_montos_esperados') == 'on',  # ← NUEVA
+                'ticket_mostrar_ingresos': request.POST.get('ticket_mostrar_ingresos') == 'on',
+                'ticket_mostrar_egresos': request.POST.get('ticket_mostrar_egresos') == 'on',
+                'ticket_mostrar_saldo_inicial': request.POST.get('ticket_mostrar_saldo_inicial') == 'on',
+                'ticket_mostrar_saldo_esperado': request.POST.get('ticket_mostrar_saldo_esperado') == 'on',
+                'ticket_mostrar_diferencia': request.POST.get('ticket_mostrar_diferencia') == 'on',
+                'ticket_mostrar_observaciones': request.POST.get('ticket_mostrar_observaciones') == 'on',
+                'ticket_mostrar_firma': request.POST.get('ticket_mostrar_firma') == 'on',
+            }
+
+        elif tab == 'ticket':
+            config.ticket = {
+                'ancho_mm': int(request.POST.get('ancho_mm', 80)),
+                'mostrar_logo': request.POST.get('mostrar_logo') == 'on',
+                'mostrar_qr': request.POST.get('mostrar_qr') == 'on',
+                'mostrar_datos_cliente': request.POST.get('mostrar_datos_cliente') == 'on',
+                'mostrar_vendedor': request.POST.get('mostrar_vendedor') == 'on',
+                'mostrar_cajero': request.POST.get('mostrar_cajero') == 'on',
+                'imprimir_automatico': request.POST.get('imprimir_automatico') == 'on',
+            }
+
+        elif tab == 'sistema':
+            config.sistema = {
+                'alertas_stock_bajo': request.POST.get('alertas_stock_bajo') == 'on',
+                'stock_bajo_minimo': int(request.POST.get('stock_bajo_minimo', 5)),
+                'mostrar_anulados_reportes': request.POST.get('mostrar_anulados_reportes') == 'on',
+                'filtrar_hoy_por_defecto': request.POST.get('filtrar_hoy_por_defecto') == 'on',
+            }
+
+        config.save()
+        messages.success(request, f'Configuración de {tab.replace("_", " ").title()} guardada correctamente.')
+        return redirect(f"{request.path}?tab={tab}")
+
+    # GET
+    tab_activo = request.GET.get('tab', 'ventas')
+
+    context = {
+        'config': config,
+        'tab_activo': tab_activo,
+        'titulo': 'Configuración de Empresa',
+    }
+    return render(request, 'empresa/configuracion_empresa.html', context)
 
 # ====================================================
 #  SUCURSAL
@@ -1750,7 +1850,6 @@ def importar_productos_terminados(request):
  
     return render(request, 'inventario/producto_terminado_import.html', {'titulo': 'Importar Productos Terminados'})
  
- 
 # ============================================================
 # PASO 2: confirmar -> guardar todo lo que quedó en la revisión
 # ============================================================
@@ -2586,8 +2685,9 @@ def cerrar_caja(request):
     # ==========================================================
 
     total_sistema = sum((item['monto_sistema']for item in arqueos),Decimal('0.00'))
-    
-    return render(request,'ventas/cerrar_caja.html',{'caja_turno': caja_turno,'arqueos': arqueos,'total_sistema': total_sistema,})
+    # Obtener configuración de empresa
+    config = ConfiguracionEmpresa.get_for_empresa(usuario.fk_empresa)
+    return render(request,'ventas/cerrar_caja.html',{'caja_turno': caja_turno,'arqueos': arqueos,'total_sistema': total_sistema,'config_cierre': config.cierre_caja, })
 
 def obtener_monto_declarado(caja_turno, metodo_pago):
     """Función para obtener el monto declarado de un arqueo de caja"""
@@ -2601,7 +2701,6 @@ def obtener_monto_declarado(caja_turno, metodo_pago):
         return Decimal('0.00')
     
 @login_required
-@permiso_requerido('ver_ticket_cierre', 'ver')
 def ticket_cierre_caja(request, turno_id):
     """Vista para generar el ticket de cierre de caja"""
     
@@ -2683,7 +2782,8 @@ def ticket_cierre_caja(request, turno_id):
     
     # Diferencia total
     diferencia_total = total_declarado - total_sistema
-    
+    # Obtener configuración de empresa
+    config = ConfiguracionEmpresa.get_for_empresa(usuario.fk_empresa)
     context = {
         'caja_turno': caja_turno,
         'arqueos': arqueos,
@@ -2693,6 +2793,8 @@ def ticket_cierre_caja(request, turno_id):
         'sucursal': sucursal,
         'usuario': usuario,
         'now': timezone.now(),
+        'config_cierre': config.cierre_caja,   # ← NUEVA
+        'config_ticket': config.ticket,        # ← NUEVA
     }
     
     return render(request, 'ventas/ticket_cierre_caja.html', context)
@@ -3710,9 +3812,19 @@ def venta_list(request):
         total_monto=DjangoSum('total'),
         cantidad=Count('id'),
     )
- 
+    total_monto = resumen['total_monto'] or 0
+    cantidad = resumen['cantidad'] or 0
+    promedio = total_monto / cantidad if cantidad > 0 else 0
+    
+    paginator = Paginator(ventas, 50)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
     context = {
-        'ventas': ventas,
+        #'ventas': ventas,
+        'ventas': page_obj,              
+        'page_obj': page_obj,           
+        'is_paginated': page_obj.has_other_pages(),
         'canales': CanalVenta.objects.filter(fk_empresa=empresa, is_active=True),
         'sucursales': Sucursal.objects.filter(fk_empresa=empresa, estado=True),
         'usuarios': Usuario.objects.filter(sucursal__fk_empresa=empresa, is_active=True),
@@ -3726,10 +3838,96 @@ def venta_list(request):
         'cliente_q': cliente_q,
         'mostrando_hoy': not fecha_desde and not fecha_hasta,
         'titulo': 'Reporte de Ventas',
+        'promedio': promedio,
     }
     return render(request, 'ventas/venta_list.html', context)
  
+@login_required
+@permiso_requerido('resumen_mi_turno', 'ver')
+def resumen_mi_turno(request):
+    usuario = request.user
+    empresa = usuario.fk_empresa
 
+    # =========================================================
+    # BUSCAR LA CAJA / TURNO ACTUAL DEL USUARIO
+    # =========================================================
+
+    caja_turno = (
+        CajaTurno.objects
+        .filter(usuario=usuario, estado='ABIERTA')
+        .select_related('caja', 'sucursal')
+        .first()
+    )
+
+    # =========================================================
+    # SI EL USUARIO NO TIENE CAJA ABIERTA
+    # =========================================================
+
+    if not caja_turno:
+        return render(
+            request,
+            'ventas/resumen_mi_turno.html',
+            {
+                'caja_turno': None,
+                'ventas': [],
+                'titulo': 'Resumen de Mi Turno', })
+
+    ventas_qs = (
+        Venta.objects
+        .filter(
+            sucursal__fk_empresa=empresa,
+            caja_turno=caja_turno,
+            usuario=usuario
+        )
+        .select_related(
+            'usuario',
+            'sucursal',
+            'canal',
+            'cliente',
+            'caja_turno'
+        )
+        .prefetch_related('pagos__metodo_pago').order_by('-fecha'))
+
+    resumen = ventas_qs.filter(
+        is_active=True
+    ).aggregate(
+        total_monto=DjangoSum('total'),
+        cantidad=Count('id')
+    )
+
+    total_monto = resumen['total_monto'] or 0
+    cantidad = resumen['cantidad'] or 0
+
+    promedio = (
+        total_monto / cantidad
+        if cantidad > 0
+        else 0
+    )
+
+    # =========================================================
+    # PAGINACIÓN
+    # =========================================================
+
+    paginator = Paginator(ventas_qs, 60)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # =========================================================
+    # CONTEXTO
+    # =========================================================
+
+    context = {
+        'ventas': page_obj,
+        'page_obj': page_obj,
+        'is_paginated': page_obj.has_other_pages(),
+        'caja_turno': caja_turno,
+        'resumen': resumen,
+        'promedio': promedio,
+        'titulo': 'Resumen de Mi Turno',
+    }
+
+    return render(request,'ventas/resumen_mi_turno.html', context)
+    
 def safe_decimal(value, default=Decimal('0.00')):
     try:
         if not value or value == '':
@@ -4296,8 +4494,47 @@ def crear_venta(request):
     # ================================================================
     # PRODUCTOS
     # ================================================================
-    variantes = ProductoVariante.objects.filter(is_active=True, producto__fk_empresa=sucursal.fk_empresa, producto__visible_venta=True).select_related('producto','producto__category')
+    #variantes = ProductoVariante.objects.filter(is_active=True, producto__fk_empresa=sucursal.fk_empresa, producto__visible_venta=True).select_related('producto','producto__category')
+    
+    # ================================================================
+    # CONFIGURACIÓN DE EMPRESA
+    # ================================================================
+    config = ConfiguracionEmpresa.get_for_empresa(usuario.fk_empresa)
+    config_ventas = config.ventas or {}
+    modo_variantes = config_ventas.get('modo_variantes', 'todas')
 
+    # ================================================================
+    # PRODUCTOS
+    # ================================================================
+    variantes_qs = ProductoVariante.objects.filter(
+        is_active=True,
+        producto__fk_empresa=sucursal.fk_empresa,
+        producto__visible_venta=True
+    ).select_related('producto', 'producto__category')
+
+    if modo_variantes == 'todas':
+        # Modo actual: todas las variantes como productos individuales
+        variantes = variantes_qs
+        productos_agrupados = None
+
+    else:
+        # Modo agrupado: agrupar por producto padre
+        variantes = variantes_qs  # Igual necesitamos las variantes para precios
+
+        # Construir estructura agrupada
+        productos_dict = {}
+        for v in variantes_qs:
+            pid = v.producto.id
+            if pid not in productos_dict:
+                productos_dict[pid] = {
+                    'producto': v.producto,
+                    'variantes': [],
+                    'precio_desde': None,
+                    'precio_hasta': None,
+                }
+            productos_dict[pid]['variantes'].append(v)
+
+        productos_agrupados = list(productos_dict.values())
     # ================================================================
     # PACKS
     # ================================================================
@@ -4373,12 +4610,13 @@ def crear_venta(request):
         'tipos_egreso': tipos_egreso,
         'categorias': categorias,
         'productos': variantes,
+        'productos_agrupados': productos_agrupados, 
         'packs': packs,
         'precio_producto': precio_producto,
         'precio_pack': precio_pack,
-        'fecha_actual': timezone.now().strftime(
-            '%Y-%m-%d %H:%M:%S'
-        ),
+        'fecha_actual': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'config_ventas': config_ventas,               # ← NUEVA
+        'modo_variantes': modo_variantes, 
     }
 
     return render(request,'ventas/registro_venta.html',context)
@@ -5844,9 +6082,11 @@ def reporte_ingresos(request):
     q = request.GET.get("q")
 
     if fecha_inicio:
-        ingresos = ingresos.filter(fecha__date__gte=parse_date(fecha_inicio))
+        ingresos = ingresos.filter(fecha__date__gte=datetime.strptime(fecha_inicio, '%Y-%m-%d').date())
     if fecha_fin:
-        ingresos = ingresos.filter(fecha__date__lte=parse_date(fecha_fin))
+        ingresos = ingresos.filter(fecha__date__lte=datetime.strptime(fecha_fin, '%Y-%m-%d').date())
+    if not fecha_inicio and not fecha_fin:
+        ingresos = ingresos.filter(fecha__date=timezone.now().date())
     if motivo_id:
         ingresos = ingresos.filter(motivo_id=motivo_id)
     if usuario_id:
@@ -5868,7 +6108,7 @@ def reporte_ingresos(request):
         total=DjangoSum("monto")
     )["total"] or 0
 
-    paginator = Paginator(ingresos, 25)
+    paginator = Paginator(ingresos, 50)
     page = paginator.get_page(request.GET.get("page"))
     tipos_ingreso = TipoIngreso.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa)
     contexto = {
@@ -5878,6 +6118,9 @@ def reporte_ingresos(request):
         "total_anulados": total_anulados,
         "filtros": request.GET,
         "tipos_ingreso": tipos_ingreso,
+        "fecha_inicio": fecha_inicio or '',
+        "fecha_fin": fecha_fin or '',
+        "mostrando_hoy": not fecha_inicio and not fecha_fin,
     }
     return render(request, "empresa/reporte_ingresos.html", contexto)
 
@@ -6002,9 +6245,11 @@ def reporte_egresos(request):
     q = request.GET.get("q")  # búsqueda libre en observaciones
 
     if fecha_inicio:
-        egresos = egresos.filter(fecha__date__gte=parse_date(fecha_inicio))
+        egresos = egresos.filter(fecha__date__gte=datetime.strptime(fecha_inicio, '%Y-%m-%d').date())
     if fecha_fin:
-        egresos = egresos.filter(fecha__date__lte=parse_date(fecha_fin))
+        egresos = egresos.filter(fecha__date__lte=datetime.strptime(fecha_fin, '%Y-%m-%d').date())
+    if not fecha_inicio and not fecha_fin:
+        egresos = egresos.filter(fecha__date=timezone.now().date())
     if motivo_id:
         egresos = egresos.filter(motivo_id=motivo_id)
     if usuario_id:
@@ -6028,7 +6273,7 @@ def reporte_egresos(request):
     )["total"] or 0
 
     # ---- Paginación ----
-    paginator = Paginator(egresos, 25)
+    paginator = Paginator(egresos, 50)
     page = paginator.get_page(request.GET.get("page"))
     tipos_egreso = TipoEgreso.objects.filter(is_active=True, fk_empresa=request.user.sucursal.fk_empresa)
     contexto = {
@@ -6038,6 +6283,9 @@ def reporte_egresos(request):
         "total_anulados": total_anulados,
         "filtros": request.GET,
         "tipos_egreso": tipos_egreso,
+        "fecha_inicio": fecha_inicio or '',
+        "fecha_fin": fecha_fin or '',
+        "mostrando_hoy": not fecha_inicio and not fecha_fin,
     }
     return render(request, "empresa/reporte_egresos.html", contexto)
 

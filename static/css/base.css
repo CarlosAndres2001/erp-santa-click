@@ -1,7 +1,7 @@
 /* ============================================
    NEXUS CORE - VERSIÓN COMPACTA MEJORADA
    ============================================ */
-:root{--primary:#10b981;--bg-elevated: #1f2937;--primary-hover:#059669;--bg-dark:#0f1115;--bg-sidebar:#16191f;--bg-card:#1a1d23;--text-main:#fff;--text-muted:#9ca3af;--border:#2d3139;--radius:0.5rem;--transition:all .2s ease;--topbar-height:48px;--sidebar-width:200px}
+:root{--primary:#10b981;--bg-elevated: #1f2937;--primary-hover:#059669;--bg-dark:#0f1115;--bg-sidebar:#16191f;--bg-card:#1a1d23;--text-main:#fff;--text-muted:#9ca3af;--border:#2d3139;--radius:0.5rem;--transition:all .2s ease;--topbar-height:48px;--sidebar-width:240px}
 body{background-color:var(--bg-dark);color:var(--text-main);font-family:'Poppins',sans-serif;margin:0;overflow:hidden;display:flex;flex-direction:column;font-size:13px}
 
 /* ==============================
@@ -15,9 +15,6 @@ body{background-color:var(--bg-dark);color:var(--text-main);font-family:'Poppins
 .logout-btn:hover{background:#ef4444;color:#fff}
 .logout-btn i{font-size:.9rem}
 
-/* ==============================
-   SIDEBAR & ACCORDIONS - MEJORADO
-   ============================== */
 /* ==============================
    SIDEBAR & ACCORDIONS - MEJORADO
    ============================== */
@@ -586,4 +583,120 @@ body.light-mode{color-scheme:light}
     .main-content{padding:.8rem .8rem calc(2rem + env(safe-area-inset-bottom)) .8rem!important}
     .card .d-flex.justify-content-between{flex-direction:column!important;gap:.5rem!important}
     .card .d-flex.justify-content-between .btn{width:100%!important}
+}
+/* ============================================
+   CONFIGURACIÓN DE EMPRESA
+   ============================================ */
+.config-empresa {
+    /* Acento: color real de la empresa si existe, si no, el verde del sistema */
+    --acento: var(--empresa-primario, var(--primary));
+    --acento-suave: var(--empresa-secundario, var(--primary-hover));
+}
+
+.config-empresa .chip-empresa {
+    background: color-mix(in srgb, var(--acento) 15%, transparent);
+    color: var(--acento);
+    border-radius: var(--radius);
+    padding: .4rem .75rem;
+    font-size: .85rem;
+    font-weight: 500;
+}
+
+.config-empresa .nav-tabs {
+    border-bottom: 1px solid var(--border);
+    gap: .25rem;
+}
+.config-empresa .nav-tabs .nav-link {
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    color: var(--text-muted);
+    padding: .65rem .9rem;
+    font-weight: 500;
+    background: transparent;
+    transition: var(--transition);
+}
+.config-empresa .nav-tabs .nav-link:hover {
+    color: var(--text-main);
+}
+.config-empresa .nav-tabs .nav-link.active {
+    color: var(--acento);
+    border-bottom-color: var(--acento);
+    background: transparent;
+}
+
+.config-empresa .tab-content {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 var(--radius) var(--radius);
+}
+
+.config-empresa .seccion-titulo {
+    font-size: .95rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 1rem;
+}
+.config-empresa .seccion-titulo i {
+    color: var(--acento);
+}
+
+.config-empresa .grupo {
+   
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.25rem;
+}
+.config-empresa .grupo + .grupo { margin-top: 1rem; }
+.config-empresa .grupo-titulo {
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: .75rem;
+}
+
+.config-empresa .form-check-input:checked {
+    background-color: var(--acento);
+    border-color: var(--acento);
+}
+.config-empresa .form-check-input:focus {
+    border-color: var(--acento-suave);
+    box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--acento) 25%, transparent);
+}
+
+.config-empresa .opcion-radio {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: .85rem 1rem;
+    cursor: pointer;
+    transition: var(--transition);
+}
+.config-empresa .opcion-radio:hover {
+    border-color: var(--acento-suave);
+}
+.config-empresa .opcion-radio.selected {
+    border-color: var(--acento);
+    background: color-mix(in srgb, var(--acento) 8%, transparent);
+}
+.config-empresa .opcion-radio strong {
+    color: var(--text-main);
+}
+.config-empresa .opcion-radio small {
+    color: var(--text-muted);
+}
+
+.config-empresa .btn-guardar {
+    background: var(--acento) !important;
+    border-color: var(--acento) !important;
+    color: #fff !important;
+    border-radius: var(--radius) !important;
+    padding: .4rem .8rem !important;
+    font-weight: 500 !important;
+    transition: var(--transition) !important;
+}
+.config-empresa .btn-guardar:hover {
+    background: color-mix(in srgb, var(--acento) 85%, black) !important;
+    border-color: color-mix(in srgb, var(--acento) 85%, black) !important;
 }

@@ -42,7 +42,7 @@
         ===================================================== */
 
         .ticket {
-            width: 80mm;
+            width: {{ config_ticket.ancho_mm|default:80 }}mm;
             max-width: 100%;
             margin: 0 auto;
             background: #fff;
@@ -361,7 +361,7 @@
 
             html,
             body {
-                width: 80mm;
+                width: {{ config_ticket.ancho_mm|default:80 }}mm;
                 margin: 0;
                 padding: 0;
                 background: #fff;
@@ -372,7 +372,7 @@
             }
 
             .ticket {
-                width: 80mm;
+                width: {{ config_ticket.ancho_mm|default:80 }}mm;
                 max-width: none;
                 margin: 0;
                 padding: 3mm;
@@ -381,6 +381,7 @@
 
             .acciones,
             .no-print {
+                width: {{ config_ticket.ancho_mm|default:80 }}mm;
                 display: none !important;
             }
 
@@ -416,8 +417,6 @@
 </head>
 
 <body>
-
-
 <div class="ticket" id="ticket">
 
 
@@ -426,6 +425,14 @@
     ===================================================== -->
 
     <div class="ticket-header">
+
+        {% if config_ticket.mostrar_logo and sucursal.fk_empresa.logo %}
+        <div style="text-align:center; margin-bottom:4px;">
+            <img src="{{ sucursal.fk_empresa.logo }}" 
+                alt="Logo" 
+                style="max-width: 40mm; max-height: 20mm;">
+        </div>
+        {% endif %}
 
         <div class="empresa">
             {{ sucursal.fk_empresa.nombre|upper }}
@@ -465,12 +472,14 @@
             <span class="info-value">#{{ caja_turno.id }}</span>
         </div>
 
+        {% if config_ticket.mostrar_cajero %}
         <div class="info-row">
             <span class="info-label">CAJERO:</span>
             <span class="info-value">
-                {{ caja_turno.usuario.get_full_name|default:caja_turno.usuario.username }}
+                {{ caja_turno.usuario.nombre|default:caja_turno.usuario.apellido }}
             </span>
         </div>
+        {% endif %}
 
         <div class="info-row">
             <span class="info-label">APERTURA:</span>
@@ -505,9 +514,20 @@
         <thead>
             <tr>
                 <th>MÉTODO</th>
+
+                {% if config_cierre.ticket_mostrar_montos_esperados %}
                 <th>SISTEMA</th>
+                {% endif %}
+
+                {% if config_cierre.ticket_mostrar_total_ventas %}
                 <th>DECLARADO</th>
+                {% else %}
+                <th>DECLARADO</th>
+                {% endif %}
+
+                {% if config_cierre.ticket_mostrar_diferencia %}
                 <th>DIF.</th>
+                {% endif %}
             </tr>
         </thead>
 
@@ -521,14 +541,17 @@
                     {{ item.metodo_pago.nombre }}
                 </td>
 
+                {% if config_cierre.ticket_mostrar_montos_esperados %}
                 <td class="monto">
                     {{ item.monto_sistema|floatformat:2 }}
                 </td>
+                {% endif %}
 
                 <td class="monto">
                     {{ item.monto_declarado|floatformat:2 }}
                 </td>
 
+                {% if config_cierre.ticket_mostrar_diferencia %}
                 <td class="monto">
 
                     {% if item.diferencia > 0.005 %}
@@ -542,6 +565,7 @@
                     {% endif %}
 
                 </td>
+                {% endif %}
 
             </tr>
 
@@ -559,39 +583,35 @@
 
     </table>
 
-
     <!-- =====================================================
          TOTALES
     ===================================================== -->
 
     <div class="totales">
 
+        {% if config_cierre.ticket_mostrar_saldo_esperado or config_cierre.ticket_mostrar_montos_esperados %}
         <div class="total-row">
-
             <span class="total-label">
                 TOTAL SISTEMA
             </span>
-
             <span class="total-value">
                 Bs. {{ total_sistema|floatformat:2 }}
             </span>
-
         </div>
+        {% endif %}
 
-
+        {% if config_cierre.ticket_mostrar_total_ventas %}
         <div class="total-row">
-
             <span class="total-label">
                 TOTAL DECLARADO
             </span>
-
             <span class="total-value">
                 Bs. {{ total_declarado|floatformat:2 }}
             </span>
-
         </div>
+        {% endif %}
 
-
+        {% if config_cierre.ticket_mostrar_diferencia %}
         <div class="total-row total-principal diferencia">
 
             <span class="total-label">
@@ -613,6 +633,7 @@
             </span>
 
         </div>
+        {% endif %}
 
     </div>
 
@@ -621,7 +642,7 @@
          OBSERVACIONES
     ===================================================== -->
 
-    {% if caja_turno.observaciones_cierre %}
+    {% if config_cierre.ticket_mostrar_observaciones and caja_turno.observaciones_cierre %}
 
     <div class="observaciones">
 
@@ -659,6 +680,7 @@
          FIRMAS
     ===================================================== -->
 
+    {% if config_cierre.ticket_mostrar_firma %}
     <div class="firmas">
 
         <div class="firma">
@@ -672,7 +694,7 @@
         </div>
 
     </div>
-
+    {% endif %}
 
 </div>
 

@@ -1,0 +1,523 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+{% with empresa=request.user.fk_empresa %}
+<div class="container-fluid px-4 config-empresa"
+     {% if empresa.color_primario or empresa.color_secundario %}
+     style="--empresa-primario: {{ empresa.color_primario|default:'' }}; --empresa-secundario: {{ empresa.color_secundario|default:'' }};"
+     {% endif %}>
+
+
+    <!-- ENCABEZADO -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">Configuración de empresa</h2>
+            <small class="text-main ">
+                Ajusta el comportamiento del sistema según las necesidades de tu negocio.
+            </small>
+        </div>
+        <span class="chip-empresa">{{ empresa.nombre }}</span>
+    </div>
+
+    <!-- TABS -->
+    <ul class="nav nav-tabs" id="configTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if tab_activo == 'ventas' %}active{% endif %}"
+                    data-bs-toggle="tab" data-bs-target="#tab-ventas" type="button">
+                <i class="bi bi-cart3 me-1"></i> Ventas
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if tab_activo == 'compras' %}active{% endif %}"
+                    data-bs-toggle="tab" data-bs-target="#tab-compras" type="button">
+                <i class="bi bi-bag me-1"></i> Compras
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if tab_activo == 'cierre_caja' %}active{% endif %}"
+                    data-bs-toggle="tab" data-bs-target="#tab-cierre" type="button">
+                <i class="bi bi-safe2 me-1"></i> Cierre de caja
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if tab_activo == 'ticket' %}active{% endif %}"
+                    data-bs-toggle="tab" data-bs-target="#tab-ticket" type="button">
+                <i class="bi bi-receipt me-1"></i> Ticket
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link {% if tab_activo == 'sistema' %}active{% endif %}"
+                    data-bs-toggle="tab" data-bs-target="#tab-sistema" type="button">
+                <i class="bi bi-gear me-1"></i> Sistema
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content rounded-bottom p-4">
+
+        <!-- ============================== VENTAS ============================== -->
+        <div class="tab-pane fade {% if tab_activo == 'ventas' %}show active{% endif %}" id="tab-ventas">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="tab" value="ventas">
+
+                <p class="seccion-titulo"><i class="bi bi-cart3 me-1"></i>Punto de venta</p>
+
+                <div class="grupo mb-4">
+                    <p class="grupo-titulo mb-3">Cómo se muestran los productos con variantes</p>
+
+                    <label class="opcion-radio d-block mb-2 {% if config.ventas.modo_variantes == 'todas' %}selected{% endif %}">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="modo_variantes"
+                                   value="todas" {% if config.ventas.modo_variantes == 'todas' %}checked{% endif %}>
+                            <span class="form-check-label">
+                                <strong>Mostrar todas las variantes</strong>
+                                <br>
+                                <small class="text-main">
+                                    Ej: Creatina Frutilla, Creatina Chocolate y Creatina Vainilla aparecen
+                                    como productos individuales en la pantalla de ventas.
+                                </small>
+                            </span>
+                        </div>
+                    </label>
+
+                    <label class="opcion-radio d-block {% if config.ventas.modo_variantes == 'agrupado' %}selected{% endif %}">
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="modo_variantes"
+                                   value="agrupado" {% if config.ventas.modo_variantes == 'agrupado' %}checked{% endif %}>
+                            <span class="form-check-label">
+                                <strong>Agrupar y elegir sabor/variante al vender</strong>
+                                <br>
+                                <small class="text-main">
+                                    Ej: Solo aparece "Creatina Monohidratada" y al venderla se elige el sabor.
+                                </small>
+                            </span>
+                        </div>
+                    </label>
+                </div>
+
+                <!--<div class="grupo mb-4">
+                    <p class="grupo-titulo mb-3">Qué se muestra en la pantalla de ventas</p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="mostrar_imagen"
+                                       id="mostrar_imagen" {% if config.ventas.mostrar_imagen %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_imagen">Imagen del producto</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="mostrar_precio"
+                                       id="mostrar_precio" {% if config.ventas.mostrar_precio %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_precio">Precio</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="mostrar_stock"
+                                       id="mostrar_stock" {% if config.ventas.mostrar_stock %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_stock">Stock disponible</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-main">Items por página</label>
+                            <input type="number" name="items_por_pagina" class="form-control form-control-sm"
+                                   style="max-width: 140px" value="{{ config.ventas.items_por_pagina|default:24 }}" min="4" max="100">
+                        </div>
+                    </div>
+                </div>-->
+
+                <div class="grupo mb-4">
+                    <p class="grupo-titulo mb-3">Comportamiento de la venta</p>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="permitir_descuento"
+                                       id="permitir_descuento" {% if config.ventas.permitir_descuento %}checked{% endif %}>
+                                <label class="form-check-label" for="permitir_descuento">Permitir descuentos</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="permitir_multipago"
+                                       id="permitir_multipago" {% if config.ventas.permitir_multipago %}checked{% endif %}>
+                                <label class="form-check-label" for="permitir_multipago">Permitir multipago</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="permitir_cliente"
+                                       id="permitir_cliente" {% if config.ventas.permitir_cliente %}checked{% endif %}>
+                                <label class="form-check-label" for="permitir_cliente">Permitir seleccionar cliente</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="cliente_obligatorio"
+                                       id="cliente_obligatorio" {% if config.ventas.cliente_obligatorio %}checked{% endif %}>
+                                <label class="form-check-label" for="cliente_obligatorio">Cliente obligatorio</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="permitir_anular"
+                                       id="permitir_anular" {% if config.ventas.permitir_anular %}checked{% endif %}>
+                                <label class="form-check-label" for="permitir_anular">Permitir anular ventas</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="permitir_reimprimir"
+                                       id="permitir_reimprimir" {% if config.ventas.permitir_reimprimir %}checked{% endif %}>
+                                <label class="form-check-label" for="permitir_reimprimir">Permitir reimprimir tickets</label>
+                            </div>
+                        </div>
+                        <!--<div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="cerrar_venta_automatico"
+                                       id="cerrar_venta_automatico" {% if config.ventas.cerrar_venta_automatico %}checked{% endif %}>
+                                <label class="form-check-label" for="cerrar_venta_automatico">Cerrar venta automáticamente al pagar</label>
+                            </div>
+                        </div>-->
+                    </div>
+                </div>
+
+                <div class="text-end">
+                    <button type="submit" class="btn btn-guardar">Guardar ventas</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ============================== COMPRAS ============================== -->
+        <div class="tab-pane fade {% if tab_activo == 'compras' %}show active{% endif %}" id="tab-compras">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="tab" value="compras">
+
+                <p class="seccion-titulo"><i class="bi bi-bag me-1"></i>Registro de compras</p>
+
+                <div class="grupo mb-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="crear_producto_rapido"
+                                       id="crear_producto_rapido" {% if config.compras.crear_producto_rapido %}checked{% endif %}>
+                                <label class="form-check-label" for="crear_producto_rapido">
+                                    Permitir crear productos nuevos desde la pantalla de compra
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="crear_variante_rapida"
+                                       id="crear_variante_rapida" {% if config.compras.crear_variante_rapida %}checked{% endif %}>
+                                <label class="form-check-label" for="crear_variante_rapida">
+                                    Permitir crear variantes rápidas
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="proveedor_obligatorio"
+                                       id="proveedor_obligatorio" {% if config.compras.proveedor_obligatorio %}checked{% endif %}>
+                                <label class="form-check-label" for="proveedor_obligatorio">Proveedor obligatorio</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-main">Items por página</label>
+                            <input type="number" name="items_por_pagina" class="form-control form-control-sm"
+                                   style="max-width: 140px" value="{{ config.compras.items_por_pagina|default:25 }}" min="4" max="100">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-end">
+                    <button type="submit" class="btn btn-guardar">Guardar compras</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ============================== CIERRE DE CAJA ============================== -->
+        <div class="tab-pane fade {% if tab_activo == 'cierre_caja' %}show active{% endif %}" id="tab-cierre">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="tab" value="cierre_caja">
+
+                <p class="seccion-titulo"><i class="bi bi-safe2 me-1"></i>Cierre de caja</p>
+
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="grupo h-100">
+                            <p class="grupo-titulo">En pantalla, al cerrar caja</p>
+
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="mostrar_total_ventas"
+                                       id="mostrar_total_ventas" {% if config.cierre_caja.mostrar_total_ventas %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_total_ventas">Total de ventas (cantidad)</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="mostrar_total_monto"
+                                       id="mostrar_total_monto" {% if config.cierre_caja.mostrar_total_monto %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_total_monto">Total vendido (monto)</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="mostrar_desglose_pagos"
+                                       id="mostrar_desglose_pagos" {% if config.cierre_caja.mostrar_desglose_pagos %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_desglose_pagos">Desglose por método de pago</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="mostrar_montos_esperados"
+                                    id="mostrar_montos_esperados" {% if config.cierre_caja.mostrar_montos_esperados %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_montos_esperados">
+                                    Montos esperados por método de pago (columna "Sistema")
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="mostrar_ingresos"
+                                       id="mostrar_ingresos" {% if config.cierre_caja.mostrar_ingresos %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_ingresos">Ingresos monetarios</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="mostrar_egresos"
+                                       id="mostrar_egresos" {% if config.cierre_caja.mostrar_egresos %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_egresos">Egresos monetarios</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="mostrar_saldo_inicial"
+                                       id="mostrar_saldo_inicial" {% if config.cierre_caja.mostrar_saldo_inicial %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_saldo_inicial">Saldo inicial</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="mostrar_saldo_esperado"
+                                       id="mostrar_saldo_esperado" {% if config.cierre_caja.mostrar_saldo_esperado %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_saldo_esperado">Saldo esperado</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="mostrar_diferencia"
+                                       id="mostrar_diferencia" {% if config.cierre_caja.mostrar_diferencia %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_diferencia">Diferencia (sobrante/faltante)</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="mostrar_ticket_promedio"
+                                       id="mostrar_ticket_promedio" {% if config.cierre_caja.mostrar_ticket_promedio %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_ticket_promedio">Ticket promedio</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="mostrar_anuladas"
+                                       id="mostrar_anuladas" {% if config.cierre_caja.mostrar_anuladas %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_anuladas">Ventas anuladas</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="mostrar_productos_top"
+                                       id="mostrar_productos_top" {% if config.cierre_caja.mostrar_productos_top %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_productos_top">Productos más vendidos</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="mostrar_clientes_atendidos"
+                                       id="mostrar_clientes_atendidos" {% if config.cierre_caja.mostrar_clientes_atendidos %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_clientes_atendidos">Clientes atendidos</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="grupo h-100">
+                            <p class="grupo-titulo">En el ticket impreso de cierre</p>
+
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="ticket_mostrar_total_ventas"
+                                       id="ticket_mostrar_total_ventas" {% if config.cierre_caja.ticket_mostrar_total_ventas %}checked{% endif %}>
+                                <label class="form-check-label" for="ticket_mostrar_total_ventas">Total de ventas</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="ticket_mostrar_desglose_pagos"
+                                       id="ticket_mostrar_desglose_pagos" {% if config.cierre_caja.ticket_mostrar_desglose_pagos %}checked{% endif %}>
+                                <label class="form-check-label" for="ticket_mostrar_desglose_pagos">Desglose por método de pago</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="ticket_mostrar_montos_esperados"
+                                    id="ticket_mostrar_montos_esperados" {% if config.cierre_caja.ticket_mostrar_montos_esperados %}checked{% endif %}>
+                                <label class="form-check-label" for="ticket_mostrar_montos_esperados">
+                                    Montos esperados por método de pago (columna "Sistema")
+                                </label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="ticket_mostrar_ingresos"
+                                       id="ticket_mostrar_ingresos" {% if config.cierre_caja.ticket_mostrar_ingresos %}checked{% endif %}>
+                                <label class="form-check-label" for="ticket_mostrar_ingresos">Ingresos monetarios</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="ticket_mostrar_egresos"
+                                       id="ticket_mostrar_egresos" {% if config.cierre_caja.ticket_mostrar_egresos %}checked{% endif %}>
+                                <label class="form-check-label" for="ticket_mostrar_egresos">Egresos monetarios</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="ticket_mostrar_saldo_inicial"
+                                       id="ticket_mostrar_saldo_inicial" {% if config.cierre_caja.ticket_mostrar_saldo_inicial %}checked{% endif %}>
+                                <label class="form-check-label" for="ticket_mostrar_saldo_inicial">Saldo inicial</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="ticket_mostrar_saldo_esperado"
+                                       id="ticket_mostrar_saldo_esperado" {% if config.cierre_caja.ticket_mostrar_saldo_esperado %}checked{% endif %}>
+                                <label class="form-check-label" for="ticket_mostrar_saldo_esperado">Saldo esperado</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="ticket_mostrar_diferencia"
+                                       id="ticket_mostrar_diferencia" {% if config.cierre_caja.ticket_mostrar_diferencia %}checked{% endif %}>
+                                <label class="form-check-label" for="ticket_mostrar_diferencia">Diferencia</label>
+                            </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="ticket_mostrar_observaciones"
+                                       id="ticket_mostrar_observaciones" {% if config.cierre_caja.ticket_mostrar_observaciones %}checked{% endif %}>
+                                <label class="form-check-label" for="ticket_mostrar_observaciones">Observaciones del cierre</label>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="ticket_mostrar_firma"
+                                       id="ticket_mostrar_firma" {% if config.cierre_caja.ticket_mostrar_firma %}checked{% endif %}>
+                                <label class="form-check-label" for="ticket_mostrar_firma">Línea de firma del cajero</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-end mt-4">
+                    <button type="submit" class="btn btn-guardar">Guardar cierre de caja</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ============================== TICKET ============================== -->
+        <div class="tab-pane fade {% if tab_activo == 'ticket' %}show active{% endif %}" id="tab-ticket">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="tab" value="ticket">
+
+                <p class="seccion-titulo"><i class="bi bi-receipt me-1"></i>Formato de tickets</p>
+
+                <div class="grupo mb-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label small text-main">Ancho del papel</label>
+                            <select name="ancho_mm" class="form-select form-select-sm" style="max-width: 160px">
+                                <option value="58" {% if config.ticket.ancho_mm == 58 %}selected{% endif %}>58 mm</option>
+                                <option value="80" {% if config.ticket.ancho_mm == 80 %}selected{% endif %}>80 mm</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6"></div>
+
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="mostrar_logo"
+                                       id="mostrar_logo" {% if config.ticket.mostrar_logo %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_logo">Mostrar logo</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="mostrar_qr"
+                                       id="mostrar_qr" {% if config.ticket.mostrar_qr %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_qr">Mostrar código QR</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="mostrar_datos_cliente"
+                                       id="mostrar_datos_cliente" {% if config.ticket.mostrar_datos_cliente %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_datos_cliente">Mostrar datos del cliente</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="mostrar_vendedor"
+                                       id="mostrar_vendedor" {% if config.ticket.mostrar_vendedor %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_vendedor">Mostrar vendedor</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="mostrar_cajero"
+                                       id="mostrar_cajero" {% if config.ticket.mostrar_cajero %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_cajero">Mostrar cajero</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="imprimir_automatico"
+                                       id="imprimir_automatico" {% if config.ticket.imprimir_automatico %}checked{% endif %}>
+                                <label class="form-check-label" for="imprimir_automatico">Impresión automática tras venta</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-end">
+                    <button type="submit" class="btn btn-guardar">Guardar ticket</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ============================== SISTEMA ============================== -->
+        <div class="tab-pane fade {% if tab_activo == 'sistema' %}show active{% endif %}" id="tab-sistema">
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="tab" value="sistema">
+
+                <p class="seccion-titulo"><i class="bi bi-gear me-1"></i>General</p>
+
+                <div class="grupo mb-4">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="alertas_stock_bajo"
+                                       id="alertas_stock_bajo" {% if config.sistema.alertas_stock_bajo %}checked{% endif %}>
+                                <label class="form-check-label" for="alertas_stock_bajo">Alertas de stock bajo</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small text-main">Stock mínimo para alerta</label>
+                            <input type="number" name="stock_bajo_minimo" class="form-control form-control-sm"
+                                   style="max-width: 140px" value="{{ config.sistema.stock_bajo_minimo|default:5 }}" min="1">
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="mostrar_anulados_reportes"
+                                       id="mostrar_anulados_reportes" {% if config.sistema.mostrar_anulados_reportes %}checked{% endif %}>
+                                <label class="form-check-label" for="mostrar_anulados_reportes">Mostrar anulados en reportes por defecto</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" name="filtrar_hoy_por_defecto"
+                                       id="filtrar_hoy_por_defecto" {% if config.sistema.filtrar_hoy_por_defecto %}checked{% endif %}>
+                                <label class="form-check-label" for="filtrar_hoy_por_defecto">Filtrar por hoy por defecto en reportes</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-end">
+                    <button type="submit" class="btn btn-guardar">Guardar sistema</button>
+                </div>
+            </form>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    // Resalta la tarjeta de radio seleccionada en "modo de variantes"
+    document.querySelectorAll('.opcion-radio input[type="radio"]').forEach(function (input) {
+        input.addEventListener('change', function () {
+            document.querySelectorAll('.opcion-radio').forEach(function (label) {
+                label.classList.remove('selected');
+            });
+            input.closest('.opcion-radio').classList.add('selected');
+        });
+    });
+</script>
+{% endwith %}
+{% endblock %}

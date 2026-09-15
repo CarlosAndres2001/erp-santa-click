@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
-
+{% block title %}Reporte de Cajas{% endblock %}
 {% block content %}
 <div class="container-fluid px-4">
     <!-- ENCABEZADO CON ESTADÍSTICAS RÁPIDAS -->
@@ -100,7 +100,7 @@
                     </label>
                     <input type="date" name="fecha_hasta" class="form-control form-control-sm" value="{{ filtros.fecha_hasta|default:'' }}">
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label small fw-bold text">
                         <i class="bi bi-building me-1"></i> Caja
                     </label>
@@ -113,7 +113,7 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-3">
+                <div class="col-md-2">
                     <label class="form-label small fw-bold text">
                         <i class="bi bi-person-badge me-1"></i> Usuario
                     </label>
@@ -121,7 +121,7 @@
                         <option value="">-- Todos --</option>
                         {% for u in usuarios %}
                         <option value="{{ u.id }}" {% if filtros.usuario == u.id|stringformat:"s" %}selected{% endif %}>
-                            {{ u.get_full_name|default:u.username }}
+                            {{ u.nombre }}
                         </option>
                         {% endfor %}
                     </select>
@@ -129,13 +129,13 @@
                 <div class="col-md-2">
                     <label class="form-label small fw-bold text">&nbsp;</label>
                     <button type="submit" class="btn btn-primary btn-sm w-100">
-                        <i class="bi bi-search me-1"></i> Filtrar
+                        <i class="bi bi-search me-1"></i> 
                     </button>
                 </div>
                 <div class="col-md-2">
                     <label class="form-label small fw-bold text-muted">&nbsp;</label>
                     <a href="?" class="btn btn-outline-secondary btn-sm w-100">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i> Limpiar
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> 
                     </a>
                 </div>
             </form>
@@ -177,7 +177,7 @@
                             <td>
                                 <div class="d-flex align-items-center">
                                     <i class="bi bi-person-circle me-2 text-secondary"></i>
-                                    <span>{{ c.usuario.get_full_name|default:c.usuario.username }}</span>
+                                    <span>{{ c.usuario.nombre|default:c.usuario.apellido }}</span>
                                 </div>
                             </td>
                             <td>

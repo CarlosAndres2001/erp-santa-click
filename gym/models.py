@@ -1066,3 +1066,174 @@ class Asistencia(models.Model):
 
     def __str__(self):
         return f"Asistencia #{self.id} - {self.fk_cliente}"
+
+# ========================================
+# ConfiguracionEmpresa
+# ========================================
+class ConfiguracionEmpresa(models.Model):
+    """
+    Configuración por empresa. Una fila por empresa.
+    Las opciones van agrupadas por módulo en JSON para fácil extensión.
+    """
+    fk_empresa = models.OneToOneField(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name='configuracion'
+    )
+
+    # =====================================================
+    # CONFIGURACIÓN POR MÓDULO (JSON)
+    # =====================================================
+    ventas = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Configuración del módulo de ventas"
+    )
+    compras = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Configuración del módulo de compras"
+    )
+    cierre_caja = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Configuración del cierre de caja"
+    )
+    ticket = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Configuración de tickets impresos"
+    )
+    sistema = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Configuración general del sistema"
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'configuracion_empresa'
+        verbose_name = 'Configuración de Empresa'
+        verbose_name_plural = 'Configuraciones de Empresa'
+
+    def __str__(self):
+        return f"Configuración de {self.fk_empresa.nombre}"
+
+    # =====================================================
+    # DEFAULTS POR MÓDULO
+    # =====================================================
+    DEFAULT_VENTAS = {
+        'modo_variantes': 'todas',
+        'mostrar_imagen': True,
+        'mostrar_precio': True,
+        'mostrar_stock': True,
+        'permitir_descuento': True,
+        'permitir_cliente': True,
+        'cliente_obligatorio': False,
+        'permitir_multipago': True,
+        'permitir_anular': True,
+        'permitir_reimprimir': True,
+        'cerrar_venta_automatico': False,
+        'items_por_pagina': 24,
+    }
+
+    DEFAULT_COMPRAS = {
+        'crear_producto_rapido': True,
+        'crear_variante_rapida': True,
+        'proveedor_obligatorio': False,
+        'items_por_pagina': 25,
+    }
+
+    DEFAULT_CIERRE_CAJA = {
+        # Pantalla
+        'mostrar_total_ventas': True,
+        'mostrar_total_monto': True,
+        'mostrar_desglose_pagos': True,
+        'mostrar_montos_esperados': True,
+        'mostrar_ingresos': True,
+        'mostrar_egresos': True,
+        'mostrar_saldo_inicial': True,
+        'mostrar_saldo_esperado': True,
+        'mostrar_diferencia': True,
+        'mostrar_ticket_promedio': True,
+        'mostrar_anuladas': False,
+        'mostrar_productos_top': False,
+        'mostrar_clientes_atendidos': False,
+        # Ticket
+        'ticket_mostrar_total_ventas': True,
+        'ticket_mostrar_desglose_pagos': True,
+        'ticket_mostrar_montos_esperados': True, 
+        'ticket_mostrar_ingresos': True,
+        'ticket_mostrar_egresos': True,
+        'ticket_mostrar_saldo_inicial': True,
+        'ticket_mostrar_saldo_esperado': True,
+        'ticket_mostrar_diferencia': True,
+        'ticket_mostrar_observaciones': True,
+        'ticket_mostrar_firma': False,
+    }
+
+    DEFAULT_TICKET = {
+        'ancho_mm': 80,
+        'mostrar_logo': True,
+        'mostrar_qr': False,
+        'mostrar_datos_cliente': True,
+        'mostrar_vendedor': True,
+        'mostrar_cajero': True,
+        'imprimir_automatico': False,
+    }
+
+    DEFAULT_SISTEMA = {
+        'alertas_stock_bajo': True,
+        'stock_bajo_minimo': 5,
+        'mostrar_anulados_reportes': False,
+        'filtrar_hoy_por_defecto': True,
+    }
+
+    # =====================================================
+    # HELPERS
+    # =====================================================
+    @classmethod
+    def get_for_empresa(cls, empresa):
+        """Devuelve la config, creándola con defaults si no existe."""
+        obj, created = cls.objects.get_or_create(fk_empresa=empresa)
+
+        # Asegurar defaults en cada módulo
+        cambios = False
+        if not obj.ventas:
+            obj.ventas = cls.DEFAULT_VENTAS.copy()
+            cambios = True
+        if not obj.compras:
+            obj.compras = cls.DEFAULT_COMPRAS.copy()
+            cambios = True
+        if not obj.cierre_caja:
+            obj.cierre_caja = cls.DEFAULT_CIERRE_CAJA.copy()
+            cambios = True
+        if not obj.ticket:
+            obj.ticket = cls.DEFAULT_TICKET.copy()
+            cambios = True
+        if not obj.sistema:
+            obj.sistema = cls.DEFAULT_SISTEMA.copy()
+            cambios = True
+
+        if created or cambios:
+            obj.save()
+
+        return obj
+
+    def get(self, modulo, key, default=None):
+        """Uso: config.get('ventas', 'modo_variantes')"""
+        data = getattr(self, modulo, {}) or {}
+        return data.get(key, default)
+
+    def set(self, modulo, key, value):
+        """Uso: config.set('ventas', 'modo_variantes', 'agrupado')"""
+        data = getattr(self, modulo, {}) or {}
+        data[key] = value
+        setattr(self, modulo, data)
+
+    def reset_modulo(self, modulo):
+        """Uso: config.reset_modulo('ventas')"""
+        defaults = getattr(self, f'DEFAULT_{modulo.upper()}', {})
+        setattr(self, modulo, defaults.copy())
