@@ -1398,6 +1398,107 @@ def producto_list(request):
     return render(request, 'inventario/lista_productos.html', context)
 
 @login_required
+def api_crear_producto_rapido(request):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'Método no permitido'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+        empresa = request.user.fk_empresa
+
+        nombre = (data.get('nombre') or '').strip()
+        sku = (data.get('sku') or '').strip()
+        unidad_medida_id = data.get('unidad_medida')
+        categoria_id = data.get('categoria')
+        precio_costo = data.get('precio_costo') or 0
+        precio_venta = data.get('precio_venta') or 0
+        codigo_barras = (data.get('codigo_barras') or '').strip() or None
+        maneja_stock = bool(data.get('maneja_stock', True))
+        visible_venta = bool(data.get('visible_venta', True))
+        visible_compra = bool(data.get('visible_compra', True))
+
+        # Validaciones
+        if not nombre:
+            return JsonResponse({'ok': False, 'error': 'El nombre es obligatorio.'}, status=400)
+        if not sku:
+            return JsonResponse({'ok': False, 'error': 'El SKU es obligatorio.'}, status=400)
+        if not unidad_medida_id:
+            return JsonResponse({'ok': False, 'error': 'La unidad de medida es obligatoria.'}, status=400)
+
+        if ProductoVariante.objects.filter(sku__iexact=sku).exists():
+            return JsonResponse({'ok': False, 'error': f'El SKU "{sku}" ya está en uso.'}, status=400)
+
+        # Verificar que unidad y categoría pertenezcan a la empresa
+        try:
+            unidad = UnidadMedida.objects.get(id=unidad_medida_id, fk_empresa=empresa)
+        except UnidadMedida.DoesNotExist:
+            return JsonResponse({'ok': False, 'error': 'Unidad de medida inválida.'}, status=400)
+
+        categoria = None
+        if categoria_id:
+            try:
+                categoria = Category.objects.get(id=categoria_id, fk_empresa=empresa)
+            except Category.DoesNotExist:
+                pass
+
+        tipo_terminado = get_tipo_producto(CODIGO_TERMINADO)
+
+        with transaction.atomic():
+            producto = Producto.objects.create(
+                nombre=nombre,
+                fk_empresa=empresa,
+                fk_tipo_producto=tipo_terminado,
+                unidad_medida=unidad,
+                category=categoria,
+                visible_venta=visible_venta,
+                visible_compra=visible_compra,
+            )
+
+            variante = ProductoVariante.objects.create(
+                producto=producto,
+                nombre_variante='Único',
+                sku=sku,
+                codigo_barras=codigo_barras,
+                precio_referencial=precio_venta,
+                costo=precio_costo,
+                maneja_stock=maneja_stock,
+            )
+
+        return JsonResponse({
+            'ok': True,
+            'variante_id': variante.id,
+            'producto_id': producto.id,
+            'texto': f'{producto.nombre} - {variante.nombre_variante}',
+            'sku': variante.sku,
+            'costo': str(variante.costo),
+            'precio_referencial': str(variante.precio_referencial),
+            'mensaje': f'✅ Producto "{nombre}" creado correctamente',
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({'ok': False, 'error': 'Datos inválidos'}, status=400)
+    except Exception as e:
+        return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+
+@login_required
+def api_datos_para_crear_producto(request):
+    """
+    Devuelve categorías y unidades de medida para el modal.
+    """
+    empresa = request.user.fk_empresa
+    return JsonResponse({
+        'ok': True,
+        'categorias': list(
+            Category.objects.filter(is_active=True, fk_empresa=empresa)
+            .values('id', 'name')
+        ),
+        'unidades': list(
+            UnidadMedida.objects.filter(is_active=True, fk_empresa=empresa)
+            .values('id', 'nombre')
+        ),
+    })
+    
+@login_required
 @permiso_requerido('producto_list', 'crear')
 def crear_producto_terminado(request):
     if request.method == 'POST':

@@ -3,66 +3,140 @@
 
 {% block content %}
 <style>
-/* Solo lo específico de esta pantalla — todo lo demás (card, table,
-   form-control, btn-primary, etc.) ya viene tematizado por nexus-core.css */
+    /* Solo lo específico de esta pantalla — todo lo demás (card, table,
+    form-control, btn-primary, etc.) ya viene tematizado por nexus-core.css */
 
-.compra-linea{position:relative}
-.buscador-producto-wrap{position:relative}
-.buscador-producto-wrap input{width:100%}
-.resultados-producto{
-    position:fixed;z-index:2000;
-    background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
-    max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4);
-    display:none;
-}
-.resultados-producto.show{display:block}
-.resultado-producto-item{
-    padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);
-    display:flex;justify-content:space-between;align-items:center;gap:8px;
-}
-.resultado-producto-item:last-child{border-bottom:none}
-.resultado-producto-item:hover{background:var(--bg-elevated)}
-.resultado-producto-item .nombre{font-size:.78rem;font-weight:600;color:var(--text-main)}
-.resultado-producto-item .sku{font-size:.65rem;color:var(--text-muted)}
-.resultado-producto-item .costo{font-size:.72rem;color:var(--primary);font-weight:700}
-.resultados-producto .sin-resultados{padding:10px 12px;font-size:.75rem;color:var(--text-muted)}
+    .compra-linea{position:relative}
+    .buscador-producto-wrap{position:relative}
+    .buscador-producto-wrap input{width:100%}
+    .resultados-producto{
+        position:fixed;z-index:2000;
+        background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+        max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.4);
+        display:none;
+    }
+    .resultados-producto.show{display:block}
+    .resultado-producto-item{
+        padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);
+        display:flex;justify-content:space-between;align-items:center;gap:8px;
+    }
+    .resultado-producto-item:last-child{border-bottom:none}
+    .resultado-producto-item:hover{background:var(--bg-elevated)}
+    .resultado-producto-item .nombre{font-size:.78rem;font-weight:600;color:var(--text-main)}
+    .resultado-producto-item .sku{font-size:.65rem;color:var(--text-muted)}
+    .resultado-producto-item .costo{font-size:.72rem;color:var(--primary);font-weight:700}
+    .resultados-producto .sin-resultados{padding:10px 12px;font-size:.75rem;color:var(--text-muted)}
 
-.tabla-lineas th,.tabla-lineas td{vertical-align:middle}
-.tabla-lineas .col-num{width:36px;text-align:center;color:var(--text-muted);font-weight:700;font-size:.75rem}
-.tabla-lineas .col-producto{min-width:260px}
-.tabla-lineas .col-num-input{width:110px}
-.tabla-lineas .col-del{width:40px;text-align:center}
-.tabla-lineas input.form-control-sm{text-align:right}
-.tabla-lineas .col-producto input.form-control-sm{text-align:left}
+    .tabla-lineas th,.tabla-lineas td{vertical-align:middle}
+    .tabla-lineas .col-num{width:36px;text-align:center;color:var(--text-muted);font-weight:700;font-size:.75rem}
+    .tabla-lineas .col-producto{min-width:260px}
+    .tabla-lineas .col-num-input{width:110px}
+    .tabla-lineas .col-del{width:40px;text-align:center}
+    .tabla-lineas input.form-control-sm{text-align:right}
+    .tabla-lineas .col-producto input.form-control-sm{text-align:left}
 
-.btn-eliminar-linea{
-    background:rgba(239,68,68,.08);border:none;color:#ef4444;
-    width:26px;height:26px;border-radius:6px;display:inline-flex;
-    align-items:center;justify-content:center;cursor:pointer;transition:var(--transition);
-}
-.btn-eliminar-linea:hover{background:#ef4444;color:#fff}
+    .btn-eliminar-linea{
+        background:rgba(239,68,68,.08);border:none;color:#ef4444;
+        width:26px;height:26px;border-radius:6px;display:inline-flex;
+        align-items:center;justify-content:center;cursor:pointer;transition:var(--transition);
+    }
+    .btn-eliminar-linea:hover{background:#ef4444;color:#fff}
 
-.btn-agregar-linea{
-    display:flex;align-items:center;gap:6px;border:1.5px dashed var(--border);
-    background:none;border-radius:var(--radius);padding:.5rem 1rem;
-    color:var(--text-muted);font-size:.8rem;cursor:pointer;transition:var(--transition);
-}
-.btn-agregar-linea:hover{border-color:var(--primary);color:var(--primary);background:rgba(16,185,129,.06)}
+    .btn-agregar-linea{
+        display:flex;align-items:center;gap:6px;border:1.5px dashed var(--border);
+        background:none;border-radius:var(--radius);padding:.5rem 1rem;
+        color:var(--text-muted);font-size:.8rem;cursor:pointer;transition:var(--transition);
+    }
+    .btn-agregar-linea:hover{border-color:var(--primary);color:var(--primary);background:rgba(16,185,129,.06)}
 
-.barra-total-compra{
-    position:sticky;bottom:0;margin-top:1rem;
-    display:flex;justify-content:space-between;align-items:center;
-    background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-lg);
-    padding:.8rem 1.2rem;
-}
-.barra-total-compra .info{display:flex;gap:1.6rem;align-items:baseline}
-.barra-total-compra .info .lbl{font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-right:.4rem}
-.barra-total-compra .info .val{font-size:.9rem;font-weight:700;color:var(--text-main)}
-.barra-total-compra .info .val.total{font-size:1.3rem;color:var(--primary)}
+    .barra-total-compra{
+        position:sticky;bottom:0;margin-top:1rem;
+        display:flex;justify-content:space-between;align-items:center;
+        background:var(--bg-elevated);border:1px solid var(--border);border-radius:var(--radius-lg);
+        padding:.8rem 1.2rem;
+    }
+    .barra-total-compra .info{display:flex;gap:1.6rem;align-items:baseline}
+    .barra-total-compra .info .lbl{font-size:.65rem;text-transform:uppercase;letter-spacing:.05em;color:var(--text-muted);margin-right:.4rem}
+    .barra-total-compra .info .val{font-size:.9rem;font-weight:700;color:var(--text-main)}
+    .barra-total-compra .info .val.total{font-size:1.3rem;color:var(--primary)}
+    /* ===== AVISO DE INSTRUCCIONES ===== */
+    .aviso-instrucciones {
+        display: flex;
+        gap: 12px;
+        padding: 12px 16px;
+        background: rgba(16, 185, 129, 0.08);
+        border: 1px solid rgba(16, 185, 129, 0.25);
+        border-left: 4px solid var(--primary, #10b981);
+        border-radius: var(--radius, 8px);
+        color: var(--text-main, #1e293b);
+    }
+    .aviso-icono {
+        font-size: 1.5rem;
+        color: var(--primary, #10b981);
+        flex-shrink: 0;
+        line-height: 1;
+        padding-top: 2px;
+    }
+    .aviso-texto {
+        font-size: .85rem;
+        line-height: 1.5;
+    }
+    .aviso-texto strong { color: var(--primary, #10b981); }
+    .aviso-texto ol { margin-bottom: 0; }
+    .aviso-texto li { margin-bottom: 2px; }
+    .aviso-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--bg-elevated, #f1f5f9);
+        border: 1px solid var(--border, #e2e8f0);
+        border-radius: 6px;
+        padding: 1px 8px;
+        font-size: .78rem;
+        font-weight: 600;
+    }
+    /* ===== FILA INVÁLIDA ===== */
+    .compra-linea.fila-invalida {
+        background: rgba(239, 68, 68, 0.06);
+    }
+    .compra-linea.fila-invalida .buscar-producto-input {
+        border-color: #ef4444 !important;
+        box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15);
+        background: rgba(239, 68, 68, 0.04);
+    }
+    .compra-linea.fila-valida .buscar-producto-input {
+        border-color: #16a34a !important;
+        box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.12);
+    }
 </style>
 
 <h2><i class="bi bi-cart-plus-fill"></i> Nueva Compra</h2>
-
+<!-- ===================================================== -->
+<!-- AVISO DE INSTRUCCIONES -->
+<!-- ===================================================== -->
+<div class="aviso-instrucciones mb-3">
+    <div class="aviso-icono">
+        <i class="bi bi-info-circle-fill"></i>
+    </div>
+    <div class="aviso-texto">
+        <strong>Cómo agregar productos:</strong>
+        <ol class="mb-0 mt-1 ps-3">
+            <li>Escribí al menos <strong>2 letras</strong> del nombre o SKU.</li>
+            <li>Seleccioná un producto de la lista desplegable.</li>
+            <li>
+                ¿No existe? Hacé clic en
+                <span class="aviso-chip"><i class="bi bi-plus-circle-fill"></i> Crear producto</span>
+                y completá los datos.
+            </li>
+            <li>
+                <span class="text-danger fw-bold">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Muy importante:
+                </span>
+                no se puede guardar la compra si una fila tiene el borde rojo.
+            </li>
+        </ol>
+    </div>
+</div>
 <form method="post" action="{% url 'compra_create' %}" id="formCompra">
     {% csrf_token %}
     <input type="hidden" name="total" id="input_total" value="0">
@@ -148,9 +222,6 @@
     </div>
 </form>
 
-<!-- DROPDOWN COMPARTIDO: uno solo, anclado a <body>, así escapa del
-     overflow:auto de .table-responsive que se estaba comiendo el que
-     iba dentro de cada fila. -->
 <div class="resultados-producto" id="dropdownProductos"></div>
 
 <!-- PLANTILLA DE FILA -->
@@ -170,6 +241,82 @@
         <td class="col-del"><button type="button" class="btn-eliminar-linea" onclick="eliminarLineaCompra(this)"><i class="bi bi-trash3"></i></button></td>
     </tr>
 </template>
+<!-- ===================================================== -->
+<!-- MODAL CREAR PRODUCTO RÁPIDO -->
+<!-- ===================================================== -->
+<div class="modal fade" id="modalCrearProducto" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="border-radius:14px;border:none;background:var(--bg-card);">
+            <div class="modal-header" style="border-bottom:1px solid var(--border);">
+                <h5 class="modal-title" style="color:var(--text-main);font-weight:700;">
+                    <i class="bi bi-plus-circle-fill me-2"></i>Crear producto rápido
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label">Nombre del producto *</label>
+                        <input type="text" id="mp_nombre" class="form-control" placeholder="Ej: Creatina Whey">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">SKU *</label>
+                        <input type="text" id="mp_sku" class="form-control" placeholder="CRE-001">
+                        <small id="mp_sku_feedback" class="d-block mt-1" style="font-size:0.75rem;"></small>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Categoría</label>
+                        <select id="mp_categoria" class="form-select">
+                            <option value="">-- Sin categoría --</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Unidad de medida *</label>
+                        <select id="mp_unidad" class="form-select">
+                            <option value="">Cargando...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Precio de costo</label>
+                        <div class="input-group">
+                            <span class="input-group-text">Bs.</span>
+                            <input type="number" step="0.01" min="0" id="mp_costo" class="form-control" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Precio de venta</label>
+                        <div class="input-group">
+                            <span class="input-group-text">Bs.</span>
+                            <input type="number" step="0.01" min="0" id="mp_venta" class="form-control" placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Código de barras</label>
+                        <input type="text" id="mp_codigo_barras" class="form-control" placeholder="Opcional">
+                    </div>
+                    <div class="col-12">
+                        <div class="alert alert-info mb-0 py-2 px-3" style="font-size:.82rem;border-radius:8px;">
+                            <i class="bi bi-info-circle-fill me-1"></i>
+                            El producto se creará <strong>con stock habilitado</strong> y
+                            <strong>visible en ventas y compras</strong>.
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="modal-footer" style="border-top:1px solid var(--border);">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> Cancelar
+                </button>
+                <button type="button" class="btn btn-primary" id="mp_btn_guardar">
+                    <i class="bi bi-check-circle"></i> Crear y agregar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
 const URL_BUSCAR_VARIANTES = "{% url 'buscar_variantes' %}";
@@ -245,8 +392,10 @@ function manejarBusquedaProducto(input) {
     filaActivaBusqueda = fila;
     const termino = input.value.trim();
 
-    // Si el usuario vuelve a escribir, invalida el producto ya elegido
+    // ✅ Al escribir, se invalida el producto y se marca la fila como inválida
     fila.querySelector('.in-producto-id').value = '';
+    fila.classList.remove('fila-valida');
+    fila.classList.add('fila-invalida');
 
     if (termino.length < 2) {
         dropdownProductos.classList.remove('show');
@@ -258,8 +407,29 @@ function manejarBusquedaProducto(input) {
             .then(r => r.json())
             .then(data => {
                 dropdownProductos.innerHTML = '';
+
                 if (data.resultados.length === 0) {
-                    dropdownProductos.innerHTML = '<div class="sin-resultados">Sin resultados</div>';
+                    // ✅ SIN RESULTADOS → mostrar botón de crear
+                    const div = document.createElement('div');
+                    div.className = 'resultado-producto-item';
+                    div.style.cursor = 'pointer';
+                    div.innerHTML = `
+                        <div>
+                            <div class="nombre">
+                                <i class="bi bi-plus-circle-fill me-1" style="color:#10b981;"></i>
+                                Crear producto: "${termino}"
+                            </div>
+                            <div class="sku">No existe en el catálogo</div>
+                        </div>
+                        <div class="costo" style="color:#10b981;">
+                            <i class="bi bi-arrow-right-circle-fill"></i>
+                        </div>
+                    `;
+                    div.addEventListener('click', () => {
+                        dropdownProductos.classList.remove('show');
+                        abrirModalCrearProducto(termino, filaActivaBusqueda);
+                    });
+                    dropdownProductos.appendChild(div);
                 } else {
                     data.resultados.forEach(item => {
                         const div = document.createElement('div');
@@ -286,28 +456,26 @@ function seleccionarProducto(fila, item) {
     fila.querySelector('.buscar-producto-input').value = item.texto;
     dropdownProductos.classList.remove('show');
 
+    // ✅ Marcar fila como válida
+    fila.classList.remove('fila-invalida');
+    fila.classList.add('fila-valida');
+
     const precioInput = fila.querySelector('.in-precio');
     if (parseFloat(precioInput.value) === 0) {
         precioInput.value = item.costo;
     }
     recalcularTotalCompra();
 }
-
-// Cerrar dropdown al hacer clic afuera (ya no busca .buscador-producto-wrap
-// como contenedor del dropdown, porque el dropdown ya no vive adentro)
 document.addEventListener('click', function (e) {
     if (!e.target.closest('.buscar-producto-input') && !e.target.closest('#dropdownProductos')) {
         dropdownProductos.classList.remove('show');
     }
 });
 
-// Reposicionar (o cerrar) si hacen scroll, porque al ser position:fixed
-// no se mueve solo con el contenido
 window.addEventListener('scroll', function () {
     dropdownProductos.classList.remove('show');
 }, true);
 
-// Cascada Sucursal -> Almacén
 document.getElementById('sel_sucursal').addEventListener('change', function () {
     const almacenSel = document.getElementById('sel_almacen');
     const sucursalId = this.value;
@@ -335,19 +503,210 @@ document.getElementById('sel_sucursal').addEventListener('change', function () {
 
 document.getElementById('formCompra').addEventListener('submit', function (e) {
     const filas = document.querySelectorAll('#tbody_lineas tr');
+
     if (filas.length === 0) {
         e.preventDefault();
-        alert('Agrega al menos un producto antes de registrar la compra.');
+        alert('⚠️ Agregá al menos un producto antes de registrar la compra.');
         return;
     }
+
+    let hayError = false;
+
     for (const fila of filas) {
-        if (!fila.querySelector('.in-producto-id').value) {
+        const productoId = fila.querySelector('.in-producto-id').value;
+        const textoBuscador = fila.querySelector('.buscar-producto-input').value.trim();
+
+        // ✅ Caso 1: no hay producto seleccionado
+        if (!productoId) {
             e.preventDefault();
-            alert('Hay una fila sin producto seleccionado. Búscalo y haz clic en un resultado.');
-            fila.querySelector('.buscar-producto-input').focus();
+            hayError = true;
+
+            // Marcar visualmente
+            fila.classList.remove('fila-valida');
+            fila.classList.add('fila-invalida');
+
+            // Hacer scroll a la fila
+            fila.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            // Enfocar el buscador
+            setTimeout(() => fila.querySelector('.buscar-producto-input').focus(), 300);
+
+            const msg = textoBuscador
+                ? `El producto "${textoBuscador}" no está seleccionado. Elegilo de la lista o creá uno nuevo.`
+                : 'Hay una fila vacía. Agregá un producto o eliminala.';
+            alert('⚠️ ' + msg);
             return;
         }
     }
+});
+
+// =====================================================
+// MODAL CREAR PRODUCTO RÁPIDO
+// =====================================================
+let modalCrearProductoBS = null;
+let filaParaProductoNuevo = null;
+let datosCargados = false;
+
+function abrirModalCrearProducto(nombreInicial, fila) {
+    filaParaProductoNuevo = fila;
+
+    // Rellenar nombre con lo que escribió el usuario
+    document.getElementById('mp_nombre').value = nombreInicial;
+
+    // Limpiar otros campos
+    document.getElementById('mp_sku').value = '';
+    document.getElementById('mp_codigo_barras').value = '';
+    document.getElementById('mp_costo').value = '';
+    document.getElementById('mp_venta').value = '';
+    document.getElementById('mp_categoria').value = '';
+    document.getElementById('mp_sku_feedback').innerHTML = '';
+    document.getElementById('mp_sku').classList.remove('sku-valido', 'sku-invalido');
+
+    // Cargar categorías y unidades la primera vez
+    if (!datosCargados) {
+        fetch("{% url 'api_datos_crear_producto' %}")
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    const selCat = document.getElementById('mp_categoria');
+                    selCat.innerHTML = '<option value="">-- Sin categoría --</option>';
+                    data.categorias.forEach(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c.id;
+                        opt.textContent = c.name;
+                        selCat.appendChild(opt);
+                    });
+
+                    const selUni = document.getElementById('mp_unidad');
+                    selUni.innerHTML = '<option value="">Seleccionar...</option>';
+                    data.unidades.forEach(u => {
+                        const opt = document.createElement('option');
+                        opt.value = u.id;
+                        opt.textContent = u.nombre;
+                        selUni.appendChild(opt);
+                    });
+                    datosCargados = true;
+                }
+            })
+            .catch(err => console.error('Error cargando datos:', err));
+    }
+
+    if (!modalCrearProductoBS) {
+        modalCrearProductoBS = new bootstrap.Modal(document.getElementById('modalCrearProducto'));
+    }
+    modalCrearProductoBS.show();
+
+    // Focus en el SKU después de abrir
+    setTimeout(() => document.getElementById('mp_sku').focus(), 400);
+}
+
+// Validación de SKU en tiempo real
+let timeoutSkuModal = null;
+document.getElementById('mp_sku').addEventListener('input', function () {
+    clearTimeout(timeoutSkuModal);
+    const sku = this.value.trim();
+    const feedback = document.getElementById('mp_sku_feedback');
+
+    this.classList.remove('sku-valido', 'sku-invalido');
+
+    if (!sku) {
+        feedback.innerHTML = '';
+        return;
+    }
+
+    feedback.innerHTML = '<i class="bi bi-hourglass-split"></i> Verificando...';
+    feedback.style.color = 'var(--text-muted)';
+
+    timeoutSkuModal = setTimeout(() => {
+        fetch(`/api/verificar-sku/?sku=${encodeURIComponent(sku)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.ok) {
+                    if (data.disponible) {
+                        this.classList.add('sku-valido');
+                        feedback.innerHTML = '<i class="bi bi-check-circle-fill"></i> SKU disponible';
+                        feedback.style.color = '#16a34a';
+                    } else {
+                        this.classList.add('sku-invalido');
+                        feedback.innerHTML = `<i class="bi bi-x-circle-fill"></i> ${data.mensaje}`;
+                        feedback.style.color = '#dc2626';
+                    }
+                }
+            })
+            .catch(() => {
+                feedback.innerHTML = '';
+            });
+    }, 400);
+});
+
+// Guardar producto
+document.getElementById('mp_btn_guardar').addEventListener('click', async function () {
+    const btn = this;
+    const nombre = document.getElementById('mp_nombre').value.trim();
+    const sku = document.getElementById('mp_sku').value.trim();
+    const unidad = document.getElementById('mp_unidad').value;
+    const categoria = document.getElementById('mp_categoria').value;
+    const costo = parseFloat(document.getElementById('mp_costo').value) || 0;
+    const venta = parseFloat(document.getElementById('mp_venta').value) || 0;
+    const codigo_barras = document.getElementById('mp_codigo_barras').value.trim();
+    const maneja_stock = true;
+    const visible_venta = true;
+    const visible_compra = true;
+
+    // Validaciones
+    if (!nombre) { alert('El nombre es obligatorio'); document.getElementById('mp_nombre').focus(); return; }
+    if (!sku) { alert('El SKU es obligatorio'); document.getElementById('mp_sku').focus(); return; }
+    if (!unidad) { alert('La unidad de medida es obligatoria'); document.getElementById('mp_unidad').focus(); return; }
+    if (document.getElementById('mp_sku').classList.contains('sku-invalido')) {
+        alert('El SKU ya está en uso'); return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Creando...';
+
+    try {
+        const response = await fetch("{% url 'api_crear_producto_rapido' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                nombre, sku, unidad_medida: unidad, categoria,
+                precio_costo: costo, precio_venta: venta,
+                codigo_barras, maneja_stock, visible_venta, visible_compra
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.ok) {
+            // Agregar el producto a la fila
+            filaParaProductoNuevo.querySelector('.in-producto-id').value = data.variante_id;
+            filaParaProductoNuevo.querySelector('.buscar-producto-input').value = data.texto;
+            filaParaProductoNuevo.querySelector('.in-precio').value = data.costo;
+            filaParaProductoNuevo.classList.remove('fila-invalida');
+            filaParaProductoNuevo.classList.add('fila-valida');
+            recalcularTotalCompra();
+
+            modalCrearProductoBS.hide();
+
+            // Mensaje toast simple
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position:fixed;top:20px;right:20px;background:#10b981;color:#fff;padding:12px 20px;border-radius:8px;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,.2);font-weight:600;';
+            toast.innerHTML = `<i class="bi bi-check-circle-fill"></i> ${data.mensaje}`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (error) {
+        console.error(error);
+        alert('Error de conexión');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-check-circle"></i> Crear y agregar';
 });
 
 agregarLineaCompra();

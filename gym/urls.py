@@ -85,6 +85,8 @@ urlpatterns = [
     path('productos-terminados/importar/', views.importar_productos_terminados, name='importar_productos_terminados'),
     path('productos-terminados/importar/confirmar/', views.importar_productos_terminados_confirmar, name='importar_productos_terminados_confirmar'),
     path('api/verificar-sku/', views.api_verificar_sku, name='api_verificar_sku'),
+    path('api/crear-producto-rapido/', views.api_crear_producto_rapido, name='api_crear_producto_rapido'),
+    path('api/datos-crear-producto/', views.api_datos_para_crear_producto, name='api_datos_crear_producto'),
     
     path('combos/', views.lista_combos, name='lista_combos'),
     path('crear-combo/', views.crear_combo, name='crear_combo'),
