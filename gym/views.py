@@ -3503,7 +3503,7 @@ def lista_compras(request):
     usuario_id = request.GET.get('usuario_id')
     estado_compra = request.GET.get('estado_compra')
 
-    compras = Compra.objects.filter( sucursal=request.user.sucursal).order_by('-fecha').prefetch_related('detallecompra_set')
+    compras = Compra.objects.filter(sucursal=request.user.sucursal).order_by('-fecha').prefetch_related('detallecompra_set')
 
     # FILTROS
     if fecha_desde:
@@ -3535,7 +3535,27 @@ def lista_compras(request):
     sucursales = Sucursal.objects.filter(estado=True, fk_empresa=request.user.sucursal.fk_empresa)
     usuarios = Usuario.objects.filter(is_active=True, sucursal=request.user.sucursal.fk_empresa.id)
     proveedores = Proveedor.objects.filter(is_active=True, empresa=request.user.sucursal.fk_empresa)
-    
+
+    # ==========================================================
+    # RESUMEN Y KPI (AGREGADO)
+    # ==========================================================
+    resumen = compras.filter(is_active=True).aggregate(
+        total_monto=DjangoSum('total'),
+        cantidad=Count('id'),
+    )
+
+    # Proveedores únicos en el resultado
+    proveedores_unicos = compras.filter(
+        is_active=True, proveedor__isnull=False
+    ).values('proveedor').distinct().count()
+
+    total_monto = resumen['total_monto'] or 0
+    cantidad = resumen['cantidad'] or 0
+    promedio = total_monto / cantidad if cantidad > 0 else 0
+
+    resumen['proveedores'] = proveedores_unicos
+
+    # Convertir a lista (para poder setear atributos dinámicos)
     compras = list(compras)
     for c in compras:
         if c.is_active:
@@ -3543,7 +3563,7 @@ def lista_compras(request):
             c.puede_anular = puede
         else:
             c.puede_anular = False
-            
+
     return render(request, 'inventario/lista_compras.html', {
         'compras': compras,
         'sucursales': sucursales,
@@ -3555,8 +3575,14 @@ def lista_compras(request):
         'usuario_id': usuario_id or '',
         'proveedor_id': proveedor_id or '',
         'estado_compra': estado_compra or '',
-    })
 
+        # ✅ NUEVAS VARIABLES
+        'fecha_actual': timezone.now(),
+        'resumen': resumen,
+        'promedio': promedio,
+        'mostrando_hoy': not fecha_desde and not fecha_hasta,
+    })
+    
 @login_required
 def almacenes_por_sucursal(request):
     sucursal_id = request.GET.get('sucursal')
@@ -6051,116 +6077,510 @@ def dashboard_ventas(request):
 #  TRASPASO (MAESTRO-DETALLE)
 # ====================================================
 @login_required
+@permiso_requerido('traspaso_list', 'ver')
 def traspaso_list(request):
-    traspasos = Traspaso.objects.select_related('usuario', 'sucursal_origen', 'sucursal_destino').all().order_by('-created_at')
-    return render(request, 'traspaso/list.html', {'traspasos': traspasos})
+    usuario = request.user
+    empresa = usuario.fk_empresa
 
-@login_required
-@transaction.atomic
-def traspaso_create(request):
-    sucursales = Sucursal.objects.filter(estado=True)
-    productos = Producto.objects.filter(is_active=True)
-    usuarios = Usuario.objects.filter(is_active=True)
-    if request.method == 'POST':
-        usuario_id = request.POST.get('usuario') or request.user.id
-        sucursal_origen_id = request.POST.get('sucursal_origen')
-        sucursal_destino_id = request.POST.get('sucursal_destino')
-        fecha = request.POST.get('fecha')
-        observaciones = request.POST.get('observaciones') or ''
+    # Filtros
+    fecha_desde = request.GET.get('fecha_desde')
+    fecha_hasta = request.GET.get('fecha_hasta')
+    sucursal_origen_id = request.GET.get('sucursal_origen_id')
+    sucursal_destino_id = request.GET.get('sucursal_destino_id')
+    usuario_id = request.GET.get('usuario_id')
+    estado = request.GET.get('estado')  # 'activos' | 'anulados' | ''
 
-        traspaso = Traspaso.objects.create(
-            usuario_id=usuario_id,
-            sucursal_origen_id=sucursal_origen_id,
-            sucursal_destino_id=sucursal_destino_id,
-            fecha=fecha,
-            observaciones=observaciones,
-            total=0
+    traspasos = (
+        Traspaso.objects
+        .filter(
+            sucursal_origen__fk_empresa=empresa
         )
+        .select_related(
+            'usuario', 'sucursal_origen', 'sucursal_destino',
+            'almacen_origen', 'almacen_destino'
+        )
+        .order_by('-fecha')
+    )
 
-        productos_list = request.POST.getlist('producto')
-        cantidades = request.POST.getlist('cantidad')
-        precios = request.POST.getlist('precio')
+    # Filtro de fechas: si no mandan ninguna → solo HOY
+    if fecha_desde:
+        try:
+            traspasos = traspasos.filter(
+                fecha__date__gte=datetime.strptime(fecha_desde, '%Y-%m-%d').date()
+            )
+        except ValueError:
+            pass
+    if fecha_hasta:
+        try:
+            traspasos = traspasos.filter(
+                fecha__date__lte=datetime.strptime(fecha_hasta, '%Y-%m-%d').date()
+            )
+        except ValueError:
+            pass
+    if not fecha_desde and not fecha_hasta:
+        traspasos = traspasos.filter(fecha__date=timezone.now().date())
 
-        total = 0
-        for i, prod_id in enumerate(productos_list):
-            if not prod_id:
-                continue
-            cantidad = float(cantidades[i]) if i < len(cantidades) and cantidades[i] else 0
-            precio = float(precios[i]) if i < len(precios) and precios[i] else 0
-            subtotal = cantidad * precio
-            DetalleTraspaso.objects.create(traspaso=traspaso, producto_id=prod_id, cantidad=cantidad, precio=precio, subtotal=subtotal)
-            total += subtotal
+    if sucursal_origen_id and sucursal_origen_id.isdigit():
+        traspasos = traspasos.filter(sucursal_origen_id=sucursal_origen_id)
+    if sucursal_destino_id and sucursal_destino_id.isdigit():
+        traspasos = traspasos.filter(sucursal_destino_id=sucursal_destino_id)
+    if usuario_id and usuario_id.isdigit():
+        traspasos = traspasos.filter(usuario_id=usuario_id)
 
-            # restar del stock origen
-            try:
-                stock_or = Stock.objects.get(producto_id=prod_id, sucursal_id=sucursal_origen_id)
-                stock_or.cantidad_actual = float(stock_or.cantidad_actual or 0) - cantidad
-                stock_or.save()
-            except Stock.DoesNotExist:
-                pass
+    if estado == 'activos':
+        traspasos = traspasos.filter(is_active=True)
+    elif estado == 'anulados':
+        traspasos = traspasos.filter(is_active=False)
 
-            # sumar al stock destino
-            stock_dest, created = Stock.objects.get_or_create(producto_id=prod_id, sucursal_id=sucursal_destino_id, defaults={
-                'cantidad_actual': cantidad, 'cajas_actual': 0, 'peso_neto_total': 0, 'costo_unitario_promedio': precio, 'valor_total': cantidad * precio
-            })
-            if not created:
-                stock_dest.cantidad_actual = float(stock_dest.cantidad_actual or 0) + cantidad
-                stock_dest.save()
+    # Resumen
+    resumen = traspasos.filter(is_active=True).aggregate(
+        total_monto=DjangoSum('total'),
+        cantidad=Count('id'),
+    )
+    total_monto = resumen['total_monto'] or 0
+    cantidad = resumen['cantidad'] or 0
 
-        traspaso.total = total
-        traspaso.save()
-        messages.success(request, 'Traspaso registrado correctamente.')
-        return redirect('traspaso_list')
-
-    return render(request, 'traspaso/create.html', {'sucursales': sucursales, 'productos': productos, 'usuarios': usuarios})
+    context = {
+        'traspasos': traspasos,
+        'sucursales': Sucursal.objects.filter(
+            estado=True, fk_empresa=empresa
+        ),
+        'usuarios': Usuario.objects.filter(
+            is_active=True, sucursal__fk_empresa=empresa
+        ),
+        'resumen': resumen,
+        'fecha_desde': fecha_desde or '',
+        'fecha_hasta': fecha_hasta or '',
+        'sucursal_origen_id': sucursal_origen_id or '',
+        'sucursal_destino_id': sucursal_destino_id or '',
+        'usuario_id': usuario_id or '',
+        'estado': estado or '',
+        'mostrando_hoy': not fecha_desde and not fecha_hasta,
+        'titulo': 'Traspasos entre Sucursales',
+        'fecha_actual': timezone.now(), 
+    }
+    return render(request, 'inventario/lista_traspasos.html', context)
 
 @login_required
-@transaction.atomic
-def traspaso_edit(request):
+def almacenes_por_sucursal(request):
+    sucursal_id = request.GET.get('sucursal')
+    if not sucursal_id:
+        return JsonResponse({'almacenes': []})
+
+    empresa = request.user.fk_empresa
+    almacenes = Almacen.objects.filter(
+        is_active=True,
+        sucursal_id=sucursal_id,
+        sucursal__fk_empresa=empresa
+    ).values('id', 'nombre')
+
+    return JsonResponse({'almacenes': list(almacenes)})
+
+@login_required
+def buscar_variantes_stock(request):
+    """
+    Búsqueda de variantes CON STOCK para traspasos.
+    Recibe: ?q=...&almacen=ID
+    Solo devuelve variantes que manejan stock y tienen cantidad > 0.
+    """
+    termino = request.GET.get('q', '').strip()
+    almacen_id = request.GET.get('almacen')
+
+    if len(termino) < 2 or not almacen_id:
+        return JsonResponse({'resultados': []})
+
+    empresa = request.user.fk_empresa
+
+    variantes = (
+        ProductoVariante.objects
+        .filter(
+            is_active=True,
+            maneja_stock=True,
+            producto__fk_empresa=empresa,
+            producto__is_active=True,
+        )
+        .filter(
+            Q(producto__nombre__icontains=termino) |
+            Q(nombre_variante__icontains=termino) |
+            Q(sku__icontains=termino) |
+            Q(codigo_barras__icontains=termino)
+        )
+        .select_related('producto')[:15]
+    )
+
+    resultados = []
+    for v in variantes:
+        # Buscar stock en el almacén
+        stock = Stock.objects.filter(
+            almacen_id=almacen_id,
+            producto_variante=v,
+        ).first()
+
+        stock_actual = stock.cantidad_actual if stock else 0
+        cpp = stock.costo_unitario_promedio if stock else 0
+
+        resultados.append({
+            'id': v.id,
+            'texto': f'{v.producto.nombre} - {v.nombre_variante}',
+            'sku': v.sku,
+            'stock': str(stock_actual),
+            'precio': str(cpp),
+        })
+
+    return JsonResponse({'resultados': resultados})
+
+@login_required
+@permiso_requerido('traspaso_list', 'crear')
+def traspaso_create(request):
+    usuario = request.user
+    empresa = usuario.fk_empresa
+
     if request.method == 'POST':
-        id = request.POST.get('id')
-        traspaso = get_object_or_404(Traspaso, pk=id)
-        # editar campos maestro y reemplazar detalles (implementar reversión stock si querés)
-        traspaso.sucursal_origen_id = request.POST.get('sucursal_origen')
-        traspaso.sucursal_destino_id = request.POST.get('sucursal_destino')
-        traspaso.fecha = request.POST.get('fecha')
-        traspaso.observaciones = request.POST.get('observaciones') or ''
-        traspaso.save()
-        DetalleTraspaso.objects.filter(traspaso=traspaso).delete()
-        productos_list = request.POST.getlist('producto')
-        cantidades = request.POST.getlist('cantidad')
-        precios = request.POST.getlist('precio')
-        total = 0
-        for i, prod_id in enumerate(productos_list):
-            if not prod_id:
-                continue
-            cantidad = float(cantidades[i]) if i < len(cantidades) and cantidades[i] else 0
-            precio = float(precios[i]) if i < len(precios) and precios[i] else 0
-            subtotal = cantidad * precio
-            DetalleTraspaso.objects.create(traspaso=traspaso, producto_id=prod_id, cantidad=cantidad, precio=precio, subtotal=subtotal)
-            total += subtotal
-        traspaso.total = total
-        traspaso.save()
-        messages.success(request, 'Traspaso actualizado correctamente.')
-        return redirect('traspaso_list')
-    else:
-        id = request.GET.get('id')
-        traspaso = get_object_or_404(Traspaso, pk=id)
-        detalles = DetalleTraspaso.objects.filter(traspaso=traspaso)
-        sucursales = Sucursal.objects.filter(estado=True)
-        productos = Producto.objects.filter(is_active=True)
-        return render(request, 'traspaso/edit.html', {'traspaso': traspaso, 'detalles': detalles, 'sucursales': sucursales, 'productos': productos})
+        try:
+            with transaction.atomic():
+                sucursal_origen_id = request.POST.get('sucursal_origen')
+                sucursal_destino_id = request.POST.get('sucursal_destino')
+                almacen_origen_id = request.POST.get('almacen_origen')
+                almacen_destino_id = request.POST.get('almacen_destino')
+                fecha = request.POST.get('fecha') or timezone.now()
+                observaciones = request.POST.get('observaciones', '').strip()
+
+                # Validaciones básicas
+                if not sucursal_origen_id or not sucursal_destino_id:
+                    raise ValueError("Debes seleccionar sucursal origen y destino.")
+                if sucursal_origen_id == sucursal_destino_id:
+                    raise ValueError("La sucursal origen y destino no pueden ser la misma.")
+                if not almacen_origen_id or not almacen_destino_id:
+                    raise ValueError("Debes seleccionar almacén origen y destino.")
+
+                # Validar que las sucursales sean de la empresa
+                sucursal_origen = Sucursal.objects.get(
+                    id=sucursal_origen_id, fk_empresa=empresa, estado=True
+                )
+                sucursal_destino = Sucursal.objects.get(
+                    id=sucursal_destino_id, fk_empresa=empresa, estado=True
+                )
+
+                # Validar que los almacenes correspondan a sus sucursales
+                almacen_origen = Almacen.objects.get(
+                    id=almacen_origen_id, sucursal=sucursal_origen, is_active=True
+                )
+                almacen_destino = Almacen.objects.get(
+                    id=almacen_destino_id, sucursal=sucursal_destino, is_active=True
+                )
+
+                # Crear traspaso
+                traspaso = Traspaso.objects.create(
+                    usuario=usuario,
+                    sucursal_origen=sucursal_origen,
+                    sucursal_destino=sucursal_destino,
+                    almacen_origen=almacen_origen,
+                    almacen_destino=almacen_destino,
+                    fecha=fecha,
+                    observaciones=observaciones,
+                    total=Decimal('0.00'),
+                )
+
+                # Procesar detalle
+                productos_ids = request.POST.getlist('producto_variante[]')
+                cantidades = request.POST.getlist('cantidad[]')
+                precios = request.POST.getlist('precio[]')
+
+                if not productos_ids or all(not p for p in productos_ids):
+                    raise ValueError("Debes agregar al menos un producto.")
+
+                total = Decimal('0.00')
+
+                for p_id, cant, precio in zip(productos_ids, cantidades, precios):
+                    if not p_id:
+                        continue
+
+                    cantidad = safe_decimal(cant)
+                    precio_unitario = safe_decimal(precio)
+
+                    if cantidad <= 0:
+                        raise ValueError("La cantidad debe ser mayor a 0.")
+
+                    # Obtener la variante
+                    try:
+                        variante = ProductoVariante.objects.get(
+                            id=p_id,
+                            is_active=True,
+                            producto__fk_empresa=empresa,
+                        )
+                    except ProductoVariante.DoesNotExist:
+                        raise ValueError(f"Producto inválido (ID {p_id}).")
+
+                    if not variante.maneja_stock:
+                        raise ValueError(
+                            f'El producto "{variante}" no maneja stock. '
+                            f'Solo se pueden traspasar productos con stock.'
+                        )
+
+                    # Verificar stock en origen
+                    try:
+                        stock_origen = Stock.objects.get(
+                            almacen=almacen_origen,
+                            producto_variante=variante,
+                        )
+                    except Stock.DoesNotExist:
+                        raise ValueError(
+                            f'No hay stock de "{variante}" en el almacén origen.'
+                        )
+
+                    if stock_origen.cantidad_actual < cantidad:
+                        raise ValueError(
+                            f'Stock insuficiente de "{variante}". '
+                            f'Disponible: {stock_origen.cantidad_actual}, '
+                            f'Solicitado: {cantidad}.'
+                        )
+
+                    # Obtener o crear stock destino
+                    stock_destino, _ = Stock.objects.get_or_create(
+                        almacen=almacen_destino,
+                        producto_variante=variante,
+                        defaults={
+                            'cantidad_actual': 0,
+                            'cajas_actual': 0,
+                            'peso_neto_total': 0,
+                            'costo_unitario_promedio': 0,
+                            'valor_total': 0,
+                        }
+                    )
+
+                    # Calcular precio: usar el CPP del origen (si no viene precio)
+                    if precio_unitario <= 0:
+                        precio_unitario = stock_origen.costo_unitario_promedio or 0
+
+                    subtotal = cantidad * precio_unitario
+
+                    # Crear detalle
+                    DetalleTraspaso.objects.create(
+                        traspaso=traspaso,
+                        producto_variante=variante,
+                        cantidad=cantidad,
+                        precio=precio_unitario,
+                        subtotal=subtotal,
+                    )
+
+                    # ==== ACTUALIZAR STOCK ORIGEN (restar) ====
+                    stock_origen.cantidad_actual -= cantidad
+                    stock_origen.valor_total = (
+                        stock_origen.cantidad_actual * stock_origen.costo_unitario_promedio
+                    )
+                    stock_origen.save()
+
+                    # ==== ACTUALIZAR STOCK DESTINO (sumar + recalcular CPP) ====
+                    valor_actual_dest = (
+                        stock_destino.cantidad_actual * stock_destino.costo_unitario_promedio
+                    )
+                    valor_entrante = cantidad * precio_unitario
+                    nueva_cantidad_dest = stock_destino.cantidad_actual + cantidad
+
+                    if nueva_cantidad_dest > 0:
+                        stock_destino.costo_unitario_promedio = (
+                            valor_actual_dest + valor_entrante
+                        ) / nueva_cantidad_dest
+
+                    stock_destino.cantidad_actual = nueva_cantidad_dest
+                    stock_destino.valor_total = (
+                        stock_destino.cantidad_actual * stock_destino.costo_unitario_promedio
+                    )
+                    stock_destino.save()
+
+                    # ==== KARDEX ORIGEN (salida) ====
+                    Kardex.objects.create(
+                        producto_variante=variante,
+                        sucursal=sucursal_origen,
+                        almacen=almacen_origen,
+                        tipo_movimiento='salida',
+                        cantidad=cantidad,
+                        precio_unitario=precio_unitario,
+                        total=subtotal,
+                        referencia=f'Traspaso #{traspaso.id} → {sucursal_destino.nombre}'
+                    )
+
+                    # ==== KARDEX DESTINO (entrada) ====
+                    Kardex.objects.create(
+                        producto_variante=variante,
+                        sucursal=sucursal_destino,
+                        almacen=almacen_destino,
+                        tipo_movimiento='entrada',
+                        cantidad=cantidad,
+                        precio_unitario=precio_unitario,
+                        total=subtotal,
+                        referencia=f'Traspaso #{traspaso.id} ← {sucursal_origen.nombre}'
+                    )
+
+                    total += subtotal
+
+                traspaso.total = total
+                traspaso.save()
+
+                messages.success(
+                    request,
+                    f'✅ Traspaso #{traspaso.id} registrado correctamente.'
+                )
+                return redirect('traspaso_list')
+
+        except ValueError as e:
+            messages.error(request, f'❌ {e}')
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            messages.error(request, f'❌ Error al registrar el traspaso: {e}')
+
+    # GET → mostrar formulario
+    sucursales = Sucursal.objects.filter(estado=True, fk_empresa=empresa)
+
+    context = {
+        'sucursales': sucursales,
+        'fecha_actual': timezone.now().strftime('%Y-%m-%d'),
+        'titulo': 'Nuevo Traspaso',
+        'sucursal_default': usuario.sucursal,
+    }
+    return render(request, 'inventario/crear_traspaso.html', context)
 
 @login_required
+@permiso_requerido('traspaso_list', 'eliminar')
 def traspaso_delete(request):
-    if request.method == 'POST':
-        id = request.POST.get('id')
-        traspaso = get_object_or_404(Traspaso, pk=id)
-        traspaso.is_active = False
-        traspaso.save()
-        DetalleTraspaso.objects.filter(traspaso=traspaso).update(is_active=False)
-        messages.success(request, 'Traspaso desactivado correctamente.')
+    if request.method != 'POST':
+        return redirect('traspaso_list')
+
+    id = request.POST.get('id')
+    motivo = request.POST.get('motivo_anulacion', '').strip()
+
+    if not id:
+        messages.error(request, 'ID inválido.')
+        return redirect('traspaso_list')
+
+    if not motivo:
+        messages.error(request, 'Debes indicar el motivo de anulación.')
+        return redirect('traspaso_list')
+
+    try:
+        with transaction.atomic():
+            traspaso = get_object_or_404(Traspaso, pk=id)
+
+            if not traspaso.is_active:
+                messages.warning(request, 'Este traspaso ya fue anulado.')
+                return redirect('traspaso_list')
+
+            # Devolver stock: restar del destino, sumar al origen
+            detalles = DetalleTraspaso.objects.filter(traspaso=traspaso, is_active=True)
+
+            for detalle in detalles:
+                variante = detalle.producto_variante
+                cantidad = detalle.cantidad
+                precio = detalle.precio
+
+                # ==== STOCK DESTINO: restar ====
+                try:
+                    stock_dest = Stock.objects.get(
+                        almacen=traspaso.almacen_destino,
+                        producto_variante=variante,
+                    )
+                    if stock_dest.cantidad_actual < cantidad:
+                        raise ValueError(
+                            f'No se puede anular: en destino ya no hay suficiente '
+                            f'stock de "{variante}".'
+                        )
+                    stock_dest.cantidad_actual -= cantidad
+                    stock_dest.valor_total = (
+                        stock_dest.cantidad_actual * stock_dest.costo_unitario_promedio
+                    )
+                    stock_dest.save()
+                except Stock.DoesNotExist:
+                    raise ValueError(
+                        f'No se encontró stock en destino para "{variante}".'
+                    )
+
+                # ==== STOCK ORIGEN: sumar ====
+                stock_origen, _ = Stock.objects.get_or_create(
+                    almacen=traspaso.almacen_origen,
+                    producto_variante=variante,
+                    defaults={
+                        'cantidad_actual': 0,
+                        'cajas_actual': 0,
+                        'peso_neto_total': 0,
+                        'costo_unitario_promedio': precio,
+                        'valor_total': 0,
+                    }
+                )
+                stock_origen.cantidad_actual += cantidad
+                stock_origen.valor_total = (
+                    stock_origen.cantidad_actual * stock_origen.costo_unitario_promedio
+                )
+                stock_origen.save()
+
+                # ==== KARDEX de reversión ====
+                Kardex.objects.create(
+                    producto_variante=variante,
+                    sucursal=traspaso.sucursal_origen,
+                    almacen=traspaso.almacen_origen,
+                    tipo_movimiento='entrada',
+                    cantidad=cantidad,
+                    precio_unitario=precio,
+                    total=detalle.subtotal,
+                    referencia=f'Anulación Traspaso #{traspaso.id}'
+                )
+                Kardex.objects.create(
+                    producto_variante=variante,
+                    sucursal=traspaso.sucursal_destino,
+                    almacen=traspaso.almacen_destino,
+                    tipo_movimiento='salida',
+                    cantidad=cantidad,
+                    precio_unitario=precio,
+                    total=detalle.subtotal,
+                    referencia=f'Anulación Traspaso #{traspaso.id}'
+                )
+
+            # Marcar como anulado
+            traspaso.is_active = False
+            traspaso.motivo_anulacion = motivo
+            traspaso.save()
+
+            DetalleTraspaso.objects.filter(traspaso=traspaso).update(is_active=False)
+
+        messages.success(request, f'✅ Traspaso #{traspaso.id} anulado correctamente.')
+
+    except ValueError as e:
+        messages.error(request, f'❌ {e}')
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        messages.error(request, f'❌ Error al anular: {e}')
+
     return redirect('traspaso_list')
+
+@login_required
+def traspaso_comprobante(request, traspaso_id):
+    """Comprobante imprimible del traspaso."""
+    empresa = request.user.fk_empresa
+    traspaso = get_object_or_404(
+        Traspaso.objects.select_related(
+            'usuario', 'sucursal_origen', 'sucursal_destino',
+            'almacen_origen', 'almacen_destino',
+        ),
+        id=traspaso_id,
+        sucursal_origen__fk_empresa=empresa,
+    )
+
+    detalles = (
+        DetalleTraspaso.objects
+        .filter(traspaso=traspaso, is_active=True)
+        .select_related('producto_variante', 'producto_variante__producto')
+    )
+
+    context = {
+        'traspaso': traspaso,
+        'detalles': detalles,
+        'empresa': empresa,
+        'sucursal': request.user.sucursal,
+        'now': timezone.now(),
+    }
+    return render(request, 'inventario/comprobante_traspaso.html', context)
+
 
 # ====================================================
 #  INGRESO MONETARIO

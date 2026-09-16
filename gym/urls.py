@@ -213,9 +213,10 @@ urlpatterns = [
     # ====================================================
     path('traspaso/', views.traspaso_list, name='traspaso_list'),
     path('traspaso/create/', views.traspaso_create, name='traspaso_create'),
-    path('traspaso/edit/', views.traspaso_edit, name='traspaso_edit'),
     path('traspaso/delete/', views.traspaso_delete, name='traspaso_delete'),
-
+    path('traspaso/comprobante/<int:traspaso_id>/', views.traspaso_comprobante, name='traspaso_comprobante'),
+    path('api/almacenes-por-sucursal/', views.almacenes_por_sucursal, name='almacenes_por_sucursal'),
+    path('api/buscar-variantes-stock/', views.buscar_variantes_stock, name='buscar_variantes_stock'),
     # ====================================================
     # EGRESO MONETARIO
     # ====================================================

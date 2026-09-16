@@ -1,21 +1,20 @@
 {% extends 'base.html' %}
 {% load static %}
-{% block title %}Compras{% endblock %}
 
 {% block content %}
 <div class="container-fluid px-4">
 
     <!-- ENCABEZADO -->
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
         <h2 class="mb-0">
-            <i class="bi bi-bag-check-fill text-primary me-2"></i>Reporte de Compras
+            <i class="bi bi-arrow-left-right text-primary me-2"></i>Traspasos entre Sucursales
         </h2>
-        <div class="d-flex flex-wrap gap-2">
+        <div class="d-flex gap-2">
             <span class="badge bg-primary bg-opacity-10 text-primary p-2">
                 <i class="bi bi-calendar3 me-1"></i> {{ fecha_actual|date:"d/m/Y" }}
             </span>
-            <a href="{% url 'compra_create' %}" class="btn btn-primary shadow-sm">
-                <i class="bi bi-plus-lg me-1"></i> Nueva Compra
+            <a href="{% url 'traspaso_create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle me-1"></i> Nuevo Traspaso
             </a>
         </div>
     </div>
@@ -26,7 +25,7 @@
         <div class="d-flex align-items-center">
             <i class="bi bi-calendar-check-fill fs-4 me-2"></i>
             <div>
-                <strong>Compras de hoy:</strong> Mostrando solo las del día de hoy.
+                <strong>Traspasos de hoy:</strong> Mostrando solo los del día de hoy.
                 Usa los filtros para ver otros rangos de fechas.
             </div>
         </div>
@@ -40,10 +39,10 @@
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body d-flex align-items-center">
                     <div class="bg-primary bg-opacity-10 rounded-3 p-3 me-3">
-                        <i class="bi bi-receipt text-primary fs-3"></i>
+                        <i class="bi bi-arrow-left-right text-primary fs-3"></i>
                     </div>
                     <div>
-                        <h6 class="text mb-0 small text-uppercase">Compras Activas</h6>
+                        <h6 class="text mb-0 small text-uppercase">Traspasos Activos</h6>
                         <h3 class="mb-0 fw-bold">{{ resumen.cantidad|default:0 }}</h3>
                     </div>
                 </div>
@@ -56,34 +55,8 @@
                         <i class="bi bi-cash-stack text-success fs-3"></i>
                     </div>
                     <div>
-                        <h6 class="text mb-0 small text-uppercase">Total Comprado</h6>
+                        <h6 class="text mb-0 small text-uppercase">Valor Movido</h6>
                         <h3 class="mb-0 fw-bold">Bs. {{ resumen.total_monto|floatformat:2|default:"0.00" }}</h3>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 col-sm-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="bg-info bg-opacity-10 rounded-3 p-3 me-3">
-                        <i class="bi bi-truck text-info fs-3"></i>
-                    </div>
-                    <div>
-                        <h6 class="text mb-0 small text-uppercase">Proveedores</h6>
-                        <h3 class="mb-0 fw-bold">{{ resumen.proveedores|default:0 }}</h3>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3 col-sm-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body d-flex align-items-center">
-                    <div class="bg-warning bg-opacity-10 rounded-3 p-3 me-3">
-                        <i class="bi bi-graph-up-arrow text-warning fs-3"></i>
-                    </div>
-                    <div>
-                        <h6 class="text mb-0 small text-uppercase">Compra Promedio</h6>
-                        <h3 class="mb-0 fw-bold">Bs. {{ promedio|floatformat:2|default:"0.00" }}</h3>
                     </div>
                 </div>
             </div>
@@ -96,7 +69,7 @@
             <div class="d-flex align-items-center">
                 <i class="bi bi-funnel-fill text-primary me-2"></i>
                 <h5 class="mb-0 fw-bold text">Filtros de Búsqueda</h5>
-                <span class="badge bg-secondary ms-2">{{ compras|length }} resultados</span>
+                <span class="badge bg-secondary ms-2">{{ traspasos|length }} resultados</span>
             </div>
         </div>
         <div class="card-body">
@@ -118,13 +91,13 @@
 
                 <div class="col-md-2">
                     <label class="form-label small fw-bold text">
-                        <i class="bi bi-truck me-1"></i> Proveedor
+                        <i class="bi bi-box-arrow-up-right me-1"></i> Origen
                     </label>
-                    <select name="proveedor_id" class="form-select form-select-sm">
-                        <option value="">Todos</option>
-                        {% for p in proveedores %}
-                            <option value="{{ p.id }}" {% if p.id|stringformat:"s" == proveedor_id %}selected{% endif %}>
-                                {{ p.nombre }}
+                    <select name="sucursal_origen_id" class="form-select form-select-sm">
+                        <option value="">Todas</option>
+                        {% for s in sucursales %}
+                            <option value="{{ s.id }}" {% if sucursal_origen_id == s.id|stringformat:"s" %}selected{% endif %}>
+                                {{ s.nombre }}
                             </option>
                         {% endfor %}
                     </select>
@@ -132,12 +105,12 @@
 
                 <div class="col-md-2">
                     <label class="form-label small fw-bold text">
-                        <i class="bi bi-building me-1"></i> Sucursal
+                        <i class="bi bi-box-arrow-in-down me-1"></i> Destino
                     </label>
-                    <select name="sucursal_id" class="form-select form-select-sm">
+                    <select name="sucursal_destino_id" class="form-select form-select-sm">
                         <option value="">Todas</option>
                         {% for s in sucursales %}
-                            <option value="{{ s.id }}" {% if s.id|stringformat:"s" == sucursal_id %}selected{% endif %}>
+                            <option value="{{ s.id }}" {% if sucursal_destino_id == s.id|stringformat:"s" %}selected{% endif %}>
                                 {{ s.nombre }}
                             </option>
                         {% endfor %}
@@ -151,7 +124,7 @@
                     <select name="usuario_id" class="form-select form-select-sm">
                         <option value="">Todos</option>
                         {% for u in usuarios %}
-                            <option value="{{ u.id }}" {% if u.id|stringformat:"s" == usuario_id %}selected{% endif %}>
+                            <option value="{{ u.id }}" {% if usuario_id == u.id|stringformat:"s" %}selected{% endif %}>
                                 {{ u.nombre }}
                             </option>
                         {% endfor %}
@@ -162,10 +135,10 @@
                     <label class="form-label small fw-bold text">
                         <i class="bi bi-circle-fill me-1"></i> Estado
                     </label>
-                    <select name="estado_compra" class="form-select form-select-sm">
-                        <option value="" {% if not estado_compra %}selected{% endif %}>Todas</option>
-                        <option value="1" {% if estado_compra == '1' %}selected{% endif %}>Activas</option>
-                        <option value="0" {% if estado_compra == '0' %}selected{% endif %}>Anuladas</option>
+                    <select name="estado" class="form-select form-select-sm">
+                        <option value="" {% if not estado %}selected{% endif %}>Todos</option>
+                        <option value="activos" {% if estado == 'activos' %}selected{% endif %}>Activos</option>
+                        <option value="anulados" {% if estado == 'anulados' %}selected{% endif %}>Anulados</option>
                     </select>
                 </div>
 
@@ -178,16 +151,9 @@
 
                 <div class="col-md-2">
                     <label class="form-label small fw-bold text-muted">&nbsp;</label>
-                    <a href="{% url 'compra_list' %}" class="btn btn-outline-secondary btn-sm w-100">
+                    <a href="{% url 'traspaso_list' %}" class="btn btn-outline-secondary btn-sm w-100">
                         <i class="bi bi-arrow-counterclockwise me-1"></i> Limpiar
                     </a>
-                </div>
-
-                <div class="col-md-2">
-                    <label class="form-label small fw-bold text-muted">&nbsp;</label>
-                    <button type="button" id="btnExportarExcel" class="btn btn-outline-success btn-sm w-100">
-                        <i class="bi bi-file-earmark-excel me-1"></i> Exportar
-                    </button>
                 </div>
 
             </form>
@@ -198,90 +164,91 @@
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table id="tablaCompras" class="table table-hover table-striped mb-0">
+                <table class="table table-hover table-striped mb-0">
                     <thead class="table-light">
                         <tr>
                             <th class="py-3 px-3">#</th>
                             <th class="py-3">Fecha</th>
-                            <th class="py-3">Proveedor</th>
-                            <th class="py-3">Sucursal</th>
+                            <th class="py-3">Origen</th>
+                            <th class="py-3">Destino</th>
                             <th class="py-3">Usuario</th>
                             <th class="py-3 text-end">Total</th>
                             <th class="py-3 text-center">Estado</th>
-                            <th class="py-3 text-center px-3">Acciones</th>
+                            <th class="py-3 text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for c in compras %}
-                        <tr class="{% if not c.is_active %}opacity-75{% endif %}">
-
-                            <td class="fw-bold px-3">#{{ c.id }}</td>
+                        {% for t in traspasos %}
+                        <tr class="{% if not t.is_active %}opacity-75{% endif %}">
+                            <td class="fw-bold px-3">{{ t.id }}</td>
 
                             <td>
                                 <div class="d-flex flex-column">
-                                    <span class="fw-semibold">{{ c.fecha|date:"d/m/Y" }}</span>
-                                    <small class="text-muted">{{ c.fecha|date:"H:i" }}</small>
+                                    <span class="fw-semibold">{{ t.fecha|date:"d/m/Y" }}</span>
+                                    <small class="text-muted">{{ t.fecha|date:"H:i" }}</small>
                                 </div>
                             </td>
 
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <i class="bi bi-truck me-2 text-secondary"></i>
-                                    <span>{{ c.proveedor.nombre|default:"—" }}</span>
+                                    <i class="bi bi-box-arrow-up-right me-2 text-danger"></i>
+                                    <div>
+                                        <div class="fw-semibold small">{{ t.sucursal_origen.nombre }}</div>
+                                        <small class="text-muted">{{ t.almacen_origen.nombre }}</small>
+                                    </div>
                                 </div>
                             </td>
 
                             <td>
                                 <div class="d-flex align-items-center">
-                                    <i class="bi bi-geo-alt me-2 text-secondary"></i>
-                                    <span>{{ c.sucursal.nombre|default:"—" }}</span>
+                                    <i class="bi bi-box-arrow-in-down me-2 text-success"></i>
+                                    <div>
+                                        <div class="fw-semibold small">{{ t.sucursal_destino.nombre }}</div>
+                                        <small class="text-muted">{{ t.almacen_destino.nombre }}</small>
+                                    </div>
                                 </div>
                             </td>
 
                             <td>
                                 <div class="d-flex align-items-center">
                                     <i class="bi bi-person-circle me-2 text-secondary"></i>
-                                    <span>{{ c.usuario.nombre }}</span>
+                                    <span>{{ t.usuario.nombre }}</span>
                                 </div>
                             </td>
 
                             <td class="text-end fw-bold">
-                                Bs. {{ c.total|floatformat:2 }}
+                                Bs. {{ t.total|floatformat:2 }}
                             </td>
 
                             <td class="text-center">
-                                {% if c.is_active %}
+                                {% if t.is_active %}
                                     <span class="badge bg-success bg-opacity-10 text-success">
-                                        <i class="bi bi-check-circle-fill me-1"></i> Activa
+                                        <i class="bi bi-check-circle-fill me-1"></i> Activo
                                     </span>
                                 {% else %}
                                     <span class="badge bg-danger bg-opacity-10 text-danger">
-                                        <i class="bi bi-x-circle-fill me-1"></i> Anulada
+                                        <i class="bi bi-x-circle-fill me-1"></i> Anulado
                                     </span>
                                 {% endif %}
                             </td>
 
-                            <td class="text-center px-3">
+                            <td class="text-center">
                                 <div class="btn-group" role="group">
-                                    <a href="{% url 'comprobante_compra' c.id %}" target="_blank"
-                                       class="btn btn-sm {% if c.is_active %}btn-outline-info{% else %}btn-outline-secondary{% endif %}"
-                                       title="{% if c.is_active %}Reimprimir{% else %}Ver comprobante{% endif %}">
-                                        <i class="bi bi-{% if c.is_active %}printer-fill{% else %}eye-fill{% endif %}"></i>
+                                    <a href="{% url 'traspaso_comprobante' t.id %}"
+                                       target="_blank"
+                                       class="btn btn-sm btn-outline-info"
+                                       title="Ver comprobante">
+                                        <i class="bi bi-printer-fill"></i>
                                     </a>
-
-                                    {% if c.is_active %}
-                                        {% if c.puede_anular %}
-                                            <button class="btn btn-sm btn-outline-danger"
-                                                    data-bs-toggle="modal" data-bs-target="#anularModal"
-                                                    data-id="{{ c.id }}" title="Anular compra">
-                                                <i class="bi bi-x-circle-fill"></i>
-                                            </button>
-                                        {% else %}
-                                            <button class="btn btn-sm btn-secondary" disabled
-                                                    title="Ya pasó el tiempo límite para anular">
-                                                <i class="bi bi-lock-fill"></i>
-                                            </button>
-                                        {% endif %}
+                                    {% if t.is_active %}
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#modalAnularTraspaso"
+                                            data-id="{{ t.id }}"
+                                            title="Anular">
+                                        <i class="bi bi-x-circle-fill"></i>
+                                    </button>
                                     {% endif %}
                                 </div>
                             </td>
@@ -290,7 +257,7 @@
                         <tr>
                             <td colspan="8" class="text-center py-5">
                                 <i class="bi bi-inbox text-muted display-6 d-block mb-3"></i>
-                                <h5 class="text-muted">No hay compras para estos filtros</h5>
+                                <h5 class="text-muted">No hay traspasos para estos filtros</h5>
                                 <p class="text-muted small">Prueba ajustando los filtros de búsqueda</p>
                             </td>
                         </tr>
@@ -300,18 +267,19 @@
             </div>
         </div>
     </div>
+
 </div>
 
 <!-- MODAL ANULAR -->
-<div class="modal fade" id="anularModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="modalAnularTraspaso" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <form method="post" action="{% url 'compra_delete' %}">
+        <form method="post" action="{% url 'traspaso_delete' %}">
             {% csrf_token %}
-            <input type="hidden" name="id" id="modalCompraId">
+            <input type="hidden" name="id" id="anular_traspaso_id">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header bg-danger bg-opacity-10 border-0">
                     <h5 class="modal-title text-danger">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i> Anular Compra
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i> Anular Traspaso
                     </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
@@ -319,20 +287,20 @@
                     <div class="text-center mb-3">
                         <i class="bi bi-x-circle-fill text-danger display-4"></i>
                     </div>
-                    <p class="text-center">¿Estás seguro de anular esta compra?</p>
+                    <p class="text-center">¿Estás seguro de anular este traspaso?</p>
                     <p class="text-center text-muted small">
-                        Esta acción <strong>revertirá el stock</strong> que ingresó y no se puede deshacer.
+                        Esta acción <strong>revertirá el stock</strong> en ambas sucursales y no se puede deshacer.
                     </p>
                     <div class="mt-3">
-                        <label for="motivo" class="form-label fw-bold">Motivo de anulación:</label>
-                        <textarea name="motivo" id="motivo" class="form-control" rows="3" required
-                                  placeholder="Explica por qué se anula esta compra..."></textarea>
+                        <label class="form-label fw-bold">Motivo de anulación:</label>
+                        <textarea name="motivo_anulacion" class="form-control" rows="3"
+                                  placeholder="Ej: Error en el registro..." required></textarea>
                     </div>
                 </div>
                 <div class="modal-footer border-0">
                     <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
                     <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-trash3-fill me-1"></i> Confirmar Anulación
+                        <i class="bi bi-x-circle-fill me-1"></i> Confirmar Anulación
                     </button>
                 </div>
             </div>
@@ -340,31 +308,14 @@
     </div>
 </div>
 
+<!-- SCRIPT PARA MODAL -->
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const anularModal = document.getElementById('anularModal');
-    anularModal.addEventListener('show.bs.modal', function (event) {
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('modalAnularTraspaso');
+    modal.addEventListener('show.bs.modal', function(event) {
         const button = event.relatedTarget;
-        const compraId = button.getAttribute('data-id');
-        document.getElementById('modalCompraId').value = compraId;
-    });
-
-    // Exportar a Excel (CSV)
-    document.getElementById('btnExportarExcel').addEventListener('click', function () {
-        const tabla = document.getElementById('tablaCompras');
-        let csv = [];
-        tabla.querySelectorAll('tr').forEach(fila => {
-            const cols = fila.querySelectorAll('th, td');
-            const filaCsv = Array.from(cols)
-                .slice(0, -1)
-                .map(col => `"${col.innerText.trim().replace(/"/g, '""')}"`);
-            csv.push(filaCsv.join(','));
-        });
-        const blob = new Blob([csv.join('\n')], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = `Compras_${new Date().toISOString().slice(0, 10)}.csv`;
-        link.click();
+        const traspasoId = button.getAttribute('data-id');
+        document.getElementById('anular_traspaso_id').value = traspasoId;
     });
 });
 </script>
